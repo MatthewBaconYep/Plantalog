@@ -1607,7 +1607,7 @@ function App() {
         {syncStatus==="saved"  && <div style={{position:"fixed",top:8,right:12,fontSize:11,color:"rgba(74,222,128,0.8)",zIndex:999,fontFamily:"'DM Sans',sans-serif"}}>✓ Saved</div>}
         {syncStatus==="error"  && <div style={{position:"fixed",top:8,right:12,fontSize:11,color:"rgba(252,129,129,0.9)",zIndex:999,fontFamily:"'DM Sans',sans-serif"}}>⚠ Sync error</div>}
 
-        {screen==="home"  && <HomeScreen  rooms={rooms} setRooms={setRooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} />}
+        {screen==="home"  && <HomeScreen  rooms={rooms} setRooms={setRooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} />}
         {screen==="water" && <WaterScreen rooms={rooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} />}
         {screen==="repot" && <RepotScreen rooms={rooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} />}
         {screen==="utils" && <UtilitiesScreen darkMode={darkMode} setDarkMode={setDarkMode} showCardPhotos={showCardPhotos} setShowCardPhotos={setShowCardPhotos} onExport={exportData} onImport={()=>setShowImport(true)} user={user || (PREVIEW_MODE ? {email:"preview@plantalog.app"} : null)} onSignOut={handleSignOut} onDeleteAccount={handleDeleteAccount} />}
@@ -1861,7 +1861,7 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
 }
 
 // ─── Home Screen ──────────────────────────────────────────────────────────────
-function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true }) {
+function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, user }) {
   const [showModal,    setShowModal]    = useState(false);
   const [editPlant,    setEditPlant]    = useState(null);
   const [detailPlant,  setDetailPlant]  = useState(null);
