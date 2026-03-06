@@ -1,5 +1,4 @@
-// React hooks from global
-const { useState, useEffect, useRef, useCallback } = React;
+import { useState, useEffect, useRef, useCallback } from "react";
 
 // ─── Preview Mode ─────────────────────────────────────────────────────────────
 // Set to true to bypass login and use local data (for Claude preview)
@@ -862,8 +861,8 @@ const styles = `
   .app{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;background:var(--cream);}
 
   /* Nav */
-  .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#141414;display:flex;z-index:100;border-radius:16px 16px 0 0;}
-  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 0 8px;color:#e8e6e1;cursor:pointer;border:none;background:none;font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:.5px;text-transform:uppercase;font-weight:600;transition:color .2s;position:relative;}
+  .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#141414;display:flex;z-index:100;border-radius:16px 16px 0 0;padding-bottom:0;}
+  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 0 6px;color:#e8e6e1;cursor:pointer;border:none;background:none;font-family:'DM Sans',sans-serif;font-size:11px;letter-spacing:.5px;text-transform:uppercase;font-weight:600;transition:color .2s;position:relative;}
   .nav-btn.active{color:var(--leaf-light);}
   .nav-btn.active.water{color:#22d3ee;}
   .nav-btn.active.repot{color:#e07850;}
@@ -877,7 +876,7 @@ const styles = `
   .page-header.teal{background:#0e7490;}
 
   /* ── Standalone web app (saved to Home Screen) ── */
-  @media (display-mode: standalone) {
+  @media (display-mode: standalone) and (max-width: 480px) {
     .page-header { padding-top: max(44px, env(safe-area-inset-top, 44px)); }
     .nav { padding-bottom: max(24px, env(safe-area-inset-bottom, 24px)); }
     .nav-btn { padding-top: 14px; padding-bottom: 4px; }
@@ -1262,7 +1261,7 @@ function LoginScreen({ onLogin }) {
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
-function App() {
+export default function App() {
   const [screen,  setScreen]  = useState("home");
   const [rooms,   setRooms]   = useState(null);
   const [plants,  setPlants]  = useState(null);
@@ -1635,6 +1634,9 @@ function App() {
               ))}
             </div>
 
+            {/* Tab content — fixed min-height so card doesn't shrink between tabs */}
+            <div style={{minHeight:220}}>
+
             {/* ── Excel tab ── */}
             {importTab==="xls" && !xlsPreview && (
               <>
@@ -1708,6 +1710,8 @@ function App() {
                 <button className="btn btn-secondary" style={{width:"100%"}} onClick={closeImport}>Cancel</button>
               </div>
             )}
+
+            </div>{/* end fixed-height tab content */}
           </div>
         </div>
         )}
@@ -2846,7 +2850,3 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
     </>
   );
 }
-
-// Mount
-const __root = document.getElementById('root');
-if (__root) ReactDOM.createRoot(__root).render(React.createElement(App));
