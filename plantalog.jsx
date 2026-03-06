@@ -1428,6 +1428,9 @@ function App() {
     if (sb) await sb.auth.signOut();
     setUser(null);
     setLoaded(false);
+    setScreen("home");
+    setRooms([]);
+    setPlants([]);
   }
 
   async function handleDeleteAccount() {
@@ -1444,6 +1447,9 @@ function App() {
       await sb.auth.signOut();
       setUser(null);
       setLoaded(false);
+      setScreen("home");
+      setRooms([]);
+      setPlants([]);
     } catch(e) {
       console.error("Delete account error", e);
     }
@@ -1591,7 +1597,7 @@ function App() {
   );
 
   // Show login screen if not authenticated (skipped in preview mode)
-  if (!PREVIEW_MODE && !user) return <LoginScreen onLogin={setUser} />;
+  if (!PREVIEW_MODE && !user) return <LoginScreen onLogin={u => { setUser(u); setScreen("home"); }} />;
 
   // Show loading spinner while data loads after login
   if (!loaded) return (
