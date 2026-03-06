@@ -2844,3 +2844,7 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
     </>
   );
 }
+
+// Mount
+const __root = document.getElementById('root');
+if (__root) ReactDOM.createRoot(__root).render(React.createElement(App));
