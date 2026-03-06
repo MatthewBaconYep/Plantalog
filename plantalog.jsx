@@ -1464,12 +1464,15 @@ function App() {
     try {
       const data = JSON.parse(importText);
       if (!Array.isArray(data.rooms) || !Array.isArray(data.plants)) throw new Error();
-      // Save photos to IndexedDB, then store plants without photos in localStorage
       data.plants.forEach(p => {
         if (p.photos && p.photos.length > 0) savePhotos(p.id, p.photos, p.primaryPhoto);
       });
       setRooms(data.rooms);
       setPlants(data.plants);
+      if (!PREVIEW_MODE && user) {
+        sbSaveRooms(user.id, data.rooms);
+        sbSavePlants(user.id, data.plants);
+      }
       closeImport();
     } catch { setImportError("Invalid backup file. Please paste the full contents of a Plantalog backup JSON."); }
   }
