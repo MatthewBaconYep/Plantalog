@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
+// ─── Preview Mode ─────────────────────────────────────────────────────────────
+// Set to true to bypass login and use local data (for Claude preview)
+// Set to false for production (Netlify)
+const PREVIEW_MODE = false;
+
 // ─── Supabase ─────────────────────────────────────────────────────────────────
 const SUPA_URL = "https://rpplsisxmjyhwwfwmcnl.supabase.co";
 const SUPA_KEY = "sb_publishable_BmUMDvDgTi1B3E-HC0KZrA_tmw9dsoY";
@@ -19,7 +24,13 @@ async function initSupabase() {
       document.head.appendChild(s);
     });
   }
-  window.__supabase_client = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+  window.__supabase_client = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    }
+  });
   return window.__supabase_client;
 }
 
@@ -38,19 +49,21 @@ async function sbLoadRooms(userId) {
   if (!sb) return null;
   const { data, error } = await sb.from("rooms").select("*").eq("user_id", userId).order("order");
   if (error) { console.error("sbLoadRooms", error); return null; }
+  if (!data || data.length === 0) return null;
   return data.map(r => ({ id: r.id, name: r.name, order: r.order, color: r.color }));
 }
 
 async function sbSaveRooms(userId, rooms) {
   const sb = getSupabase();
   if (!sb || !rooms) return;
-  // Upsert all rooms
   const rows = rooms.map(r => ({ id: r.id, user_id: userId, name: r.name, order: r.order, color: r.color || null }));
   const { error } = await sb.from("rooms").upsert(rows, { onConflict: "id" });
-  if (error) console.error("sbSaveRooms", error);
+  if (error) { console.error("sbSaveRooms", error); return; }
   // Delete rooms no longer in list
   const ids = rooms.map(r => r.id);
-  await sb.from("rooms").delete().eq("user_id", userId).not("id", "in", `(${ids.map(id=>`"${id}"`).join(",")})`);
+  if (ids.length > 0) {
+    await sb.from("rooms").delete().eq("user_id", userId).not("id", "in", `(${ids.join(",")})`);
+  }
 }
 
 async function sbLoadPlants(userId) {
@@ -58,10 +71,11 @@ async function sbLoadPlants(userId) {
   if (!sb) return null;
   const { data, error } = await sb.from("plants").select("*").eq("user_id", userId);
   if (error) { console.error("sbLoadPlants", error); return null; }
+  if (!data || data.length === 0) return null;
   return data.map(r => {
-    const p = { ...r.data, id: r.id };
-    return p;
-  });
+    if (!r.data) return null;
+    return { ...r.data, id: r.id };
+  }).filter(Boolean);
 }
 
 async function sbSavePlants(userId, plants) {
@@ -69,16 +83,15 @@ async function sbSavePlants(userId, plants) {
   if (!sb || !plants) return;
   const rows = plants.map(p => {
     const { id, ...rest } = p;
-    // Strip photos from cloud data — photos stored separately
     const data = { ...rest, photos: [], primaryPhoto: null };
     return { id, user_id: userId, data };
   });
   const { error } = await sb.from("plants").upsert(rows, { onConflict: "id" });
-  if (error) console.error("sbSavePlants", error);
-  // Delete removed plants
+  if (error) { console.error("sbSavePlants", error); return; }
+  // Delete plants no longer in list
   const ids = plants.map(p => p.id);
   if (ids.length > 0) {
-    await sb.from("plants").delete().eq("user_id", userId).not("id", "in", `(${ids.map(id=>`"${id}"`).join(",")})`);
+    await sb.from("plants").delete().eq("user_id", userId).not("id", "in", `(${ids.join(",")})`);
   }
 }
 
@@ -844,8 +857,8 @@ const styles = `
   .dark{--watering-bg:rgba(14,116,144,.18);--watering-border:rgba(14,116,144,.4);--potting-bg:rgba(161,100,60,.2);--potting-border:rgba(161,100,60,.4);}
   .app{--watering-bg:rgba(14,116,144,.1);--watering-border:rgba(14,116,144,.35);--potting-bg:rgba(193,96,58,.1);--potting-border:rgba(193,96,58,.35);}
   .dark .form-section-label{opacity:1;}
-  body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);transition:background .3s,color .3s;}
-  .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--cream);}
+  body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);transition:background .3s,color .3s;margin:0;padding:0;}
+  .app{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;background:var(--cream);}
 
   /* Nav */
   .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#141414;display:flex;z-index:100;border-radius:16px 16px 0 0;}
@@ -862,12 +875,16 @@ const styles = `
   .page-header.green{background:#2d6a4f;}
   .page-header.teal{background:#0e7490;}
 
-  /* ── Phone portrait only ── */
-  @media (max-width: 480px) and (orientation: portrait) {
-    .page-header { padding-top: env(safe-area-inset-top, 0px); }
-    .app { padding-top: 0; }
+  /* ── Standalone web app (saved to Home Screen) — any screen size ── */
+  @media (display-mode: standalone) {
+    .page-header { padding-top: max(44px, env(safe-area-inset-top, 44px)); }
     .nav { padding-bottom: max(18px, env(safe-area-inset-bottom, 18px)); }
     .nav-btn { padding-top: 12px; padding-bottom: 6px; }
+  }
+
+  /* ── Phone portrait in Safari (not standalone) ── */
+  @media (max-width: 480px) and (orientation: portrait) {
+    .app { max-height: 100dvh; overflow: hidden; }
     .phone-hide { display: none !important; }
   }
   .page-header.brown{background:#c1603a;}
@@ -899,7 +916,7 @@ const styles = `
   .tab-btn.active{background:var(--leaf);color:white;}
 
   /* Plant list */
-  .section{padding:0 10px 85px;}
+  .section{padding:0 10px 85px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
   .room-group{margin-bottom:12px;}
   .room-header{display:flex;align-items:center;gap:5px;margin-bottom:5px;padding:3px 1px;border-bottom:1px solid var(--border);}
   .room-header h3{font-size:13px;font-weight:700;color:var(--bark);text-transform:uppercase;letter-spacing:.7px;}
@@ -1254,13 +1271,12 @@ export default function App() {
 
   // ── Init Supabase + listen for auth changes ──
   useEffect(() => {
+    if (PREVIEW_MODE) { setAuthLoaded(true); return; }
     (async () => {
       const sb = await initSupabase();
-      // Check for existing session (handles OAuth redirect)
       const { data: { session } } = await sb.auth.getSession();
       if (session?.user) setUser(session.user);
       setAuthLoaded(true);
-      // Listen for future auth changes
       sb.auth.onAuthStateChange((_event, session) => {
         setUser(session?.user || null);
       });
@@ -1272,25 +1288,22 @@ export default function App() {
     if (!authLoaded) return;
     (async () => {
       try {
-        // Always load local settings first (dark mode, etc.)
         const dm  = await loadData("pt_darkmode");
         const scp = await loadData("pt_showcardphotos");
         if (dm  !== null) setDarkMode(dm);
         if (scp !== null) setShowCardPhotos(scp);
 
-        if (user) {
+        if (!PREVIEW_MODE && user) {
           // Logged in — load from Supabase
           const [sbRooms, sbPlants, sbSettings] = await Promise.all([
             sbLoadRooms(user.id),
             sbLoadPlants(user.id),
             sbLoadSettings(user.id),
           ]);
-          // Apply cloud settings if available
           if (sbSettings) {
-            if (sbSettings.dark_mode    !== null) setDarkMode(sbSettings.dark_mode);
-            if (sbSettings.show_photos  !== null) setShowCardPhotos(sbSettings.show_photos);
+            if (sbSettings.dark_mode   !== null) setDarkMode(sbSettings.dark_mode);
+            if (sbSettings.show_photos !== null) setShowCardPhotos(sbSettings.show_photos);
           }
-          // Load local photos (IndexedDB) and merge with cloud plant data
           const photoMap = await loadAllPhotos();
           const resolvedRooms  = sbRooms  || SEED_ROOMS;
           const resolvedPlants = (sbPlants || SEED_PLANTS).map(plant => {
@@ -1299,11 +1312,10 @@ export default function App() {
           });
           setRooms(resolvedRooms);
           setPlants(resolvedPlants);
-          // If this is a brand new account, seed the cloud
-          if (!sbRooms) await sbSaveRooms(user.id, SEED_ROOMS);
+          if (!sbRooms)  await sbSaveRooms(user.id, SEED_ROOMS);
           if (!sbPlants) await sbSavePlants(user.id, SEED_PLANTS);
         } else {
-          // Not logged in — fall back to local storage
+          // Preview mode or not logged in — use local storage
           const r = await loadData("pt_rooms");
           const p = await loadData("pt_plants");
           const photoMap = await loadAllPhotos();
@@ -1361,7 +1373,7 @@ export default function App() {
     if (!saveReady.current) { saveReady.current = true; return; }
     if (!rooms) return;
     saveData("pt_rooms", rooms);
-    if (user) triggerSync(() => sbSaveRooms(user.id, rooms));
+    if (!PREVIEW_MODE && user) triggerSync(() => sbSaveRooms(user.id, rooms));
   }, [rooms, loaded]);
 
   // ── Save plants (local + cloud) ──
@@ -1372,14 +1384,14 @@ export default function App() {
     });
     const stripped = plants.map(p => ({...p, photos: [], primaryPhoto: null}));
     saveData("pt_plants", stripped);
-    if (user) triggerSync(() => sbSavePlants(user.id, plants));
+    if (!PREVIEW_MODE && user) triggerSync(() => sbSavePlants(user.id, plants));
   }, [plants, loaded]);
 
   // ── Save settings ──
   useEffect(() => {
     if (!loaded) return;
     saveData("pt_darkmode", darkMode);
-    if (user) sbSaveSettings(user.id, { dark_mode: darkMode, show_photos: showCardPhotos });
+    if (!PREVIEW_MODE && user) sbSaveSettings(user.id, { dark_mode: darkMode, show_photos: showCardPhotos });
   }, [darkMode, loaded]);
   useEffect(() => {
     document.body.style.background = darkMode ? "#000" : "";
@@ -1387,7 +1399,7 @@ export default function App() {
   useEffect(() => {
     if (!loaded) return;
     saveData("pt_showcardphotos", showCardPhotos);
-    if (user) sbSaveSettings(user.id, { dark_mode: darkMode, show_photos: showCardPhotos });
+    if (!PREVIEW_MODE && user) sbSaveSettings(user.id, { dark_mode: darkMode, show_photos: showCardPhotos });
   }, [showCardPhotos, loaded]);
 
   // ── Sign out ──
@@ -1396,6 +1408,25 @@ export default function App() {
     if (sb) await sb.auth.signOut();
     setUser(null);
     setLoaded(false);
+  }
+
+  async function handleDeleteAccount() {
+    const sb = getSupabase();
+    if (!sb || !user) return;
+    try {
+      // Delete all user data first
+      await Promise.all([
+        sb.from("plants").delete().eq("user_id", user.id),
+        sb.from("rooms").delete().eq("user_id", user.id),
+        sb.from("settings").delete().eq("user_id", user.id),
+      ]);
+      // Delete account via Supabase edge function (requires admin, so we sign out and show message)
+      await sb.auth.signOut();
+      setUser(null);
+      setLoaded(false);
+    } catch(e) {
+      console.error("Delete account error", e);
+    }
   }
 
   function exportData() {
@@ -1536,8 +1567,8 @@ export default function App() {
     </div>
   );
 
-  // Show login screen if not authenticated
-  if (!user) return <LoginScreen onLogin={setUser} />;
+  // Show login screen if not authenticated (skipped in preview mode)
+  if (!PREVIEW_MODE && !user) return <LoginScreen onLogin={setUser} />;
 
   // Show loading spinner while data loads after login
   if (!loaded) return (
@@ -1559,7 +1590,7 @@ export default function App() {
         {screen==="home"  && <HomeScreen  rooms={rooms} setRooms={setRooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} />}
         {screen==="water" && <WaterScreen rooms={rooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} />}
         {screen==="repot" && <RepotScreen rooms={rooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} />}
-        {screen==="utils" && <UtilitiesScreen darkMode={darkMode} setDarkMode={setDarkMode} showCardPhotos={showCardPhotos} setShowCardPhotos={setShowCardPhotos} onExport={exportData} onImport={()=>setShowImport(true)} user={user} onSignOut={handleSignOut} />}
+        {screen==="utils" && <UtilitiesScreen darkMode={darkMode} setDarkMode={setDarkMode} showCardPhotos={showCardPhotos} setShowCardPhotos={setShowCardPhotos} onExport={exportData} onImport={()=>setShowImport(true)} user={user || (PREVIEW_MODE ? {email:"preview@plantalog.app"} : null)} onSignOut={handleSignOut} onDeleteAccount={handleDeleteAccount} />}
         <Nav screen={screen} setScreen={setScreen} plants={plants} todayDate={todayDate} />
 
         {/* Import modal — inside .app so dark class applies */}
@@ -2709,7 +2740,8 @@ function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true 
 
 
 // ─── Utilities Screen ─────────────────────────────────────────────────────────
-function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPhotos, onExport, onImport, user, onSignOut }) {
+function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPhotos, onExport, onImport, user, onSignOut, onDeleteAccount }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   return (
     <>
       <div className="page-header" style={{background:"#44403c"}}>
@@ -2771,6 +2803,19 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
                 <div className="util-sublabel">{user.email || "via OAuth"}</div>
               </div>
               <button className="util-btn secondary" onClick={onSignOut}>Sign Out</button>
+            </div>
+            <div className="util-row">
+              <div>
+                <div className="util-label" style={{color:"#e53e3e"}}>Delete Account</div>
+                <div className="util-sublabel">Permanently remove all your data</div>
+              </div>
+              {!confirmDelete
+                ? <button className="util-btn" style={{background:"#fff5f5",color:"#e53e3e",border:"1px solid #fed7d7"}} onClick={()=>setConfirmDelete(true)}>Delete</button>
+                : <div style={{display:"flex",gap:6}}>
+                    <button className="util-btn secondary" onClick={()=>setConfirmDelete(false)}>Cancel</button>
+                    <button className="util-btn" style={{background:"#e53e3e",color:"white"}} onClick={onDeleteAccount}>Confirm</button>
+                  </div>
+              }
             </div>
           </div>
         </>}
