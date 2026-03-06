@@ -47,10 +47,10 @@ async function saveData(key, value) {
 async function sbLoadRooms(userId) {
   const sb = getSupabase();
   if (!sb) return null;
-  const { data, error } = await sb.from("rooms").select("*").eq("user_id", userId).order("order");
+  const { data, error } = await sb.from("rooms").select("*").eq("user_id", userId);
   if (error) { console.error("sbLoadRooms", error); return null; }
   if (!data || data.length === 0) return null;
-  return data.map(r => ({ id: r.id, name: r.name, order: r.order, color: r.color }));
+  return data.map((r, i) => ({ id: r.id, name: r.name, order: r.order ?? i, color: r.color }));
 }
 
 async function sbSaveRooms(userId, rooms) {
@@ -58,12 +58,13 @@ async function sbSaveRooms(userId, rooms) {
   if (!sb || !rooms) return;
   const rows = rooms.map(r => ({ id: r.id, user_id: userId, name: r.name, order: r.order, color: r.color || null }));
   const { error } = await sb.from("rooms").upsert(rows, { onConflict: "id" });
-  if (error) { console.error("sbSaveRooms", error); return; }
-  // Delete rooms no longer in list
-  const ids = rooms.map(r => r.id);
-  if (ids.length > 0) {
-    await sb.from("rooms").delete().eq("user_id", userId).not("id", "in", `(${ids.join(",")})`);
-  }
+  if (error) { console.error("sbSaveRooms", error); }
+}
+
+async function sbDeleteRooms(userId, ids) {
+  const sb = getSupabase();
+  if (!sb || !ids || ids.length === 0) return;
+  await sb.from("rooms").delete().eq("user_id", userId).in("id", ids);
 }
 
 async function sbLoadPlants(userId) {
@@ -88,11 +89,12 @@ async function sbSavePlants(userId, plants) {
   });
   const { error } = await sb.from("plants").upsert(rows, { onConflict: "id" });
   if (error) { console.error("sbSavePlants", error); return; }
-  // Delete plants no longer in list
-  const ids = plants.map(p => p.id);
-  if (ids.length > 0) {
-    await sb.from("plants").delete().eq("user_id", userId).not("id", "in", `(${ids.join(",")})`);
-  }
+}
+
+async function sbDeletePlants(userId, ids) {
+  const sb = getSupabase();
+  if (!sb || !ids || ids.length === 0) return;
+  await sb.from("plants").delete().eq("user_id", userId).in("id", ids);
 }
 
 async function sbDeletePlant(userId, plantId) {
@@ -875,18 +877,35 @@ const styles = `
   .page-header.green{background:#2d6a4f;}
   .page-header.teal{background:#0e7490;}
 
-  /* ── Standalone web app (saved to Home Screen) — any screen size ── */
+  /* ── Standalone web app (saved to Home Screen) ── */
   @media (display-mode: standalone) {
     .page-header { padding-top: max(44px, env(safe-area-inset-top, 44px)); }
-    .nav { padding-bottom: max(18px, env(safe-area-inset-bottom, 18px)); }
-    .nav-btn { padding-top: 12px; padding-bottom: 6px; }
+    .nav { padding-bottom: max(24px, env(safe-area-inset-bottom, 24px)); }
+    .nav-btn { padding-top: 14px; padding-bottom: 4px; }
   }
 
-  /* ── Phone portrait in Safari (not standalone) ── */
+  /* ── Phone portrait in Safari ── */
   @media (max-width: 480px) and (orientation: portrait) {
-    .app { max-height: 100dvh; overflow: hidden; }
     .phone-hide { display: none !important; }
+    .page-header { padding-top: max(20px, env(safe-area-inset-top, 20px)); }
   }
+
+  /* Fill status bar area with header color */
+  .page-header.green::before,
+  .page-header.teal::before,
+  .page-header.brown::before {
+    content: "";
+    display: block;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: env(safe-area-inset-top, 0px);
+    z-index: 200;
+  }
+  .page-header.green::before  { background: #2d6a4f; }
+  .page-header.teal::before   { background: #0e7490; }
+  .page-header.brown::before  { background: #44403c; }
+  .dark .page-header.teal::before  { background: #0a4a57; }
+  .dark .page-header.brown::before { background: #2c2925; }
   .page-header.brown{background:#c1603a;}
   .dark .page-header.teal{background:#0a4a57;}
   .dark .page-header.brown{background:#8b3e22;}
@@ -916,7 +935,7 @@ const styles = `
   .tab-btn.active{background:var(--leaf);color:white;}
 
   /* Plant list */
-  .section{padding:0 10px 85px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .section{padding:0 10px 85px;}
   .room-group{margin-bottom:12px;}
   .room-header{display:flex;align-items:center;gap:5px;margin-bottom:5px;padding:3px 1px;border-bottom:1px solid var(--border);}
   .room-header h3{font-size:13px;font-weight:700;color:var(--bark);text-transform:uppercase;letter-spacing:.7px;}
@@ -1305,15 +1324,17 @@ export default function App() {
             if (sbSettings.show_photos !== null) setShowCardPhotos(sbSettings.show_photos);
           }
           const photoMap = await loadAllPhotos();
-          const resolvedRooms  = sbRooms  || SEED_ROOMS;
-          const resolvedPlants = (sbPlants || SEED_PLANTS).map(plant => {
+          const DEFAULT_ROOMS = [{ id: uid(), name: "Home", order: 1, color: null }];
+          const DEFAULT_PLANTS = [];
+          const resolvedRooms  = sbRooms  || DEFAULT_ROOMS;
+          const resolvedPlants = (sbPlants || DEFAULT_PLANTS).map(plant => {
             const local = photoMap[plant.id];
             return local ? {...plant, photos: local.photos, primaryPhoto: local.primaryPhoto} : plant;
           });
           setRooms(resolvedRooms);
           setPlants(resolvedPlants);
-          if (!sbRooms)  await sbSaveRooms(user.id, SEED_ROOMS);
-          if (!sbPlants) await sbSavePlants(user.id, SEED_PLANTS);
+          if (!sbRooms)  await sbSaveRooms(user.id, DEFAULT_ROOMS);
+          if (!sbPlants) await sbSavePlants(user.id, DEFAULT_PLANTS);
         } else {
           // Preview mode or not logged in — use local storage
           const r = await loadData("pt_rooms");
@@ -1588,8 +1609,8 @@ export default function App() {
         {syncStatus==="error"  && <div style={{position:"fixed",top:8,right:12,fontSize:11,color:"rgba(252,129,129,0.9)",zIndex:999,fontFamily:"'DM Sans',sans-serif"}}>⚠ Sync error</div>}
 
         {screen==="home"  && <HomeScreen  rooms={rooms} setRooms={setRooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} />}
-        {screen==="water" && <WaterScreen rooms={rooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} />}
-        {screen==="repot" && <RepotScreen rooms={rooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} />}
+        {screen==="water" && <WaterScreen rooms={rooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} />}
+        {screen==="repot" && <RepotScreen rooms={rooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} />}
         {screen==="utils" && <UtilitiesScreen darkMode={darkMode} setDarkMode={setDarkMode} showCardPhotos={showCardPhotos} setShowCardPhotos={setShowCardPhotos} onExport={exportData} onImport={()=>setShowImport(true)} user={user || (PREVIEW_MODE ? {email:"preview@plantalog.app"} : null)} onSignOut={handleSignOut} onDeleteAccount={handleDeleteAccount} />}
         <Nav screen={screen} setScreen={setScreen} plants={plants} todayDate={todayDate} />
 
@@ -1853,7 +1874,7 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true })
   const healthCounts = [1,2,3,4].map(h=>plants.filter(p=>p.health===h).length);
   const greenCount   = healthCounts[2]+healthCounts[3];
   const greenPct     = plants.length ? Math.round(greenCount/plants.length*100) : 0;
-  const sortedRooms  = [...rooms].sort((a,b)=>a.order-b.order);
+  const sortedRooms  = [...rooms].sort((a,b)=>(a.order??0)-(b.order??0));
 
   const filtered = healthFilter ? plants.filter(p=>p.health===healthFilter) : plants;
 
@@ -1945,7 +1966,7 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true })
           {filtered.length===0 && <div className="empty"><span className="ico">🌱</span><p>No plants match this filter.</p></div>}
         </div>
       ) : (
-        <div className="section"><ManageRooms rooms={rooms} setRooms={setRooms} plants={plants}/></div>
+        <div className="section"><ManageRooms rooms={rooms} setRooms={setRooms} plants={plants} user={user}/></div>
       )}
 
 
@@ -1953,7 +1974,7 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true })
         <PlantModal
           plant={editPlant} rooms={rooms}
           onSave={p=>{ if(editPlant) setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); else setPlants(ps=>[...ps,{...p,id:uid()}]); setShowModal(false); setEditPlant(null); setDetailPlant(null); }}
-          onDelete={editPlant?()=>{ deletePhotos(editPlant.id); setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); setDetailPlant(null); }:null}
+          onDelete={editPlant?()=>{ deletePhotos(editPlant.id); if(!PREVIEW_MODE&&user) sbDeletePlant(user.id,editPlant.id); setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); setDetailPlant(null); }:null}
           onClose={()=>{ setShowModal(false); setEditPlant(null); setDetailPlant(null); }}
           onCancel={detailPlant?()=>{ setShowModal(false); setEditPlant(null); /* detailPlant stays, reopening detail */ }:null}
         />
@@ -2232,12 +2253,12 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit }) {
 }
 
 // ─── Manage Rooms ─────────────────────────────────────────────────────────────
-function ManageRooms({ rooms, setRooms, plants }) {
+function ManageRooms({ rooms, setRooms, plants, user }) {
   const [editing,setEditing]=useState(null);
   const [formName,setFormName]=useState("");
   const [formOrder,setFormOrder]=useState("");
   const [formColor,setFormColor]=useState(null);
-  const sorted=[...rooms].sort((a,b)=>a.order-b.order);
+  const sorted=[...rooms].sort((a,b)=>(a.order??0)-(b.order??0));
   function openNew(){setEditing({});setFormName("");setFormOrder(rooms.length+1);setFormColor(null);}
   function openEdit(r){setEditing(r);setFormName(r.name);setFormOrder(r.order);setFormColor(r.color||null);}
   function save(){
@@ -2246,7 +2267,7 @@ function ManageRooms({ rooms, setRooms, plants }) {
     else setRooms(rs=>[...rs,{id:uid(),name:formName,order:Number(formOrder),color:formColor}]);
     setEditing(null);
   }
-  function del(id){if(plants.some(p=>p.roomId===id)){alert("Move or delete this room's plants first.");return;}setRooms(rs=>rs.filter(r=>r.id!==id));}
+  function del(id){if(plants.some(p=>p.roomId===id)){alert("Move or delete this room's plants first.");return;} if(!PREVIEW_MODE&&user) sbDeleteRooms(user.id,[id]); setRooms(rs=>rs.filter(r=>r.id!==id));}
   return(<>
     {sorted.map(r=>(
       <div key={r.id} className="room-list-item">
@@ -2292,7 +2313,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
   };
   const [form,setForm] = useState(plant?{...plant}:blank);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
-  const sortedRooms=[...rooms].sort((a,b)=>a.order-b.order);
+  const sortedRooms=[...rooms].sort((a,b)=>(a.order??0)-(b.order??0));
   const fileRef=useRef();
   const [editingNotes,setEditingNotes]=useState(false);
   const [notesDraft,setNotesDraft]=useState("");
@@ -2480,7 +2501,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
 }
 
 // ─── Water Screen ─────────────────────────────────────────────────────────────
-function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true }) {
+function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true, user }) {
   const now = new Date(todayDate + "T00:00:00");
   const [leaving,    setLeaving]    = useState({});
   const [openFreq,   setOpenFreq]   = useState(null);
@@ -2490,7 +2511,7 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true 
   const [editPlant,  setEditPlant]  = useState(null);
   const [showModal,  setShowModal]  = useState(false);
 
-  const sortedRooms = [...rooms].sort((a,b)=>a.order-b.order);
+  const sortedRooms = [...rooms].sort((a,b)=>(a.order??0)-(b.order??0));
   const due     = plants.filter(p=>isWaterDue(p,now));
   const allDone = due.length===0;
 
@@ -2672,7 +2693,7 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true 
       </div>
       {showModal && <PlantModal plant={editPlant} rooms={rooms}
         onSave={p=>{ setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); setShowModal(false); setEditPlant(null); }}
-        onDelete={()=>{ deletePhotos(editPlant.id); setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); }}
+        onDelete={()=>{ deletePhotos(editPlant.id); if(!PREVIEW_MODE&&user) sbDeletePlant(user.id,editPlant.id); setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); }}
         onClose={()=>{ setShowModal(false); setEditPlant(null); }}
       />}
       {detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
@@ -2686,7 +2707,7 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true 
 }
 
 // ─── Repot Screen ─────────────────────────────────────────────────────────────
-function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true }) {
+function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true, user }) {
   const now = new Date((todayDate||fmt(getToday())) + "T00:00:00");
   const [leaving,    setLeaving]    = useState({});
   const [detailPlant,setDetailPlant]= useState(null);
@@ -2725,7 +2746,7 @@ function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true 
       </div>
       {showModal && <PlantModal plant={editPlant} rooms={rooms}
         onSave={p=>{ setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); setShowModal(false); setEditPlant(null); }}
-        onDelete={()=>{ deletePhotos(editPlant.id); setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); }}
+        onDelete={()=>{ deletePhotos(editPlant.id); if(!PREVIEW_MODE&&user) sbDeletePlant(user.id,editPlant.id); setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); }}
         onClose={()=>{ setShowModal(false); setEditPlant(null); }}
       />}
       {detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
