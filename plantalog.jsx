@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+// React hooks from global
+const { useState, useEffect, useRef, useCallback } = React;
 
 // ─── Preview Mode ─────────────────────────────────────────────────────────────
 // Set to true to bypass login and use local data (for Claude preview)
-// Set to false for production (Netlify)
+// Set to false for production (GitHub Pages)
 const PREVIEW_MODE = false;
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
