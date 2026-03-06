@@ -7,8 +7,6 @@ const { useState, useEffect, useRef, useCallback } = React;
 const PREVIEW_MODE = false;
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
-const SUPA_URL = "https://rpplsisxmjyhwwfwmcnl.supabase.co";
-const SUPA_KEY = "sb_publishable_BmUMDvDgTi1B3E-HC0KZrA_tmw9dsoY";
 
 function getSupabase() {
   return window.__supabase_client;
