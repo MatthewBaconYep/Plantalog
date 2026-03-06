@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+// React hooks from global
+const { useState, useEffect, useRef, useCallback } = React;
 
 // ─── Preview Mode ─────────────────────────────────────────────────────────────
 // Set to true to bypass login and use local data (for Claude preview)
@@ -1261,7 +1262,7 @@ function LoginScreen({ onLogin }) {
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
-export default function App() {
+function App() {
   const [screen,  setScreen]  = useState("home");
   const [rooms,   setRooms]   = useState(null);
   const [plants,  setPlants]  = useState(null);
@@ -2850,3 +2851,7 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
     </>
   );
 }
+
+// Mount
+const __root = document.getElementById('root');
+if (__root) ReactDOM.createRoot(__root).render(React.createElement(App));
