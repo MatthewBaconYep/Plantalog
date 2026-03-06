@@ -1263,7 +1263,7 @@ function LoginScreen({ onLogin }) {
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
-export default function App() {
+function App() {
   const [screen,  setScreen]  = useState("home");
   const [rooms,   setRooms]   = useState(null);
   const [plants,  setPlants]  = useState(null);
