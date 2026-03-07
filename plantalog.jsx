@@ -898,15 +898,15 @@ const styles = `
   .dark .page-header.brown::before { background: #8b3e22; }
   .dark .page-header.slate::before { background: #2c2925; }
 
-  /* ── Phone portrait (Safari + standalone) ── */
+  /* ── Phone portrait (Safari browser) ── */
   @media (max-width: 480px) and (orientation: portrait) {
     .phone-hide { display: none !important; }
     .page-header { padding-top: max(54px, calc(env(safe-area-inset-top, 44px) + 12px)); }
-    .nav { padding-bottom: 20px; }
+    .nav { padding-bottom: 4px; }
     .nav-btn { padding-top: 13px; padding-bottom: 4px; }
   }
 
-  /* ── Standalone only — slightly more nav room ── */
+  /* ── Standalone only — home screen app ── */
   @media (display-mode: standalone) and (max-width: 480px) {
     .nav { padding-bottom: max(20px, env(safe-area-inset-bottom, 20px)); }
   }
