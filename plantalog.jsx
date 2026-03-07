@@ -117,11 +117,12 @@ async function sbSaveSettings(userId, settings) {
 }
 
 // ─── Supabase photo storage ───────────────────────────────────────────────────
+
+// Upload a single base64 photo to Supabase Storage, returns public URL or null
 async function sbSavePhoto(userId, plantId, index, base64Data) {
   const sb = getSupabase();
   if (!sb || !base64Data) return null;
   try {
-    // Convert base64 to blob
     const res = await fetch(base64Data);
     const blob = await res.blob();
     const path = `${userId}/${plantId}/${index}.jpg`;
@@ -130,6 +131,35 @@ async function sbSavePhoto(userId, plantId, index, base64Data) {
     const { data } = sb.storage.from("plant-photos").getPublicUrl(path);
     return data.publicUrl;
   } catch(e) { console.error("sbSavePhoto error", e); return null; }
+}
+
+// Upload multiple photos for a plant, returns array of URLs
+async function sbSaveAllPhotos(userId, plantId, photos) {
+  const urls = [];
+  for (let i = 0; i < photos.length; i++) {
+    const photo = photos[i];
+    // Already a URL (already in Supabase) — keep as-is
+    if (photo && (photo.startsWith("http://") || photo.startsWith("https://"))) {
+      urls.push(photo);
+    } else {
+      const url = await sbSavePhoto(userId, plantId, i, photo);
+      urls.push(url || photo);
+    }
+  }
+  return urls;
+}
+
+// Delete a single photo by URL from Supabase Storage
+async function sbDeleteSinglePhoto(userId, plantId, photoUrl) {
+  const sb = getSupabase();
+  if (!sb || !photoUrl) return;
+  try {
+    // Extract filename from URL
+    const parts = photoUrl.split(`${userId}/${plantId}/`);
+    if (parts.length < 2) return;
+    const filename = parts[1].split("?")[0];
+    await sb.storage.from("plant-photos").remove([`${userId}/${plantId}/${filename}`]);
+  } catch(e) { console.error("sbDeleteSinglePhoto error", e); }
 }
 
 async function sbDeletePlantPhotos(userId, plantId) {
@@ -152,6 +182,31 @@ async function sbLoadPlantPhotoUrls(userId, plantId) {
     if (!data || data.length === 0) return [];
     return data.map(f => sb.storage.from("plant-photos").getPublicUrl(`${userId}/${plantId}/${f.name}`).data.publicUrl);
   } catch(e) { return []; }
+}
+
+// Migrate all IndexedDB photos to Supabase Storage for a user's plants
+// Called once on login if IndexedDB has photos
+async function migratePhotosToSupabase(userId, plants, setPlants) {
+  const photoMap = await loadAllPhotos();
+  if (!photoMap || Object.keys(photoMap).length === 0) return;
+  console.log("Migrating photos to Supabase...", Object.keys(photoMap).length, "plants with photos");
+  const updatedPlants = [...plants];
+  for (let i = 0; i < updatedPlants.length; i++) {
+    const plant = updatedPlants[i];
+    const local = photoMap[plant.id];
+    if (!local || !local.photos || local.photos.length === 0) continue;
+    // Skip if photos already look like URLs (already migrated)
+    if (local.photos[0] && (local.photos[0].startsWith("http://") || local.photos[0].startsWith("https://"))) {
+      await deletePhotos(plant.id);
+      continue;
+    }
+    console.log(`Migrating ${local.photos.length} photos for plant ${plant.id}`);
+    const urls = await sbSaveAllPhotos(userId, plant.id, local.photos);
+    updatedPlants[i] = { ...plant, photos: urls, primaryPhoto: local.primaryPhoto };
+    await deletePhotos(plant.id); // clear from IndexedDB after successful upload
+  }
+  setPlants(updatedPlants);
+  console.log("Photo migration complete.");
 }
 
 // ─── IndexedDB for photos (local fallback) ────────────────────────────────────
@@ -1328,18 +1383,28 @@ function App() {
             if (sbSettings.dark_mode   !== null) setDarkMode(sbSettings.dark_mode);
             if (sbSettings.show_photos !== null) setShowCardPhotos(sbSettings.show_photos);
           }
-          const photoMap = await loadAllPhotos();
           const DEFAULT_ROOMS = [{ id: uid(), name: "Home", order: 1, color: null }];
           const DEFAULT_PLANTS = [];
           const resolvedRooms  = sbRooms  || DEFAULT_ROOMS;
-          const resolvedPlants = (sbPlants || DEFAULT_PLANTS).map(plant => {
-            const local = photoMap[plant.id];
-            return local ? {...plant, photos: local.photos, primaryPhoto: local.primaryPhoto} : plant;
-          });
+          const basePlants     = sbPlants || DEFAULT_PLANTS;
+
+          // Load photo URLs from Supabase Storage for each plant
+          const plantsWithPhotos = await Promise.all(basePlants.map(async plant => {
+            const urls = await sbLoadPlantPhotoUrls(user.id, plant.id);
+            if (urls && urls.length > 0) return { ...plant, photos: urls };
+            return plant;
+          }));
+
           setRooms(resolvedRooms);
-          setPlants(resolvedPlants);
+          setPlants(plantsWithPhotos);
           if (!sbRooms)  await sbSaveRooms(user.id, DEFAULT_ROOMS);
           if (!sbPlants) await sbSavePlants(user.id, DEFAULT_PLANTS);
+
+          // Migrate any remaining IndexedDB photos to Supabase in the background
+          const photoMap = await loadAllPhotos();
+          if (photoMap && Object.keys(photoMap).length > 0) {
+            migratePhotosToSupabase(user.id, plantsWithPhotos, setPlants);
+          }
         } else {
           // Preview mode or not logged in — use local storage
           const r = await loadData("pt_rooms");
@@ -1405,9 +1470,22 @@ function App() {
   // ── Save plants (local + cloud) ──
   useEffect(() => {
     if (!loaded || !saveReady.current || !plants) return;
-    plants.forEach(p => {
-      if (p.photos && p.photos.length > 0) savePhotos(p.id, p.photos, p.primaryPhoto);
-    });
+    if (!PREVIEW_MODE && user) {
+      // Upload any new base64 photos to Supabase Storage
+      plants.forEach(async p => {
+        if (!p.photos || p.photos.length === 0) return;
+        const hasNewBase64 = p.photos.some(ph => ph && ph.startsWith("data:"));
+        if (!hasNewBase64) return;
+        const urls = await sbSaveAllPhotos(user.id, p.id, p.photos);
+        // Update plant with URLs in place of base64
+        setPlants(ps => ps.map(x => x.id === p.id ? { ...x, photos: urls } : x));
+      });
+    } else {
+      // Preview/local mode — save to IndexedDB as before
+      plants.forEach(p => {
+        if (p.photos && p.photos.length > 0) savePhotos(p.id, p.photos, p.primaryPhoto);
+      });
+    }
     const stripped = plants.map(p => ({...p, photos: [], primaryPhoto: null}));
     saveData("pt_plants", stripped);
     if (!PREVIEW_MODE && user) triggerSync(() => sbSavePlants(user.id, plants));
@@ -1472,18 +1550,21 @@ function App() {
     document.body.removeChild(a);
   }
 
-  function importData() {
+  async function importData() {
     try {
       const data = JSON.parse(importText);
       if (!Array.isArray(data.rooms) || !Array.isArray(data.plants)) throw new Error();
-      data.plants.forEach(p => {
-        if (p.photos && p.photos.length > 0) savePhotos(p.id, p.photos, p.primaryPhoto);
-      });
       setRooms(data.rooms);
       setPlants(data.plants);
       if (!PREVIEW_MODE && user) {
         sbSaveRooms(user.id, data.rooms);
         sbSavePlants(user.id, data.plants);
+        // Upload any base64 photos in the import to Supabase Storage
+        migratePhotosToSupabase(user.id, data.plants, setPlants);
+      } else {
+        data.plants.forEach(p => {
+          if (p.photos && p.photos.length > 0) savePhotos(p.id, p.photos, p.primaryPhoto);
+        });
       }
       closeImport();
     } catch { setImportError("Invalid backup file. Please paste the full contents of a Plantalog backup JSON."); }
@@ -1994,13 +2075,13 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
         <PlantModal
           plant={editPlant} rooms={rooms}
           onSave={p=>{ if(editPlant) setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); else setPlants(ps=>[...ps,{...p,id:uid()}]); setShowModal(false); setEditPlant(null); setDetailPlant(null); }}
-          onDelete={editPlant?()=>{ deletePhotos(editPlant.id); if(!PREVIEW_MODE&&user) sbDeletePlant(user.id,editPlant.id); setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); setDetailPlant(null); }:null}
+          onDelete={editPlant?()=>{ deletePhotos(editPlant.id); if(!PREVIEW_MODE&&user) { sbDeletePlantPhotos(user.id,editPlant.id); sbDeletePlant(user.id,editPlant.id); } setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); setDetailPlant(null); }:null}
           onClose={()=>{ setShowModal(false); setEditPlant(null); setDetailPlant(null); }}
           onCancel={detailPlant?()=>{ setShowModal(false); setEditPlant(null); /* detailPlant stays, reopening detail */ }:null}
         />
       )}
       {!showModal && detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
-        <PlantDetail plant={dp} rooms={rooms} plants={plants} setPlants={setPlants}
+        <PlantDetail plant={dp} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
           onClose={()=>setDetailPlant(null)}
           onEdit={()=>{ setDetailPlant(dp); setShowModal(true); setEditPlant(dp); }}
         />
@@ -2010,7 +2091,7 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
 }
 
 // ─── Plant Detail ─────────────────────────────────────────────────────────────
-function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit }) {
+function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user }) {
   const room    = rooms.find(r=>r.id===plant.roomId);
   const h       = HEALTH[plant.health];
   const fileRef = useRef();
@@ -2033,6 +2114,10 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit }) {
     e.target.value="";
   }
   function removePhoto(i) {
+    const photoUrl = plant.photos[i];
+    if (!PREVIEW_MODE && user && photoUrl && (photoUrl.startsWith("http://") || photoUrl.startsWith("https://"))) {
+      sbDeleteSinglePhoto(user.id, plant.id, photoUrl);
+    }
     setPlants(ps=>ps.map(p=>{
       if(p.id!==plant.id) return p;
       const photos=[...p.photos]; photos.splice(i,1);
@@ -2719,11 +2804,11 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
       </div>
       {showModal && <PlantModal plant={editPlant} rooms={rooms}
         onSave={p=>{ setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); setShowModal(false); setEditPlant(null); }}
-        onDelete={()=>{ deletePhotos(editPlant.id); if(!PREVIEW_MODE&&user) sbDeletePlant(user.id,editPlant.id); setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); }}
+        onDelete={()=>{ deletePhotos(editPlant.id); if(!PREVIEW_MODE&&user) { sbDeletePlantPhotos(user.id,editPlant.id); sbDeletePlant(user.id,editPlant.id); } setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); }}
         onClose={()=>{ setShowModal(false); setEditPlant(null); }}
       />}
       {detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
-        <PlantDetail plant={dp} rooms={rooms} plants={plants} setPlants={setPlants}
+        <PlantDetail plant={dp} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
           onClose={()=>setDetailPlant(null)}
           onEdit={()=>{ setEditPlant(dp); setDetailPlant(null); setShowModal(true); }}
         />
@@ -2772,14 +2857,7 @@ function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
       </div>
       {showModal && <PlantModal plant={editPlant} rooms={rooms}
         onSave={p=>{ setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); setShowModal(false); setEditPlant(null); }}
-        onDelete={()=>{ deletePhotos(editPlant.id); if(!PREVIEW_MODE&&user) sbDeletePlant(user.id,editPlant.id); setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); }}
-        onClose={()=>{ setShowModal(false); setEditPlant(null); }}
-      />}
-      {detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
-        <PlantDetail plant={dp} rooms={rooms} plants={plants} setPlants={setPlants}
-          onClose={()=>setDetailPlant(null)}
-          onEdit={()=>{ setEditPlant(dp); setDetailPlant(null); setShowModal(true); }}
-        />
+        onDelete={()=>{ deletePhotos(editPlant.id); if(!PREVIEW_MODE&&user) { sbDeletePlantPhotos(user.id,editPlant.id); sbDeletePlant(user.id,editPlant.id); } setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); }}
       );})()}
     </>
   );
