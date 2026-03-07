@@ -1390,8 +1390,10 @@ function App() {
 
           // Load photo URLs from Supabase Storage for each plant
           const plantsWithPhotos = await Promise.all(basePlants.map(async plant => {
-            const urls = await sbLoadPlantPhotoUrls(user.id, plant.id);
-            if (urls && urls.length > 0) return { ...plant, photos: urls };
+            try {
+              const urls = await sbLoadPlantPhotoUrls(user.id, plant.id);
+              if (urls && urls.length > 0) return { ...plant, photos: urls };
+            } catch(e) { console.error("Photo load error for plant", plant.id, e); }
             return plant;
           }));
 
@@ -1471,15 +1473,24 @@ function App() {
   useEffect(() => {
     if (!loaded || !saveReady.current || !plants) return;
     if (!PREVIEW_MODE && user) {
-      // Upload any new base64 photos to Supabase Storage
-      plants.forEach(async p => {
-        if (!p.photos || p.photos.length === 0) return;
-        const hasNewBase64 = p.photos.some(ph => ph && ph.startsWith("data:"));
-        if (!hasNewBase64) return;
-        const urls = await sbSaveAllPhotos(user.id, p.id, p.photos);
-        // Update plant with URLs in place of base64
-        setPlants(ps => ps.map(x => x.id === p.id ? { ...x, photos: urls } : x));
-      });
+      // Check if any plant has new base64 photos that need uploading
+      const plantsNeedingUpload = plants.filter(p =>
+        p.photos && p.photos.some(ph => ph && ph.startsWith("data:"))
+      );
+      if (plantsNeedingUpload.length > 0) {
+        // Upload outside the effect to avoid triggering it again
+        (async () => {
+          const updates = await Promise.all(plantsNeedingUpload.map(async p => {
+            const urls = await sbSaveAllPhotos(user.id, p.id, p.photos);
+            return { id: p.id, urls };
+          }));
+          setPlants(ps => ps.map(p => {
+            const update = updates.find(u => u.id === p.id);
+            return update ? { ...p, photos: update.urls } : p;
+          }));
+        })();
+        return; // Don't save to Supabase yet — wait for URLs to come back
+      }
     } else {
       // Preview/local mode — save to IndexedDB as before
       plants.forEach(p => {
