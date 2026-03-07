@@ -83,8 +83,9 @@ async function sbSavePlants(userId, plants) {
   if (!sb || !plants) return;
   const rows = plants.map(p => {
     const { id, ...rest } = p;
-    const data = { ...rest, photos: [] }; // strip photo data but keep primaryPhoto
-    return { id, user_id: userId, data };
+    // Save photo URLs and primaryPhoto in the DB row so order and favorite persist
+    // (photos are stored in Storage; we save just the URLs here for ordering)
+    return { id, user_id: userId, data: rest };
   });
   const { error } = await sb.from("plants").upsert(rows, { onConflict: "id" });
   if (error) { console.error("sbSavePlants", error); return; }
@@ -1414,9 +1415,11 @@ function App() {
           const resolvedRooms  = sbRooms  || DEFAULT_ROOMS;
           const basePlants     = sbPlants || DEFAULT_PLANTS;
 
-          // Load photo URLs from Supabase Storage for each plant
+          // Rehydrate photos: use saved URLs from DB row (preserves order),
+          // fall back to Storage listing for plants that predate URL saving
           const plantsWithPhotos = await Promise.all(basePlants.map(async plant => {
             try {
+              if (plant.photos && plant.photos.length > 0) return plant; // URLs already in DB row
               const urls = await sbLoadPlantPhotoUrls(user.id, plant.id);
               if (urls && urls.length > 0) return { ...plant, photos: urls };
             } catch(e) { console.error("Photo load error for plant", plant.id, e); }
