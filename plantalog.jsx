@@ -1081,7 +1081,7 @@ const styles = `
   .form-group input,.form-group select{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:15px;background:var(--input-bg);color:var(--text);font-weight:600;}
   .form-group input:focus,.form-group select:focus{outline:none;border-color:var(--leaf-light);}
   @media (max-width:480px){
-    .form-group input[type=date]{font-size:13px;padding:8px 4px;min-width:0;width:100%;}
+    .form-group input[type=date]{font-size:12px;padding:8px 2px;min-width:0;width:100%;box-sizing:border-box;}
   }
   /* Input with suffix: input shrinks to content width, suffix sits right next to value */
   .input-suffix-wrap{display:flex;align-items:center;justify-content:center;background:var(--input-bg);border:1.5px solid var(--border);border-radius:7px;overflow:hidden;text-align:center;}
@@ -1101,7 +1101,12 @@ const styles = `
   .health-selector{display:flex;gap:4px;}
   .health-opt{flex:1;padding:7px 2px;border-radius:6px;border:2px solid transparent;cursor:pointer;text-align:center;font-size:12px;font-weight:700;transition:all .15s;}
   .health-opt.selected{border-width:2px;}
-  .modal-actions{display:flex;gap:7px;margin-top:10px;}
+  @media (max-width:480px){
+    .health-date-row{display:flex;flex-direction:column;gap:7px;}
+    .health-date-row>.form-group{margin-bottom:0;}
+    .health-date-row input[type=date]{font-size:13px;padding:8px 4px;min-width:0;width:100%;}
+  }
+  .modal-actions{display:flex;gap:7px;margin-top:10px;padding-bottom:max(8px,env(safe-area-inset-bottom,8px));}
   .btn{padding:11px 14px;border-radius:9px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;transition:all .15s;}
   .btn-primary{background:var(--leaf);color:white;flex:1;}
   .btn-primary:hover{background:#245c43;}
@@ -2120,9 +2125,8 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
   const h       = HEALTH[plant.health];
   const fileRef = useRef();
   const [lightboxIdx, setLightboxIdx] = useState(null);
-  const [swipeDx, setSwipeDx] = useState(0);       // live finger drag offset
-  const swipeStart = useRef(null);                  // {x, y} on touchstart
-  const isSwiping = useRef(false);                  // confirmed horizontal swipe
+  const [swipeDx, setSwipeDx] = useState(0);
+  const swipeStart = useRef(null);
 
   // Keyboard navigation
   useEffect(() => {
@@ -2403,64 +2407,41 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
         {lightboxIdx!==null && (
           <div className="lightbox"
             style={{touchAction:'none',overflow:'hidden'}}
-            onClick={()=>{ if(!isSwiping.current) setLightboxIdx(null); }}
+            onClick={()=>setLightboxIdx(null)}
             onTouchStart={e=>{
               swipeStart.current={x:e.touches[0].clientX,y:e.touches[0].clientY};
-              isSwiping.current=false;
               setSwipeDx(0);
             }}
             onTouchMove={e=>{
               if(!swipeStart.current) return;
               const dx=e.touches[0].clientX-swipeStart.current.x;
               const dy=e.touches[0].clientY-swipeStart.current.y;
-              if(!isSwiping.current && Math.abs(dx)<5 && Math.abs(dy)<5) return;
-              if(!isSwiping.current){
-                if(Math.abs(dy)>=Math.abs(dx)) { swipeStart.current=null; return; }
-                isSwiping.current=true;
+              if(Math.abs(dx)>Math.abs(dy)){
+                e.preventDefault();
+                const atLeft=lightboxIdx===0&&dx>0;
+                const atRight=lightboxIdx===plant.photos.length-1&&dx<0;
+                setSwipeDx(atLeft||atRight ? dx*0.2 : dx);
               }
-              e.preventDefault();
-              const atLeft=lightboxIdx===0&&dx>0;
-              const atRight=lightboxIdx===plant.photos.length-1&&dx<0;
-              setSwipeDx(atLeft||atRight ? dx*0.2 : dx);
             }}
             onTouchEnd={e=>{
               if(!swipeStart.current) return;
               const dx=e.changedTouches[0].clientX-swipeStart.current.x;
               swipeStart.current=null;
               setSwipeDx(0);
-              if(isSwiping.current && Math.abs(dx)>50){
-                if(dx<0 && lightboxIdx<plant.photos.length-1) setLightboxIdx(i=>i+1);
-                else if(dx>0 && lightboxIdx>0) setLightboxIdx(i=>i-1);
+              if(Math.abs(dx)>50){
+                if(dx<0&&lightboxIdx<plant.photos.length-1) setLightboxIdx(i=>i+1);
+                else if(dx>0&&lightboxIdx>0) setLightboxIdx(i=>i-1);
               }
-              setTimeout(()=>{ isSwiping.current=false; }, 0);
             }}>
             <button className="lightbox-close" onClick={e=>{e.stopPropagation();setLightboxIdx(null);}}>✕</button>
-            {/* Continuous photo strip */}
-            <div style={{
-              position:'relative',width:'100vw',display:'flex',alignItems:'center',justifyContent:'center',
-              overflow:'visible',flexShrink:0
-            }} onClick={e=>e.stopPropagation()}>
-              <div style={{
-                display:'flex',alignItems:'center',
-                transform:`translateX(calc(${-lightboxIdx*100}vw + ${swipeDx}px))`,
-                transition:swipeDx===0?'transform .28s cubic-bezier(.25,.46,.45,.94)':'none',
-                width:`${plant.photos.length*100}vw`,
-              }}>
-                {plant.photos.map((src,i)=>(
-                  <div key={i} style={{width:'100vw',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                    <img src={src} alt="" style={{maxWidth:'95vw',maxHeight:'78vh',objectFit:'contain',borderRadius:10,userSelect:'none',pointerEvents:'none'}}/>
-                  </div>
-                ))}
-              </div>
-              <button className={`lightbox-arrow${lightboxIdx===0?" hidden":""}`}
-                style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)'}}
-                onClick={e=>{e.stopPropagation();setLightboxIdx(i=>i-1);}}>‹</button>
-              <button className={`lightbox-arrow${lightboxIdx===plant.photos.length-1?" hidden":""}`}
-                style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)'}}
-                onClick={e=>{e.stopPropagation();setLightboxIdx(i=>i+1);}}>›</button>
+            <div className="lightbox-inner" onClick={e=>e.stopPropagation()}>
+              <button className={`lightbox-arrow${lightboxIdx===0?" hidden":""}`} onClick={e=>{e.stopPropagation();setLightboxIdx(i=>i-1);}}>‹</button>
+              <img src={plant.photos[lightboxIdx]} alt=""
+                style={{transform:`translateX(${swipeDx}px)`,transition:swipeDx===0?'transform .25s ease':'none'}}/>
+              <button className={`lightbox-arrow${lightboxIdx===plant.photos.length-1?" hidden":""}`} onClick={e=>{e.stopPropagation();setLightboxIdx(i=>i+1);}}>›</button>
             </div>
             {plant.photos.length>1 && (
-              <div className="lightbox-dots" onClick={e=>e.stopPropagation()}>
+              <div className="lightbox-dots">
                 {plant.photos.map((_,i)=>(
                   <div key={i} className={`lightbox-dot${i===lightboxIdx?" active":""}`}
                     onClick={e=>{e.stopPropagation();setLightboxIdx(i);}}/>
@@ -2576,7 +2557,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
         </div>
 
         {/* Row 2: Health + Date Obtained */}
-        <div className="form-row" style={{gap:7,marginBottom:7}}>
+        <div className="form-row health-date-row" style={{gap:7,marginBottom:7}}>
           <div className="form-group" style={{marginBottom:0}}>
             <label>Health</label>
             <div className="health-selector">
