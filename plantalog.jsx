@@ -83,7 +83,7 @@ async function sbSavePlants(userId, plants) {
   if (!sb || !plants) return;
   const rows = plants.map(p => {
     const { id, ...rest } = p;
-    const data = { ...rest, photos: [], primaryPhoto: null };
+    const data = { ...rest, photos: [] }; // strip photo data but keep primaryPhoto
     return { id, user_id: userId, data };
   });
   const { error } = await sb.from("plants").upsert(rows, { onConflict: "id" });
