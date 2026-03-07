@@ -855,7 +855,7 @@ const styles = `
   .dark .info-val-next{color:var(--leaf-light)!important;}
   .dark .pot-sub-lbl{color:var(--text)!important;}
   .dark .color-swatch-none{background:var(--input-bg);}
-  .dark{--watering-bg:rgba(14,116,144,.18);--watering-border:rgba(14,116,144,.4);--potting-bg:rgba(161,100,60,.2);--potting-border:rgba(161,100,60,.4);}
+  .dark{--watering-bg:rgba(14,116,144,.18);--watering-border:rgba(14,116,144,.4);--potting-bg:rgba(161,100,60,.2);--potting-border:rgba(161,100,60,.4);--pot-due-bg:#3b1212;--pot-due-border:#7f1d1d;--pot-due-text:#fca5a5;}
   .app{--watering-bg:rgba(14,116,144,.1);--watering-border:rgba(14,116,144,.35);--potting-bg:rgba(193,96,58,.1);--potting-border:rgba(193,96,58,.35);}
   .dark .form-section-label{opacity:1;}
   html{background:#1a1a1a;}
@@ -880,7 +880,8 @@ const styles = `
   /* Fill status bar area with header color — works in both Safari and standalone */
   .page-header.green::before,
   .page-header.teal::before,
-  .page-header.brown::before {
+  .page-header.brown::before,
+  .page-header.slate::before {
     content: "";
     display: block;
     position: fixed;
@@ -891,23 +892,26 @@ const styles = `
   }
   .page-header.green::before  { background: #2d6a4f; }
   .page-header.teal::before   { background: #0e7490; }
-  .page-header.brown::before  { background: #44403c; }
+  .page-header.brown::before  { background: #c1603a; }
+  .page-header.slate::before  { background: #44403c; }
   .dark .page-header.teal::before  { background: #0a4a57; }
-  .dark .page-header.brown::before { background: #2c2925; }
+  .dark .page-header.brown::before { background: #8b3e22; }
+  .dark .page-header.slate::before { background: #2c2925; }
 
   /* ── Phone portrait (Safari + standalone) ── */
   @media (max-width: 480px) and (orientation: portrait) {
     .phone-hide { display: none !important; }
     .page-header { padding-top: max(54px, calc(env(safe-area-inset-top, 44px) + 12px)); }
-    .nav { padding-bottom: max(28px, env(safe-area-inset-bottom, 28px)); }
+    .nav { padding-bottom: max(20px, env(safe-area-inset-bottom, 20px)); }
     .nav-btn { padding-top: 14px; padding-bottom: 2px; }
   }
 
   /* ── Standalone only — slightly more nav room ── */
   @media (display-mode: standalone) and (max-width: 480px) {
-    .nav { padding-bottom: max(32px, env(safe-area-inset-bottom, 32px)); }
+    .nav { padding-bottom: max(24px, env(safe-area-inset-bottom, 24px)); }
   }
-  .page-header.brown{background:#c1603a;}
+  .page-header.slate{background:#44403c;}
+  .dark .page-header.slate{background:#2c2925;}
   .dark .page-header.teal{background:#0a4a57;}
   .dark .page-header.brown{background:#8b3e22;}
   .page-header h1{font-size:32px;font-weight:700;letter-spacing:-.3px;line-height:1.1;}
@@ -1840,7 +1844,7 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
 
         {/* REPOT tiles */}
         {mode==="repot" && <>
-          <div className="stat-tile" title="Current pot size" style={{background:"var(--page-bg)"}}>
+          <div className="stat-tile phone-hide" title="Current pot size" style={{background:"var(--page-bg)"}}>
             <div className="st-lbl">Pot Size</div>
             <div className="st-val">{plant.currentPotSize}"</div>
           </div>
@@ -2161,7 +2165,13 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit }) {
             {/* Header row with inline Pot Age + Original Pot capsules */}
             <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
               <div className="form-section-label section-hdr-pot" style={{marginBottom:0}}>Potting</div>
-<span style={{background:"var(--sand)",border:"1.5px solid var(--potting-border,#6b422630)",borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:700,color:"var(--text)",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:4}}><span style={{opacity:.7,fontWeight:600}}>Pot Age:</span>{plantAgeDecimal(plant.pottedDate)}</span>
+              <span style={{
+                background: potDue ? "var(--pot-due-bg, #fee2e2)" : "var(--sand)",
+                border: `1.5px solid ${potDue ? "var(--pot-due-border, #fca5a5)" : "var(--potting-border, #6b422630)"}`,
+                borderRadius:20, padding:"2px 9px", fontSize:11, fontWeight:700,
+                color: potDue ? "var(--pot-due-text, #991b1b)" : "var(--text)",
+                whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4
+              }}><span style={{opacity:.7,fontWeight:600}}>Pot Age:</span>{plantAgeDecimal(plant.pottedDate)}</span>
               {plant.originalPot && <span style={{background:"var(--sand)",border:"1.5px solid var(--potting-border,#6b422630)",borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:700,color:"var(--text)",whiteSpace:"nowrap"}}>Original Pot</span>}
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
@@ -2179,9 +2189,9 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit }) {
                 <div className="tile-lbl" style={{fontSize:11,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:".4px",marginBottom:3}}>Current Pot</div>
                 <div className="info-val" style={{fontSize:22,fontWeight:700,color:"var(--leaf)"}}>{plant.currentPotSize}"</div>
               </div>
-              <div style={{background:potDue?"#fce7f3":"var(--card-bg)",borderRadius:9,padding:"7px 10px",boxShadow:"var(--shadow)"}}>
+              <div style={{background:"var(--card-bg)",borderRadius:9,padding:"7px 10px",boxShadow:"var(--shadow)"}}>
                 <div className="tile-lbl" style={{fontSize:11,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:".4px",marginBottom:3}}>Next Pot</div>
-                <div className="info-val" style={{fontSize:22,fontWeight:700,color:potDue?"#be185d":"var(--leaf)"}}>{plant.nextPotSize}"</div>
+                <div className="info-val" style={{fontSize:22,fontWeight:700,color:"var(--leaf)"}}>{plant.nextPotSize}"</div>
               </div>
             </div>
           </div>
@@ -2779,7 +2789,7 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
   const [confirmDelete, setConfirmDelete] = useState(false);
   return (
     <>
-      <div className="page-header brown">
+      <div className="page-header slate">
         <h1>Utilities</h1>
         <p>App settings and data management</p>
       </div>
