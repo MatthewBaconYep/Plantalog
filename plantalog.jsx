@@ -1886,6 +1886,7 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
   const [editPlant,    setEditPlant]    = useState(null);
   const [detailPlant,  setDetailPlant]  = useState(null);
   const [homeTab,      setHomeTab]      = useState("plants");
+  const openNewRef = useRef(null);
   // null = all, 1-4 = health filter
   const [healthFilter, setHealthFilter] = useState(null);
   const [collapsedRooms, setCollapsedRooms] = useState({});
@@ -1951,8 +1952,8 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
       <div className="tab-bar" style={{display:"flex",alignItems:"center"}}>
         <button className={`tab-btn${homeTab==="plants"?" active":""}`} onClick={()=>setHomeTab("plants")}>Plants</button>
         <button className={`tab-btn${homeTab==="rooms" ?" active":""}`} onClick={()=>setHomeTab("rooms")}>Rooms</button>
-        <button onClick={()=>{ if(homeTab==="plants"){ setEditPlant(null); setShowModal(true); } else { document.getElementById("add-room-btn")?.click(); } }}
-          style={{marginLeft:4,flexShrink:0,padding:"8px 14px",borderRadius:7,background:"var(--leaf)",color:"white",border:"none",cursor:"pointer",fontSize:22,lineHeight:"1",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+        <button onClick={()=>{ if(homeTab==="plants"){ setEditPlant(null); setShowModal(true); } else { openNewRef.current?.(); } }}
+          style={{marginLeft:4,flexShrink:0,padding:"8px 14px",borderRadius:7,background:"var(--leaf)",color:"white",border:"none",cursor:"pointer",fontSize:15,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>&#xff0b;</button>
       </div>
 
       {homeTab==="plants" ? (
@@ -1985,7 +1986,7 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
           {filtered.length===0 && <div className="empty"><span className="ico">🌱</span><p>No plants match this filter.</p></div>}
         </div>
       ) : (
-        <div className="section"><ManageRooms rooms={rooms} setRooms={setRooms} plants={plants} user={user}/></div>
+        <div className="section"><ManageRooms rooms={rooms} setRooms={setRooms} plants={plants} user={user} openNewRef={openNewRef}/></div>
       )}
 
 
@@ -2278,13 +2279,14 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit }) {
 }
 
 // ─── Manage Rooms ─────────────────────────────────────────────────────────────
-function ManageRooms({ rooms, setRooms, plants, user }) {
+function ManageRooms({ rooms, setRooms, plants, user, openNewRef }) {
   const [editing,setEditing]=useState(null);
   const [formName,setFormName]=useState("");
   const [formOrder,setFormOrder]=useState("");
   const [formColor,setFormColor]=useState(null);
   const sorted=[...rooms].sort((a,b)=>(a.order??0)-(b.order??0));
   function openNew(){setEditing({});setFormName("");setFormOrder(rooms.length+1);setFormColor(null);}
+  useEffect(()=>{ if(openNewRef) openNewRef.current = openNew; });
   function openEdit(r){setEditing(r);setFormName(r.name);setFormOrder(r.order);setFormColor(r.color||null);}
   function save(){
     if(!formName.trim())return;
@@ -2301,7 +2303,6 @@ function ManageRooms({ rooms, setRooms, plants, user }) {
         <div className="room-actions"><button className="icon-btn" onClick={()=>openEdit(r)}>✎</button><button className="icon-btn" onClick={()=>del(r.id)}>🗑</button></div>
       </div>
     ))}
-    <button id="add-room-btn" className="btn btn-primary" style={{width:"100%",marginTop:5}} onClick={openNew}>+ Add Room</button>
     {editing!==null&&(
       <div className="modal-overlay" onClick={()=>setEditing(null)}>
         <div className="modal" onClick={e=>e.stopPropagation()}>
