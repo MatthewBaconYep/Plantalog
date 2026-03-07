@@ -1072,7 +1072,13 @@ const styles = `
 
   /* Modal */
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:200;display:flex;align-items:flex-end;justify-content:center;}
-  .modal{background:var(--page-bg);border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:12px 12px max(24px,env(safe-area-inset-bottom,24px));}
+  .phone-only{display:none;}
+  .modal{background:var(--page-bg);border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:12px 12px 20px;}
+  @media (max-width:480px){
+    .phone-hide{display:none!important;}
+    .phone-only{display:block!important;}
+    .modal{padding-bottom:max(20px,env(safe-area-inset-bottom,20px));}
+  }
   .modal h2{font-size:20px;font-weight:700;margin-bottom:8px;color:var(--leaf);}
   .dark .modal h2{color:var(--leaf-light);}
   .form-group{margin-bottom:6px;}
@@ -2551,7 +2557,8 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
           </div>
         </div>
 
-        {/* Row 2: Health + Date Obtained */}
+        {/* Row 2: Health (full width on phones, shared row on desktop) */}
+        {/* Row 3: Date Obtained (own row on phones) */}
         <div className="form-row" style={{gap:7,marginBottom:7}}>
           <div className="form-group" style={{marginBottom:0}}>
             <label>Health</label>
@@ -2565,10 +2572,15 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
               ))}
             </div>
           </div>
-          <div className="form-group" style={{marginBottom:0}}>
+          <div className="form-group phone-hide" style={{marginBottom:0}}>
             <label>Date Obtained</label>
             <input type="date" value={form.obtainedDate} onChange={e=>set("obtainedDate",e.target.value)}/>
           </div>
+        </div>
+        {/* Date Obtained — phones only, own row, left-aligned */}
+        <div className="form-group phone-only" style={{marginBottom:7}}>
+          <label>Date Obtained</label>
+          <input type="date" value={form.obtainedDate} onChange={e=>set("obtainedDate",e.target.value)} style={{width:"auto"}}/>
         </div>
 
         {/* ── Watering ── */}
@@ -2648,7 +2660,8 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
           </div>
         </div>
 
-        {/* Photos — compact inline strip, below Potting */}
+        {/* Photos — hidden on phones (manage via PlantDetail instead) */}
+        <div className="phone-hide">
         <div className="form-group">
           <label>Photos</label>
           <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
@@ -2662,6 +2675,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
             <div style={{width:64,height:64,border:"2px dashed var(--border-strong,#b0a898)",borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"var(--text-muted)",fontSize:22,flexShrink:0}} onClick={()=>fileRef.current.click()}>+</div>
           </div>
           <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
+        </div>
         </div>
 
         {/* Notes */}
