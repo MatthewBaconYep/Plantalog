@@ -1128,17 +1128,7 @@ const styles = `
   .lightbox-arrow{background:rgba(255,255,255,.15);border:none;color:white;border-radius:50%;width:38px;height:38px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .lightbox-arrow:hover{background:rgba(255,255,255,.3);}
   .lightbox-arrow.hidden{visibility:hidden;pointer-events:none;}
-  @media (hover:none) { .lightbox-arrow{display:none;} }
-  .photo-menu-btn{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.45);border:none;color:white;border-radius:50%;width:17px;height:17px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
-  .photo-menu{position:absolute;top:20px;right:2px;background:#2e2018;border-radius:8px;box-shadow:0 3px 12px rgba(0,0,0,.35);z-index:20;display:flex;flex-direction:row;gap:0;overflow:hidden;}
-  .photo-menu-action{background:none;border:none;cursor:pointer;padding:7px 10px;display:flex;align-items:center;justify-content:center;transition:background .15s;}
-  .photo-menu-action:hover{background:rgba(255,255,255,.12);}
-  @media (hover:none) {
-    .photo-menu-btn{width:22px;height:22px;font-size:14px;top:3px;right:3px;}
-    .photo-menu{border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.5);}
-    .photo-menu-action{padding:13px 18px;}
-    .photo-menu-action svg{width:20px;height:20px;}
-  }
+  @media (pointer:coarse) { .lightbox-arrow{display:none;} }
   .lightbox-dots{display:flex;gap:6px;margin-top:16px;}
   .lightbox-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.35);transition:background .2s;cursor:pointer;}
   .lightbox-dot.active{background:white;}
@@ -1151,6 +1141,16 @@ const styles = `
   .photo-thumb{width:68px;height:68px;object-fit:cover;border-radius:8px;display:block;pointer-events:none;}
   .photo-ghost{position:fixed;pointer-events:none;z-index:9999;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.4);opacity:.92;transform:scale(1.08);transition:none;}
   .photo-primary-star{position:absolute;top:0;left:2px;font-size:15px;line-height:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));pointer-events:none;color:white;}
+  .photo-menu-btn{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.45);border:none;color:white;border-radius:50%;width:17px;height:17px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
+  .photo-menu{position:absolute;top:20px;right:2px;background:#2e2018;border-radius:8px;box-shadow:0 3px 12px rgba(0,0,0,.35);z-index:20;display:flex;flex-direction:row;gap:0;overflow:hidden;}
+  .photo-menu-action{background:none;border:none;cursor:pointer;padding:7px 10px;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+  .photo-menu-action:hover{background:rgba(255,255,255,.12);}
+  @media (pointer:coarse) {
+    .photo-menu-btn{width:22px;height:22px;font-size:14px;top:3px;right:3px;}
+    .photo-menu{border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.5);}
+    .photo-menu-action{padding:13px 18px;}
+    .photo-menu-action svg{width:20px;height:20px;}
+  }
   .photo-add{width:68px;height:68px;border:2px dashed var(--sand);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);font-size:20px;}
   .photo-add:hover{border-color:var(--leaf-light);color:var(--leaf);}
 
@@ -2115,6 +2115,10 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
   const h       = HEALTH[plant.health];
   const fileRef = useRef();
   const [lightboxIdx, setLightboxIdx] = useState(null);
+  const [swipeDx, setSwipeDx] = useState(0);       // live finger offset
+  const swipeStart = useRef(null);                  // {x, y} on touchstart
+
+  // Keyboard navigation
   useEffect(() => {
     if(lightboxIdx===null) return;
     function onKey(e) {
@@ -2125,6 +2129,14 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
     window.addEventListener('keydown', onKey);
     return ()=>window.removeEventListener('keydown', onKey);
   }, [lightboxIdx, plant.photos.length]);
+
+  // Lock body scroll while lightbox is open
+  useEffect(() => {
+    if(lightboxIdx===null) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [lightboxIdx]);
   const [openMenuIdx, setOpenMenuIdx] = useState(null);
   const [dragState, setDragState] = useState(null); // {fromIdx, overIdx, ghostStyle}
   const [localOrder, setLocalOrder] = useState(null); // reordered indices during drag
@@ -2383,21 +2395,43 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
 
         {/* Lightbox */}
         {lightboxIdx!==null && (
-          <div className="lightbox" onClick={()=>setLightboxIdx(null)}
-            onTouchStart={e=>{const t=e.touches[0];e.currentTarget._swipeX=t.clientX;e.currentTarget._swipeY=t.clientY;}}
+          <div className="lightbox"
+            onClick={()=>setLightboxIdx(null)}
+            onTouchStart={e=>{
+              const t=e.touches[0];
+              swipeStart.current={x:t.clientX,y:t.clientY};
+              setSwipeDx(0);
+            }}
+            onTouchMove={e=>{
+              if(!swipeStart.current) return;
+              const dx=e.touches[0].clientX-swipeStart.current.x;
+              const dy=e.touches[0].clientY-swipeStart.current.y;
+              if(Math.abs(dx)>Math.abs(dy)){
+                e.preventDefault();
+                // resist at edges
+                const atLeft=lightboxIdx===0&&dx>0;
+                const atRight=lightboxIdx===plant.photos.length-1&&dx<0;
+                setSwipeDx(atLeft||atRight ? dx*0.25 : dx);
+              }
+            }}
             onTouchEnd={e=>{
-              const dx=e.changedTouches[0].clientX-(e.currentTarget._swipeX||0);
-              const dy=e.changedTouches[0].clientY-(e.currentTarget._swipeY||0);
-              if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>40){
+              if(!swipeStart.current) return;
+              const dx=e.changedTouches[0].clientX-swipeStart.current.x;
+              const dy=e.changedTouches[0].clientY-swipeStart.current.y;
+              swipeStart.current=null;
+              setSwipeDx(0);
+              if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){
                 e.stopPropagation();
                 if(dx<0&&lightboxIdx<plant.photos.length-1) setLightboxIdx(i=>i+1);
-                if(dx>0&&lightboxIdx>0) setLightboxIdx(i=>i-1);
+                else if(dx>0&&lightboxIdx>0) setLightboxIdx(i=>i-1);
               }
-            }}>
-            <button className="lightbox-close" onClick={()=>setLightboxIdx(null)}>✕</button>
+            }}
+            style={{touchAction:'none'}}>
+            <button className="lightbox-close" onClick={e=>{e.stopPropagation();setLightboxIdx(null);}}>✕</button>
             <div className="lightbox-inner" onClick={e=>e.stopPropagation()}>
               <button className={`lightbox-arrow${lightboxIdx===0?" hidden":""}`} onClick={e=>{e.stopPropagation();setLightboxIdx(i=>i-1);}}>‹</button>
-              <img src={plant.photos[lightboxIdx]} alt=""/>
+              <img src={plant.photos[lightboxIdx]} alt=""
+                style={{transform:`translateX(${swipeDx}px)`,transition:swipeDx===0?'transform .25s ease':'none'}}/>
               <button className={`lightbox-arrow${lightboxIdx===plant.photos.length-1?" hidden":""}`} onClick={e=>{e.stopPropagation();setLightboxIdx(i=>i+1);}}>›</button>
             </div>
             {plant.photos.length>1 && (
