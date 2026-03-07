@@ -903,7 +903,7 @@ const styles = `
     .phone-hide { display: none !important; }
     .page-header { padding-top: max(54px, calc(env(safe-area-inset-top, 44px) + 12px)); }
     .nav { padding-bottom: 0; }
-    .nav-btn { padding-top: 14px; padding-bottom: 6px; }
+    .nav-btn { padding-top: 12px; padding-bottom: 2px; }
   }
 
   /* ── Standalone only — slightly more nav room ── */
@@ -1138,7 +1138,7 @@ const styles = `
   .util-row:first-child{padding-top:0;}
   .util-label{font-size:15px;font-weight:700;color:var(--text);}
   .util-sublabel{font-size:13px;color:var(--text-muted);margin-top:2px;}
-  .util-btn{background:var(--leaf);color:white;border:none;border-radius:8px;padding:9px 16px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;min-width:90px;text-align:center;}
+  .util-btn{background:var(--leaf);color:white;border:1.5px solid rgba(0,0,0,0.15);border-radius:8px;padding:9px 16px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;min-width:90px;text-align:center;}
   .util-btn.secondary{background:var(--page-bg);color:var(--text);border:1.5px solid var(--border);}
 
 `;
@@ -2856,7 +2856,7 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
                 <div className="util-sublabel">Permanently remove all your data</div>
               </div>
               {!confirmDelete
-                ? <button className="util-btn" style={{background:"#fff5f5",color:"#e53e3e",border:"1px solid #fed7d7"}} onClick={()=>setConfirmDelete(true)}>Delete</button>
+                ? <button className="util-btn" style={{background:"#fff5f5",color:"#e53e3e",border:"1.5px solid #fed7d7"}} onClick={()=>setConfirmDelete(true)}>Delete</button>
                 : <div style={{display:"flex",gap:6}}>
                     <button className="util-btn secondary" onClick={()=>setConfirmDelete(false)}>Cancel</button>
                     <button className="util-btn" style={{background:"#e53e3e",color:"white"}} onClick={onDeleteAccount}>Confirm</button>
