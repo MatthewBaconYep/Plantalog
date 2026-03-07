@@ -858,6 +858,7 @@ const styles = `
   .dark{--watering-bg:rgba(14,116,144,.18);--watering-border:rgba(14,116,144,.4);--potting-bg:rgba(161,100,60,.2);--potting-border:rgba(161,100,60,.4);}
   .app{--watering-bg:rgba(14,116,144,.1);--watering-border:rgba(14,116,144,.35);--potting-bg:rgba(193,96,58,.1);--potting-border:rgba(193,96,58,.35);}
   .dark .form-section-label{opacity:1;}
+  html{background:#1a1a1a;}
   body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);transition:background .3s,color .3s;margin:0;padding:0;}
   .app{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;background:var(--cream);}
 
@@ -876,20 +877,7 @@ const styles = `
   .page-header.green{background:#2d6a4f;}
   .page-header.teal{background:#0e7490;}
 
-  /* ── Standalone web app (saved to Home Screen) ── */
-  @media (display-mode: standalone) and (max-width: 480px) {
-    .page-header { padding-top: max(44px, env(safe-area-inset-top, 44px)); }
-    .nav { padding-bottom: max(24px, env(safe-area-inset-bottom, 24px)); }
-    .nav-btn { padding-top: 14px; padding-bottom: 4px; }
-  }
-
-  /* ── Phone portrait in Safari ── */
-  @media (max-width: 480px) and (orientation: portrait) {
-    .phone-hide { display: none !important; }
-    .page-header { padding-top: max(20px, env(safe-area-inset-top, 20px)); }
-  }
-
-  /* Fill status bar area with header color */
+  /* Fill status bar area with header color — works in both Safari and standalone */
   .page-header.green::before,
   .page-header.teal::before,
   .page-header.brown::before {
@@ -899,12 +887,26 @@ const styles = `
     top: 0; left: 0; right: 0;
     height: env(safe-area-inset-top, 0px);
     z-index: 200;
+    pointer-events: none;
   }
   .page-header.green::before  { background: #2d6a4f; }
   .page-header.teal::before   { background: #0e7490; }
   .page-header.brown::before  { background: #44403c; }
   .dark .page-header.teal::before  { background: #0a4a57; }
   .dark .page-header.brown::before { background: #2c2925; }
+
+  /* ── Phone portrait (Safari + standalone) ── */
+  @media (max-width: 480px) and (orientation: portrait) {
+    .phone-hide { display: none !important; }
+    .page-header { padding-top: max(54px, calc(env(safe-area-inset-top, 44px) + 12px)); }
+    .nav { padding-bottom: max(28px, env(safe-area-inset-bottom, 28px)); }
+    .nav-btn { padding-top: 14px; padding-bottom: 2px; }
+  }
+
+  /* ── Standalone only — slightly more nav room ── */
+  @media (display-mode: standalone) and (max-width: 480px) {
+    .nav { padding-bottom: max(32px, env(safe-area-inset-bottom, 32px)); }
+  }
   .page-header.brown{background:#c1603a;}
   .dark .page-header.teal{background:#0a4a57;}
   .dark .page-header.brown{background:#8b3e22;}
@@ -1236,19 +1238,18 @@ function LoginScreen({ onLogin }) {
         {error && <div style={{background:"rgba(252,129,129,0.15)",border:"1px solid rgba(252,129,129,0.3)",borderRadius:8,padding:"10px 12px",marginBottom:14,fontSize:13,color:"#fca5a5",lineHeight:1.4}}>{error}</div>}
 
         {/* Email/password form */}
-        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
-          <input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="Email address"
+        <form onSubmit={e=>{e.preventDefault();handleEmail(e);}} style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+          <input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="Email address" autoComplete="email"
             style={{padding:"12px 14px",borderRadius:10,border:"1px solid rgba(255,255,255,0.15)",background:"rgba(255,255,255,0.08)",color:"#e8e2d0",fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",width:"100%",boxSizing:"border-box"}}/>
           {mode !== "reset" && (
-            <input value={password} onChange={e=>setPassword(e.target.value)} type="password" placeholder="Password"
+            <input value={password} onChange={e=>setPassword(e.target.value)} type="password" placeholder="Password" autoComplete={mode==="signup"?"new-password":"current-password"}
               style={{padding:"12px 14px",borderRadius:10,border:"1px solid rgba(255,255,255,0.15)",background:"rgba(255,255,255,0.08)",color:"#e8e2d0",fontFamily:"'DM Sans',sans-serif",fontSize:14,outline:"none",width:"100%",boxSizing:"border-box"}}/>
           )}
-        </div>
-
-        <button onClick={handleEmail} disabled={loading}
-          style={{width:"100%",padding:"13px",borderRadius:10,border:"none",background:"#e8e2d0",color:"#1b4d3e",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:700,cursor:loading?"default":"pointer",opacity:loading?0.7:1,marginBottom:12,transition:"opacity .15s"}}>
-          {loading ? "..." : mode==="login" ? "Sign In" : mode==="signup" ? "Create Account" : "Send Reset Email"}
-        </button>
+          <button type="submit" disabled={loading}
+            style={{width:"100%",padding:"13px",borderRadius:10,border:"none",background:"#e8e2d0",color:"#1b4d3e",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:700,cursor:loading?"default":"pointer",opacity:loading?0.7:1,transition:"opacity .15s"}}>
+            {loading ? "..." : mode==="login" ? "Sign In" : mode==="signup" ? "Create Account" : "Send Reset Email"}
+          </button>
+        </form>
 
         {mode === "login" && (
           <button onClick={()=>{setMode("reset");setError("");setInfo("");}}
@@ -2778,7 +2779,7 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
   const [confirmDelete, setConfirmDelete] = useState(false);
   return (
     <>
-      <div className="page-header" style={{background:"#44403c"}}>
+      <div className="page-header brown">
         <h1>Utilities</h1>
         <p>App settings and data management</p>
       </div>
