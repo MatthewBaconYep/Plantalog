@@ -859,6 +859,7 @@ function RoomHeader({ room, count, style, collapsed, onToggle }) {
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap');
   *{box-sizing:border-box;margin:0;padding:0;}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
   :root{
     --cream:#e8e2d8; --bark:#5c4033; --bark-light:#8d6e63;
     --leaf:#2d6a4f;  --leaf-light:#52b788; --leaf-pale:#d8f3dc;
