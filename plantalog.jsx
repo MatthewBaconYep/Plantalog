@@ -2869,6 +2869,13 @@ function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
       {showModal && <PlantModal plant={editPlant} rooms={rooms}
         onSave={p=>{ setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); setShowModal(false); setEditPlant(null); }}
         onDelete={()=>{ deletePhotos(editPlant.id); if(!PREVIEW_MODE&&user) { sbDeletePlantPhotos(user.id,editPlant.id); sbDeletePlant(user.id,editPlant.id); } setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); }}
+        onClose={()=>{ setShowModal(false); setEditPlant(null); }}
+      />}
+      {detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
+        <PlantDetail plant={dp} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
+          onClose={()=>setDetailPlant(null)}
+          onEdit={()=>{ setEditPlant(dp); setDetailPlant(null); setShowModal(true); }}
+        />
       );})()}
     </>
   );
