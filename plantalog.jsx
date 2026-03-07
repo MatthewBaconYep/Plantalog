@@ -1952,7 +1952,7 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
         <button className={`tab-btn${homeTab==="plants"?" active":""}`} onClick={()=>setHomeTab("plants")}>Plants</button>
         <button className={`tab-btn${homeTab==="rooms" ?" active":""}`} onClick={()=>setHomeTab("rooms")}>Rooms</button>
         <button onClick={()=>{ if(homeTab==="plants"){ setEditPlant(null); setShowModal(true); } else { document.getElementById("add-room-btn")?.click(); } }}
-          style={{marginLeft:4,flexShrink:0,padding:"8px 14px",borderRadius:7,background:"var(--leaf)",color:"white",border:"none",cursor:"pointer",fontSize:22,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+          style={{marginLeft:4,flexShrink:0,padding:"8px 14px",borderRadius:7,background:"var(--leaf)",color:"white",border:"none",cursor:"pointer",fontSize:22,lineHeight:"1",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
       </div>
 
       {homeTab==="plants" ? (
