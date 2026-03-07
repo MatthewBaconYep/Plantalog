@@ -957,8 +957,8 @@ const styles = `
   @media (max-width: 480px) and (orientation: portrait) {
     .phone-hide { display: none !important; }
     .page-header { padding-top: max(54px, calc(env(safe-area-inset-top, 44px) + 12px)); }
-    .nav { padding-bottom: 0; }
-    .nav-btn { padding-top: 13px; padding-bottom: 0; }
+    .nav { padding-bottom: 4px; }
+    .nav-btn { padding-top: 13px; padding-bottom: 4px; }
   }
 
   /* ── Standalone only — home screen app ── */
@@ -2153,7 +2153,6 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
 
   function onPointerDown(e, fromIdx) {
     if(e.button===2) return;
-    e.preventDefault();
     pointerDown.current = true;
     const el = e.currentTarget;
     const rect = el.getBoundingClientRect();
@@ -2170,6 +2169,7 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
       if (!dragStarted) {
         if (Math.abs(cx - startX) < 6 && Math.abs(cy - startY) < 6) return;
         dragStarted = true;
+        ev.preventDefault();
         const order = plant.photos.map((_,i)=>i);
         setLocalOrder(order);
         setDragState({ fromIdx, overIdx: fromIdx, offsetX, offsetY,
@@ -2202,6 +2202,11 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('touchmove', onMove);
       window.removeEventListener('touchend', onUp);
+      if (!dragStarted) {
+        // It was a tap — open lightbox (unless menu is open)
+        if(openMenuIdx===fromIdx) setOpenMenuIdx(null);
+        else setLightboxIdx(fromIdx);
+      }
       setDragState(ds => {
         if(ds) {
           setLocalOrder(lo => { if(lo) commitOrder(lo); return null; });
@@ -2314,8 +2319,7 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
                     className={`photo-thumb-wrap${isDragging?" dragging":""}`}
                     style={{width:88,height:88,touchAction:"none"}}
                     onPointerDown={e=>onPointerDown(e,origIdx)}>
-                    <img src={src} className="photo-thumb" style={{width:88,height:88}} alt=""
-                      onClick={()=>{ if(!dragState){ if(openMenuIdx===origIdx) setOpenMenuIdx(null); else setLightboxIdx(origIdx); }}}/>
+                    <img src={src} className="photo-thumb" style={{width:88,height:88}} alt=""/>
                     {isPrimary && <span style={{position:"absolute",top:3,left:2,fontSize:15,lineHeight:1,filter:"drop-shadow(0 1px 3px rgba(0,0,0,.7))",pointerEvents:"none",color:"white"}}>★</span>}
                     <button className="photo-menu-btn" onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setOpenMenuIdx(openMenuIdx===origIdx?null:origIdx);}}>⋯</button>
                     {openMenuIdx===origIdx && (
