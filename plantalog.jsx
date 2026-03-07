@@ -902,17 +902,18 @@ const styles = `
   @media (max-width: 480px) and (orientation: portrait) {
     .phone-hide { display: none !important; }
     .page-header { padding-top: max(54px, calc(env(safe-area-inset-top, 44px) + 12px)); }
-    .nav { padding-bottom: max(20px, env(safe-area-inset-bottom, 20px)); }
+    .nav { padding-bottom: max(12px, env(safe-area-inset-bottom, 12px)); }
     .nav-btn { padding-top: 14px; padding-bottom: 2px; }
   }
 
   /* ── Standalone only — slightly more nav room ── */
   @media (display-mode: standalone) and (max-width: 480px) {
-    .nav { padding-bottom: max(24px, env(safe-area-inset-bottom, 24px)); }
+    .nav { padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)); }
   }
   .page-header.slate{background:#44403c;}
   .dark .page-header.slate{background:#2c2925;}
   .dark .page-header.teal{background:#0a4a57;}
+  .page-header.brown{background:#c1603a;}
   .dark .page-header.brown{background:#8b3e22;}
   .page-header h1{font-size:32px;font-weight:700;letter-spacing:-.3px;line-height:1.1;}
   .page-header p{font-size:13px;opacity:.72;margin-top:3px;}
@@ -1203,7 +1204,7 @@ function LoginScreen({ onLogin }) {
   const logoBase64 = "data:image/jpeg;base64,"; // placeholder — icon loaded from /apple-touch-icon.png
 
   return (
-    <div style={{minHeight:"100vh",background:"#1b4d3e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px",fontFamily:"'DM Sans',sans-serif"}}>
+    <div style={{minHeight:"100vh",height:"100dvh",background:"#1b4d3e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px",fontFamily:"'DM Sans',sans-serif",overflow:"hidden",boxSizing:"border-box"}}>
 
       {/* Logo + Title */}
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:32}}>
