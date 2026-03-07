@@ -958,7 +958,7 @@ const styles = `
     .phone-hide { display: none !important; }
     .page-header { padding-top: max(54px, calc(env(safe-area-inset-top, 44px) + 12px)); }
     .nav { padding-bottom: 4px; }
-    .nav-btn { padding-top: 13px; padding-bottom: 4px; }
+    .nav-btn { padding-top: 13px; padding-bottom: 12px; }
   }
 
   /* ── Standalone only — home screen app ── */
@@ -1124,26 +1124,27 @@ const styles = `
   .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;}
   .lightbox img{max-width:95vw;max-height:78vh;object-fit:contain;border-radius:10px;user-select:none;}
   .lightbox-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:none;color:white;border-radius:50%;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-  .lightbox-arrow{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:white;border-radius:50%;width:38px;height:38px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-  .lightbox-arrow.left{left:10px;}
-  .lightbox-arrow.right{right:10px;}
+  .lightbox-inner{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;}
+  .lightbox-arrow{background:rgba(255,255,255,.15);border:none;color:white;border-radius:50%;width:38px;height:38px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .lightbox-arrow:hover{background:rgba(255,255,255,.3);}
+  .lightbox-arrow.hidden{visibility:hidden;pointer-events:none;}
   .lightbox-dots{display:flex;gap:6px;margin-top:16px;}
   .lightbox-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.35);transition:background .2s;}
   .lightbox-dot.active{background:white;}
 
   /* Photo grid */
   .photo-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;position:relative;user-select:none;}
-  .photo-thumb-wrap{position:relative;width:88px;height:88px;cursor:grab;touch-action:none;border-radius:8px;transition:transform .2s cubic-bezier(.25,.46,.45,.94),opacity .2s,box-shadow .2s;}
+  .photo-thumb-wrap{position:relative;width:68px;height:68px;cursor:grab;touch-action:none;border-radius:8px;transition:transform .2s cubic-bezier(.25,.46,.45,.94),opacity .2s,box-shadow .2s;}
   .photo-thumb-wrap.dragging{opacity:.35;transform:scale(.95);}
   .photo-thumb-wrap.drag-over{transform:scale(1.04);}
-  .photo-thumb{width:88px;height:88px;object-fit:cover;border-radius:8px;display:block;pointer-events:none;}
+  .photo-thumb{width:68px;height:68px;object-fit:cover;border-radius:8px;display:block;pointer-events:none;}
   .photo-ghost{position:fixed;pointer-events:none;z-index:9999;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.4);opacity:.92;transform:scale(1.08);transition:none;}
   .photo-primary-star{position:absolute;top:0;left:2px;font-size:15px;line-height:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));pointer-events:none;color:white;}
   .photo-menu-btn{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.45);border:none;color:white;border-radius:50%;width:17px;height:17px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
   .photo-menu{position:absolute;top:20px;right:2px;background:#2e2018;border-radius:8px;box-shadow:0 3px 12px rgba(0,0,0,.35);z-index:20;display:flex;flex-direction:row;gap:0;overflow:hidden;}
   .photo-menu-action{background:none;border:none;cursor:pointer;padding:7px 10px;display:flex;align-items:center;justify-content:center;transition:background .15s;}
   .photo-menu-action:hover{background:rgba(255,255,255,.12);}
-  .photo-add{width:88px;height:88px;border:2px dashed var(--sand);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);font-size:20px;}
+  .photo-add{width:68px;height:68px;border:2px dashed var(--sand);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);font-size:20px;}
   .photo-add:hover{border-color:var(--leaf-light);color:var(--leaf);}
 
   /* Manage Rooms */
@@ -2107,6 +2108,16 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
   const h       = HEALTH[plant.health];
   const fileRef = useRef();
   const [lightboxIdx, setLightboxIdx] = useState(null);
+  useEffect(() => {
+    if(lightboxIdx===null) return;
+    function onKey(e) {
+      if(e.key==='ArrowLeft')  setLightboxIdx(i=>i>0?i-1:i);
+      if(e.key==='ArrowRight') setLightboxIdx(i=>i<plant.photos.length-1?i+1:i);
+      if(e.key==='Escape')     setLightboxIdx(null);
+    }
+    window.addEventListener('keydown', onKey);
+    return ()=>window.removeEventListener('keydown', onKey);
+  }, [lightboxIdx, plant.photos.length]);
   const [openMenuIdx, setOpenMenuIdx] = useState(null);
   const [dragState, setDragState] = useState(null); // {fromIdx, overIdx, ghostStyle}
   const [localOrder, setLocalOrder] = useState(null); // reordered indices during drag
@@ -2317,9 +2328,9 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
                 return (
                   <div key={origIdx} data-idx={slotIdx}
                     className={`photo-thumb-wrap${isDragging?" dragging":""}`}
-                    style={{width:88,height:88,touchAction:"none"}}
+                    style={{width:68,height:68,touchAction:"none"}}
                     onPointerDown={e=>onPointerDown(e,origIdx)}>
-                    <img src={src} className="photo-thumb" style={{width:88,height:88}} alt=""/>
+                    <img src={src} className="photo-thumb" style={{width:68,height:68}} alt=""/>
                     {isPrimary && <span style={{position:"absolute",top:3,left:2,fontSize:15,lineHeight:1,filter:"drop-shadow(0 1px 3px rgba(0,0,0,.7))",pointerEvents:"none",color:"white"}}>★</span>}
                     <button className="photo-menu-btn" onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setOpenMenuIdx(openMenuIdx===origIdx?null:origIdx);}}>⋯</button>
                     {openMenuIdx===origIdx && (
@@ -2340,13 +2351,13 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
                   </div>
                 );
               })}
-              <div className="photo-add" style={{width:88,height:88}} onClick={()=>{ if(!dragState) fileRef.current.click(); }}>+</div>
+              <div className="photo-add" style={{width:68,height:68}} onClick={()=>{ if(!dragState) fileRef.current.click(); }}>+</div>
             </div>
             {/* Drag ghost */}
             {dragState && (
               <div ref={ghostRef} className="photo-ghost"
-                style={{...dragState.ghostStyle, width:88, height:88}}>
-                <img src={plant.photos[dragState.fromIdx]} style={{width:88,height:88,objectFit:"cover",borderRadius:8,display:"block"}} alt=""/>
+                style={{...dragState.ghostStyle, width:68, height:68}}>
+                <img src={plant.photos[dragState.fromIdx]} style={{width:68,height:68,objectFit:"cover",borderRadius:8,display:"block"}} alt=""/>
               </div>
             )}
             <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
@@ -2367,9 +2378,11 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
         {lightboxIdx!==null && (
           <div className="lightbox" onClick={()=>setLightboxIdx(null)}>
             <button className="lightbox-close" onClick={()=>setLightboxIdx(null)}>✕</button>
-            {lightboxIdx>0 && <button className="lightbox-arrow left" onClick={e=>{e.stopPropagation();setLightboxIdx(i=>i-1);}}>‹</button>}
-            {lightboxIdx<plant.photos.length-1 && <button className="lightbox-arrow right" onClick={e=>{e.stopPropagation();setLightboxIdx(i=>i+1);}}>›</button>}
-            <img src={plant.photos[lightboxIdx]} alt="" onClick={e=>e.stopPropagation()}/>
+            <div className="lightbox-inner" onClick={e=>e.stopPropagation()}>
+              <button className={`lightbox-arrow${lightboxIdx===0?" hidden":""}`} onClick={e=>{e.stopPropagation();setLightboxIdx(i=>i-1);}}>‹</button>
+              <img src={plant.photos[lightboxIdx]} alt=""/>
+              <button className={`lightbox-arrow${lightboxIdx===plant.photos.length-1?" hidden":""}`} onClick={e=>{e.stopPropagation();setLightboxIdx(i=>i+1);}}>›</button>
+            </div>
             {plant.photos.length>1 && (
               <div className="lightbox-dots">
                 {plant.photos.map((_,i)=>(
