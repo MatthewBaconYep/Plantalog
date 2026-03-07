@@ -119,13 +119,13 @@ async function sbSaveSettings(userId, settings) {
 // ─── Supabase photo storage ───────────────────────────────────────────────────
 
 // Upload a single base64 photo to Supabase Storage, returns public URL or null
-async function sbSavePhoto(userId, plantId, index, base64Data) {
+async function sbSavePhoto(userId, plantId, filename, base64Data) {
   const sb = getSupabase();
   if (!sb || !base64Data) return null;
   try {
     const res = await fetch(base64Data);
     const blob = await res.blob();
-    const path = `${userId}/${plantId}/${index}.jpg`;
+    const path = `${userId}/${plantId}/${filename}`;
     const { error } = await sb.storage.from("plant-photos").upload(path, blob, { upsert: true, contentType: "image/jpeg" });
     if (error) { console.error("sbSavePhoto", error); return null; }
     const { data } = sb.storage.from("plant-photos").getPublicUrl(path);
@@ -134,15 +134,16 @@ async function sbSavePhoto(userId, plantId, index, base64Data) {
 }
 
 // Upload multiple photos for a plant, returns array of URLs
+// New base64 photos get a unique timestamp filename; existing URLs are kept as-is
 async function sbSaveAllPhotos(userId, plantId, photos) {
   const urls = [];
   for (let i = 0; i < photos.length; i++) {
     const photo = photos[i];
-    // Already a URL (already in Supabase) — keep as-is
     if (photo && (photo.startsWith("http://") || photo.startsWith("https://"))) {
       urls.push(photo);
     } else {
-      const url = await sbSavePhoto(userId, plantId, i, photo);
+      const filename = `${Date.now()}_${i}.jpg`;
+      const url = await sbSavePhoto(userId, plantId, filename, photo);
       urls.push(url || photo);
     }
   }
@@ -2167,7 +2168,11 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
   function handlePhoto(e) {
     const file=e.target.files[0]; if(!file) return;
     compressPhoto(file).then(dataUrl =>
-      setPlants(ps=>ps.map(p=>p.id===plant.id?{...p,photos:[...p.photos,dataUrl]}:p))
+      setPlants(ps=>ps.map(p=>{
+        if(p.id!==plant.id) return p;
+        const photos=[...p.photos, dataUrl];
+        return {...p, photos, primaryPhoto: photos.length-1};
+      }))
     );
     e.target.value="";
   }
