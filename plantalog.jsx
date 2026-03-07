@@ -1072,7 +1072,7 @@ const styles = `
 
   /* Modal */
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:200;display:flex;align-items:flex-end;justify-content:center;}
-  .modal{background:var(--page-bg);border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:12px 12px 20px;}
+  .modal{background:var(--page-bg);border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:12px 12px max(24px,env(safe-area-inset-bottom,24px));}
   .modal h2{font-size:20px;font-weight:700;margin-bottom:8px;color:var(--leaf);}
   .dark .modal h2{color:var(--leaf-light);}
   .form-group{margin-bottom:6px;}
@@ -1101,12 +1101,7 @@ const styles = `
   .health-selector{display:flex;gap:4px;}
   .health-opt{flex:1;padding:7px 2px;border-radius:6px;border:2px solid transparent;cursor:pointer;text-align:center;font-size:12px;font-weight:700;transition:all .15s;}
   .health-opt.selected{border-width:2px;}
-  @media (max-width:480px){
-    .health-date-row{display:flex;flex-direction:column;gap:7px;}
-    .health-date-row>.form-group{margin-bottom:0;}
-    .health-date-row input[type=date]{font-size:13px;padding:8px 4px;min-width:0;width:100%;}
-  }
-  .modal-actions{display:flex;gap:7px;margin-top:10px;padding-bottom:max(8px,env(safe-area-inset-bottom,8px));}
+  .modal-actions{display:flex;gap:7px;margin-top:10px;}
   .btn{padding:11px 14px;border-radius:9px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;transition:all .15s;}
   .btn-primary{background:var(--leaf);color:white;flex:1;}
   .btn-primary:hover{background:#245c43;}
@@ -2557,7 +2552,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
         </div>
 
         {/* Row 2: Health + Date Obtained */}
-        <div className="form-row health-date-row" style={{gap:7,marginBottom:7}}>
+        <div className="form-row" style={{gap:7,marginBottom:7}}>
           <div className="form-group" style={{marginBottom:0}}>
             <label>Health</label>
             <div className="health-selector">
