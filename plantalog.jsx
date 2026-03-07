@@ -902,13 +902,13 @@ const styles = `
   @media (max-width: 480px) and (orientation: portrait) {
     .phone-hide { display: none !important; }
     .page-header { padding-top: max(54px, calc(env(safe-area-inset-top, 44px) + 12px)); }
-    .nav { padding-bottom: 0; }
-    .nav-btn { padding-top: 13px; padding-bottom: 8px; }
+    .nav { padding-bottom: 20px; }
+    .nav-btn { padding-top: 13px; padding-bottom: 4px; }
   }
 
   /* ── Standalone only — slightly more nav room ── */
   @media (display-mode: standalone) and (max-width: 480px) {
-    .nav { padding-bottom: max(4px, env(safe-area-inset-bottom, 4px)); }
+    .nav { padding-bottom: max(20px, env(safe-area-inset-bottom, 20px)); }
   }
   .page-header.slate{background:#44403c;}
   .dark .page-header.slate{background:#2c2925;}
