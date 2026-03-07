@@ -1154,11 +1154,11 @@ const styles = `
 
   /* Photo grid */
   .photo-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;position:relative;user-select:none;}
-  .photo-thumb-wrap{position:relative;width:68px;height:68px;cursor:grab;touch-action:none;border-radius:8px;transition:transform .2s cubic-bezier(.25,.46,.45,.94),opacity .2s,box-shadow .2s;}
+  .photo-thumb-wrap{position:relative;width:68px;height:68px;cursor:grab;touch-action:none;border-radius:8px;transition:transform .2s cubic-bezier(.25,.46,.45,.94),opacity .2s,box-shadow .2s;user-select:none;-webkit-user-select:none;}
   .photo-thumb-wrap.dragging{opacity:.35;transform:scale(.95);}
   .photo-thumb-wrap.drag-over{transform:scale(1.04);}
-  .photo-thumb{width:68px;height:68px;object-fit:cover;border-radius:8px;display:block;pointer-events:none;}
-  .photo-ghost{position:fixed;pointer-events:none;z-index:9999;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.4);opacity:.92;transform:scale(1.08);transition:none;}
+  .photo-thumb{width:68px;height:68px;object-fit:cover;border-radius:8px;display:block;pointer-events:none;user-select:none;-webkit-user-select:none;}
+  .photo-ghost{position:fixed;pointer-events:none;z-index:9999;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.4);opacity:.92;transform:scale(1.08);transition:none;user-select:none;-webkit-user-select:none;}
   .photo-primary-star{position:absolute;top:0;left:2px;font-size:15px;line-height:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));pointer-events:none;color:white;}
   .photo-menu-btn{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.45);border:none;color:white;border-radius:50%;width:17px;height:17px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
   .photo-menu{position:absolute;top:20px;right:2px;background:#2e2018;border-radius:8px;box-shadow:0 3px 12px rgba(0,0,0,.35);z-index:20;display:flex;flex-direction:row;gap:0;overflow:hidden;}
@@ -2225,6 +2225,8 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
         if (Math.abs(cx - startX) < 6 && Math.abs(cy - startY) < 6) return;
         dragStarted = true;
         ev.preventDefault();
+        document.body.style.userSelect = 'none';
+        document.body.style.webkitUserSelect = 'none';
         const order = plant.photos.map((_,i)=>i);
         setLocalOrder(order);
         setDragState({ fromIdx, overIdx: fromIdx, offsetX, offsetY,
@@ -2253,6 +2255,8 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
 
     function onUp() {
       pointerDown.current = false;
+      document.body.style.userSelect = '';
+      document.body.style.webkitUserSelect = '';
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('touchmove', onMove);
