@@ -2159,16 +2159,23 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
     const rect = el.getBoundingClientRect();
     const offsetX = e.clientX - rect.left;
     const offsetY = e.clientY - rect.top;
-    const order = plant.photos.map((_,i)=>i);
-    setLocalOrder(order);
-    setDragState({ fromIdx, overIdx: fromIdx, offsetX, offsetY,
-      ghostStyle:{ left: e.clientX - offsetX, top: e.clientY - offsetY, width: rect.width, height: rect.height }
-    });
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let dragStarted = false;
 
     function onMove(ev) {
       const cx = ev.touches?.[0]?.clientX ?? ev.clientX;
       const cy = ev.touches?.[0]?.clientY ?? ev.clientY;
-      // update ghost position
+      // Only start drag after moving more than 6px
+      if (!dragStarted) {
+        if (Math.abs(cx - startX) < 6 && Math.abs(cy - startY) < 6) return;
+        dragStarted = true;
+        const order = plant.photos.map((_,i)=>i);
+        setLocalOrder(order);
+        setDragState({ fromIdx, overIdx: fromIdx, offsetX, offsetY,
+          ghostStyle:{ left: startX - offsetX, top: startY - offsetY, width: rect.width, height: rect.height }
+        });
+      }
       setDragState(ds => ds ? {...ds, ghostStyle:{...ds.ghostStyle, left: cx - ds.offsetX, top: cy - ds.offsetY}} : ds);
       // find which slot we're hovering
       const thumbs = document.querySelectorAll('.photo-thumb-wrap[data-idx]');
