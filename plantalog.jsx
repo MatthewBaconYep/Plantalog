@@ -902,13 +902,13 @@ const styles = `
   @media (max-width: 480px) and (orientation: portrait) {
     .phone-hide { display: none !important; }
     .page-header { padding-top: max(54px, calc(env(safe-area-inset-top, 44px) + 12px)); }
-    .nav { padding-bottom: max(12px, env(safe-area-inset-bottom, 12px)); }
+    .nav { padding-bottom: max(6px, env(safe-area-inset-bottom, 6px)); }
     .nav-btn { padding-top: 14px; padding-bottom: 2px; }
   }
 
   /* ── Standalone only — slightly more nav room ── */
   @media (display-mode: standalone) and (max-width: 480px) {
-    .nav { padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)); }
+    .nav { padding-bottom: max(10px, env(safe-area-inset-bottom, 10px)); }
   }
   .page-header.slate{background:#44403c;}
   .dark .page-header.slate{background:#2c2925;}
@@ -1204,7 +1204,7 @@ function LoginScreen({ onLogin }) {
   const logoBase64 = "data:image/jpeg;base64,"; // placeholder — icon loaded from /apple-touch-icon.png
 
   return (
-    <div style={{minHeight:"100vh",height:"100dvh",background:"#1b4d3e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px",fontFamily:"'DM Sans',sans-serif",overflow:"hidden",boxSizing:"border-box"}}>
+    <div style={{position:"fixed",inset:0,background:"#1b4d3e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px",fontFamily:"'DM Sans',sans-serif",overflowY:"auto",boxSizing:"border-box"}}>
 
       {/* Logo + Title */}
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:32}}>
