@@ -1078,6 +1078,14 @@ const styles = `
     .phone-hide{display:none!important;}
     .phone-only{display:block!important;}
     .modal{padding-bottom:max(20px,env(safe-area-inset-bottom,20px));}
+    /* Health row: span full width when Date Obtained is hidden */
+    .health-full-row{grid-template-columns:1fr!important;}
+    .health-full-row .form-group{min-width:0;}
+    .health-selector{width:100%;}
+  }
+  /* Date inputs: tighten on any phone-sized screen (portrait or landscape) */
+  @media (max-width:900px) and (pointer:coarse){
+    .form-group input[type=date]{font-size:12px;padding:8px 2px;min-width:0;width:100%;box-sizing:border-box;}
   }
   .modal h2{font-size:20px;font-weight:700;margin-bottom:8px;color:var(--leaf);}
   .dark .modal h2{color:var(--leaf-light);}
@@ -1086,9 +1094,6 @@ const styles = `
   .dark .form-group>label{color:var(--text);}
   .form-group input,.form-group select{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:15px;background:var(--input-bg);color:var(--text);font-weight:600;}
   .form-group input:focus,.form-group select:focus{outline:none;border-color:var(--leaf-light);}
-  @media (max-width:480px){
-    .form-group input[type=date]{font-size:12px;padding:8px 2px;min-width:0;width:100%;box-sizing:border-box;}
-  }
   /* Input with suffix: input shrinks to content width, suffix sits right next to value */
   .input-suffix-wrap{display:flex;align-items:center;justify-content:center;background:var(--input-bg);border:1.5px solid var(--border);border-radius:7px;overflow:hidden;text-align:center;}
   .input-suffix-wrap:focus-within{border-color:var(--leaf-light);}
@@ -2557,9 +2562,8 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
           </div>
         </div>
 
-        {/* Row 2: Health (full width on phones, shared row on desktop) */}
-        {/* Row 3: Date Obtained (own row on phones) */}
-        <div className="form-row" style={{gap:7,marginBottom:7}}>
+        {/* Row 2: Health (full width on phones) + Date Obtained (hidden on phones) */}
+        <div className="form-row health-full-row" style={{gap:7,marginBottom:7}}>
           <div className="form-group" style={{marginBottom:0}}>
             <label>Health</label>
             <div className="health-selector">
