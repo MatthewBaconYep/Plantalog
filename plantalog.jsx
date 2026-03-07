@@ -903,7 +903,7 @@ const styles = `
     .phone-hide { display: none !important; }
     .page-header { padding-top: max(54px, calc(env(safe-area-inset-top, 44px) + 12px)); }
     .nav { padding-bottom: 0; }
-    .nav-btn { padding-top: 12px; padding-bottom: 2px; }
+    .nav-btn { padding-top: 13px; padding-bottom: 4px; }
   }
 
   /* ── Standalone only — slightly more nav room ── */
