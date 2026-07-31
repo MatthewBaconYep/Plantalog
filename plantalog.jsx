@@ -1,5 +1,5 @@
 // React hooks from global
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useLayoutEffect, useRef, useCallback } = React;
 
 // ─── Preview Mode ─────────────────────────────────────────────────────────────
 // Set to true to bypass login and use local data (for Claude preview)
@@ -277,6 +277,109 @@ function compressPhoto(file) {
     };
     reader.readAsDataURL(file);
   });
+}
+
+// ─── Photo capture date ───────────────────────────────────────────────────────
+// Reads the real capture date out of a JPEG's EXIF block (tag DateTimeOriginal,
+// falling back to DateTime). This matters because users often upload OLD photos
+// of their plants — upload time would be wrong for them. Falls back to the
+// file's lastModified, then to today.
+function readExifDate(file) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onerror = () => resolve(null);
+    reader.onload = e => {
+      try {
+        const view = new DataView(e.target.result);
+        if (view.byteLength < 4 || view.getUint16(0) !== 0xFFD8) return resolve(null); // not a JPEG
+        let offset = 2;
+        while (offset < view.byteLength - 4) {
+          const marker = view.getUint16(offset);
+          if ((marker & 0xFF00) !== 0xFF00) break;
+          if (marker === 0xFFE1) {                                  // APP1 (holds EXIF)
+            const exifStart = offset + 4;
+            if (view.getUint32(exifStart) !== 0x45786966) return resolve(null); // "Exif"
+            const tiff = exifStart + 6;
+            const little = view.getUint16(tiff) === 0x4949;
+            if (view.getUint16(tiff + 2, little) !== 0x002A) return resolve(null);
+            const readIFD = (ifdOffset, wanted) => {
+              const count = view.getUint16(ifdOffset, little);
+              for (let i = 0; i < count; i++) {
+                const entry = ifdOffset + 2 + i * 12;
+                const tag = view.getUint16(entry, little);
+                if (tag !== wanted) continue;
+                const valOff = tiff + view.getUint32(entry + 8, little);
+                let s = "";
+                for (let c = 0; c < 19; c++) s += String.fromCharCode(view.getUint8(valOff + c));
+                return s;
+              }
+              return null;
+            };
+            const findPointer = (ifdOffset, wanted) => {
+              const count = view.getUint16(ifdOffset, little);
+              for (let i = 0; i < count; i++) {
+                const entry = ifdOffset + 2 + i * 12;
+                if (view.getUint16(entry, little) === wanted)
+                  return tiff + view.getUint32(entry + 8, little);
+              }
+              return null;
+            };
+            const ifd0 = tiff + view.getUint32(tiff + 4, little);
+            const exifIFD = findPointer(ifd0, 0x8769);
+            const raw = (exifIFD && readIFD(exifIFD, 0x9003)) || readIFD(ifd0, 0x0132);
+            if (!raw) return resolve(null);
+            const m = raw.match(/^(\d{4}):(\d{2}):(\d{2})/);   // "YYYY:MM:DD HH:MM:SS"
+            return resolve(m ? `${m[1]}-${m[2]}-${m[3]}` : null);
+          }
+          offset += 2 + view.getUint16(offset + 2);
+        }
+        resolve(null);
+      } catch (err) { resolve(null); }
+    };
+    reader.readAsArrayBuffer(file.slice(0, 262144)); // EXIF lives in the header
+  });
+}
+
+async function derivePhotoDate(file) {
+  const exif = await readExifDate(file);
+  if (exif) return exif;
+  if (file && file.lastModified) return fmt(new Date(file.lastModified));
+  return fmt(getToday());
+}
+
+const MONTH_NAMES = ["January","February","March","April","May","June",
+                     "July","August","September","October","November","December"];
+
+// "2025-12-12" -> "December 12, 2025"
+function prettyPhotoDate(d) {
+  if (!d) return null;
+  const m = String(d).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  return `${MONTH_NAMES[Number(m[2]) - 1]} ${Number(m[3])}, ${m[1]}`;
+}
+
+// Photos are kept oldest -> newest so a plant's growth reads left to right.
+// Undated photos (uploaded before dates were recorded) sort to the end and
+// keep their existing relative order. Sorting the stored arrays rather than
+// just the display keeps primaryPhoto indexes valid everywhere.
+function sortPhotosByDate(photos, photoDates, primaryPhoto) {
+  if (!photos || !photos.length) return { photos: [], photoDates: [], primaryPhoto: null };
+  const dates = Array.isArray(photoDates) ? photoDates : [];
+  const primary = primaryPhoto == null ? 0 : primaryPhoto;
+  const order = photos.map((_, i) => i);
+  order.sort((a, b) => {
+    const da = dates[a] || null, db = dates[b] || null;
+    if (da && db) return da < db ? -1 : da > db ? 1 : a - b;  // ties keep original order
+    if (da) return -1;
+    if (db) return 1;
+    return a - b;
+  });
+  const newPrimary = order.indexOf(primary);
+  return {
+    photos:       order.map(i => photos[i]),
+    photoDates:   order.map(i => dates[i] || null),
+    primaryPhoto: newPrimary < 0 ? null : newPrimary,
+  };
 }
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
@@ -727,10 +830,334 @@ const daysBetween = (a, b) => {
   return Math.round((parse(b) - parse(a)) / 864e5);
 };
 
-function plantAgeDecimal(d) {
-  const days = daysBetween(d, fmt(getToday()));
+function plantAgeDecimal(d, asOf) {
+  const days = daysBetween(d, asOf ? fmt(new Date(String(asOf).slice(0,10)+"T12:00:00")) : fmt(getToday()));
   if (days < 30) return `${days}d`;
   return `${(days/365).toFixed(1)}y`;
+}
+
+// ─── Plant status: active / graveyard / recently deleted ─────────────────────
+// plant.status      undefined = active | "graveyard" | "deleted"
+// plant.diedDate    set when moved to the Graveyard
+// plant.deletedDate set when moved to Recently Deleted
+// plant.deletedFrom "active" | "graveyard" — where Restore sends it back to
+const PURGE_DAYS = 30;
+const isActivePlant = p => !p.status;
+
+// Graveyard plants stop aging — everything is measured as of the day they died.
+// A deleted plant that came from the graveyard keeps that frozen date too.
+function ageAsOf(plant) {
+  if (!plant) return null;
+  if (plant.status === "graveyard") return plant.diedDate || null;
+  if (plant.status === "deleted")   return plant.diedDate || null;
+  return null;
+}
+
+function daysUntilPurge(plant, now) {
+  if (!plant.deletedDate) return PURGE_DAYS;
+  return PURGE_DAYS - daysBetween(plant.deletedDate, fmt(now || getToday()));
+}
+
+// "2026-12-12" -> "Dec 12, 2026"
+// Push notification body text — mirrors the requested copy exactly for 2+
+// plants ("You have plants ready..."), switching to "a plant" for exactly one.
+// Emoji reaction for the Health Score tooltip. Bands are contiguous across
+// 0-100 (the requested "51-74%" is treated as 50-74% so there's no gap at 50).
+function healthScoreEmoji(pct) {
+  if (pct <= 14) return "😵";
+  if (pct <= 49) return "😬";
+  if (pct <= 74) return "😊";
+  if (pct <= 94) return "🥰";
+  return "🤩";
+}
+
+// ─── Watering schedule (PDF) ──────────────────────────────────────────────────
+const WATER_PDF_MAX_DAYS = 90;
+
+function addDaysStr(dateStr, n) {
+  const d = new Date(String(dateStr).slice(0,10) + "T12:00:00");
+  d.setDate(d.getDate() + n);
+  return fmt(d);
+}
+
+// Inclusive day count between two YYYY-MM-DD strings.
+function rangeLengthDays(from, to) {
+  return daysBetween(from, to) + 1;
+}
+
+function prettyLongDate(dateStr) {
+  const d = new Date(String(dateStr).slice(0,10) + "T12:00:00");
+  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  return `${days[d.getDay()]}, ${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`;
+}
+
+function shortDate(dateStr) {
+  const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return dateStr;
+  return `${Number(m[2])}/${Number(m[3])}/${m[1].slice(2)}`;
+}
+
+// Projects each plant's watering forward across the range. The app only knows
+// a plant's NEXT due date; beyond that we assume it actually gets watered on
+// schedule, so a 7-day plant due 8/1 also appears on 8/8 and 8/15. Plants
+// already overdue are rolled forward into the range on the same assumption.
+function buildWateringSchedule(plants, rooms, from, to) {
+  const active = (plants || []).filter(p => isActivePlant(p) && Number(p.waterFreqDays) > 0);
+  const byDate = {};
+
+  active.forEach(p => {
+    const freq = Number(p.waterFreqDays);
+    let due = addDaysStr(p.lastWatered, freq);
+    // Roll forward until we reach the window (covers overdue plants).
+    let guard = 0;
+    while (daysBetween(due, from) > 0 && guard++ < 5000) due = addDaysStr(due, freq);
+    // Then step through the window.
+    guard = 0;
+    while (daysBetween(due, to) >= 0 && guard++ < 5000) {
+      (byDate[due] ||= []).push(p);
+      due = addDaysStr(due, freq);
+    }
+  });
+
+  const sortedRooms = [...(rooms || [])].sort((a,b) => (a.order??0) - (b.order??0));
+  return Object.keys(byDate).sort().map(date => ({
+    date,
+    rooms: sortedRooms.map(room => ({
+      room,
+      plants: byDate[date]
+        .filter(p => p.roomId === room.id)
+        .sort((a,b) => a.name.localeCompare(b.name)),
+    })).filter(g => g.plants.length),
+  }));
+}
+
+// Turn a photo URL (remote or data URL) into a data URL jsPDF can embed.
+// Resolves to null rather than throwing on any failure, so one unreachable
+// image can never stop the whole document from generating.
+function dataUrlImageFormat(dataUrl) {
+  return /^data:image\/png/i.test(String(dataUrl)) ? "PNG" : "JPEG";
+}
+
+function loadPhotoDataUrl(url) {
+  return new Promise(resolve => {
+    if (!url) return resolve(null);
+    if (url.startsWith("data:")) return resolve(url);
+    let settled = false;
+    const done = v => { if (!settled) { settled = true; resolve(v); } };
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        // Square crop from the centre so every tile matches. Corner rounding is
+        // applied later as a PDF clip, not here.
+        const size = 240;                       // enough detail for a ~1in print tile
+        const c = document.createElement("canvas");
+        c.width = c.height = size;
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
+        c.getContext("2d").drawImage(img, sx, sy, side, side, 0, 0, size, size);
+        done(c.toDataURL("image/jpeg", 0.8));
+      } catch (e) { done(null); }              // tainted canvas (missing CORS headers)
+    };
+    img.onerror = () => done(null);
+    setTimeout(() => done(null), 8000);        // never hang the whole export
+    img.src = url;
+  });
+}
+
+// Builds the watering schedule PDF. Letter portrait, 0.5" (36pt) margins all
+// round. Returns the jsPDF doc so the caller decides how to deliver it.
+async function generateWateringPdf({ plants, rooms, from, to }) {
+  const jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+  if (!jsPDFCtor) throw new Error("PDF library not loaded yet. Give it a moment and try again.");
+
+  const schedule = buildWateringSchedule(plants, rooms, from, to);
+
+  // Pre-load every distinct photo once, in parallel.
+  const urls = [...new Set(schedule.flatMap(d => d.rooms.flatMap(r => r.plants.map(getPrimaryPhoto))).filter(Boolean))];
+  const loaded = await Promise.all(urls.map(loadPhotoDataUrl));
+  const photos = {};
+  urls.forEach((u, i) => { photos[u] = loaded[i]; });
+
+  const doc = new jsPDFCtor({ unit:"pt", format:"letter" });
+  const M = 36;                                   // 0.5 inch
+  const PAGE_W = doc.internal.pageSize.getWidth();
+  const PAGE_H = doc.internal.pageSize.getHeight();
+  const CONTENT_W = PAGE_W - M * 2;
+  const BOTTOM = PAGE_H - M;
+  const LEAF = [45,106,79], INK = [30,20,16], MUTED = [122,96,85], LINE = [221,213,196];
+
+  // Tiled layout: an image big enough to be recognisable dominates the space,
+  // so packing plants into a grid uses the page far better than one full-width
+  // row each. Three columns fit the 7.5in content width comfortably.
+  const COLS = 3, GAP = 10;
+  const TILE_W = (CONTENT_W - GAP * (COLS - 1)) / COLS;
+  const IMG = 82;                                  // was 34, then 68
+  const NAME_H = 19;                               // room for up to 2 wrapped lines
+  const TILE_H = NAME_H + IMG + 5;
+  const ROOM_H = 17, DATE_H = 22;
+  let y = M;
+
+  function rgb(hex) {
+    const h = String(hex || "").replace("#","");
+    if (h.length !== 6) return [92,64,51];        // fall back to --bark
+    return [0,2,4].map(i => parseInt(h.slice(i,i+2),16));
+  }
+  function need(h) {
+    if (y + h <= BOTTOM) return;
+    doc.addPage();
+    y = M;
+  }
+  function checkbox(x, cy, label) {
+    const s = 9;
+    doc.setDrawColor(140,140,140); doc.setLineWidth(0.8);
+    doc.rect(x, cy - s + 1, s, s, "S");
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
+    doc.text(label, x + s + 3.5, cy);
+  }
+
+  // ── Title block ──
+  doc.setFont("helvetica","bold"); doc.setFontSize(24); doc.setTextColor(...LEAF);
+  doc.text("OOT Water Schedule", M, y + 18);
+  y += 26;
+  doc.setFont("helvetica","normal"); doc.setFontSize(10.5); doc.setTextColor(...MUTED);
+  doc.text(`${shortDate(from)} to ${shortDate(to)}`, M, y + 8);
+  y += 16;
+  doc.setDrawColor(...LINE); doc.setLineWidth(1);
+  doc.line(M, y, M + CONTENT_W, y);
+  y += 16;
+
+  if (!schedule.length) {
+    doc.setFont("helvetica","normal"); doc.setFontSize(11); doc.setTextColor(...MUTED);
+    doc.text("No plants need water in this date range.", M, y + 10);
+    return doc;
+  }
+
+  schedule.forEach(day => {
+    // Keep a date heading with at least its first room and one row of tiles.
+    need(DATE_H + ROOM_H + TILE_H);
+    doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(...INK);
+    doc.text(prettyLongDate(day.date), M, y + 11);
+    const count = day.rooms.reduce((n,g) => n + g.plants.length, 0);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(...MUTED);
+    doc.text(`${count} plant${count===1?"":"s"}`, M + CONTENT_W, y + 11, { align:"right" });
+    y += 15;
+    doc.setDrawColor(...LINE); doc.setLineWidth(0.7);
+    doc.line(M, y, M + CONTENT_W, y);
+    y += 7;
+
+    day.rooms.forEach(group => {
+      need(ROOM_H + TILE_H);
+      doc.setFillColor(...rgb(group.room.color));
+      doc.roundedRect(M, y, CONTENT_W, ROOM_H, 4, 4, "F");
+      const light = roomTextColor(group.room.color || "#5c4033") === "#ffffff";
+      doc.setTextColor(...(light ? [255,255,255] : [30,20,16]));
+      doc.setFont("helvetica","bold"); doc.setFontSize(9.5);
+      doc.text(group.room.name, M + 8, y + 12);
+      y += ROOM_H + 5;
+
+      // Lay the room's plants out in rows of COLS tiles.
+      for (let i = 0; i < group.plants.length; i += COLS) {
+        const rowPlants = group.plants.slice(i, i + COLS);
+        need(TILE_H);
+        const rowTop = y;
+
+        rowPlants.forEach((p, col) => {
+          const x = M + col * (TILE_W + GAP);
+
+          // Name above the image, wrapped to at most two lines.
+          doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor(...INK);
+          const lines = doc.splitTextToSize(String(p.name || ""), TILE_W).slice(0, 2);
+          lines.forEach((ln, li) => doc.text(ln, x, rowTop + 8 + li * 9.5));
+
+          const imgTop = rowTop + NAME_H;
+          const src = photos[getPrimaryPhoto(p)];
+          let drew = false;
+          if (src) {
+            try {
+              // Clip to a rounded rect so the photo itself has curved corners.
+              doc.saveGraphicsState();
+              doc.roundedRect(x, imgTop, IMG, IMG, IMG * 0.10, IMG * 0.10, null);
+              doc.clip(); doc.discardPath();
+              doc.addImage(src, dataUrlImageFormat(src), x, imgTop, IMG, IMG);
+              doc.restoreGraphicsState();
+              drew = true;
+            } catch (e) {
+              try { doc.restoreGraphicsState(); } catch (e2) {}
+              drew = false;
+            }
+          }
+          if (!drew) {
+            doc.setDrawColor(...LINE); doc.setLineWidth(0.8);
+            doc.roundedRect(x, imgTop, IMG, IMG, IMG * 0.10, IMG * 0.10, "S");
+          }
+
+          // Frequency and the two boxes sit beside the image.
+          const sideX = x + IMG + 8;
+          doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
+          doc.text(`Every ${p.waterFreqDays} days`, sideX, imgTop + 9);
+          checkbox(sideX, imgTop + 32, "Watered");
+          checkbox(sideX, imgTop + 51, "Not Ready");
+        });
+
+        y = rowTop + TILE_H;
+      }
+      y += 4;
+    });
+    y += 6;
+  });
+
+  // Footer page numbers
+  const pages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
+    doc.text("Plantalog", M, PAGE_H - 18);
+    doc.text(`Page ${i} of ${pages}`, M + CONTENT_W, PAGE_H - 18, { align:"right" });
+  }
+  return doc;
+}
+
+function notificationMessage(kind, count) {
+  const subject = count === 1 ? "a plant" : "plants";
+  return kind === "water"
+    ? `You have ${subject} ready for watering today!`
+    : `You have ${subject} ready for a repot today!`;
+}
+
+function formatDiedDate(d) {
+  const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return "-";
+  return `${MONTH_NAMES[Number(m[2]) - 1].slice(0,3)} ${Number(m[3])}, ${m[1]}`;
+}
+
+// Move a plant to the Graveyard or to Recently Deleted. Photos are deliberately
+// left in place — both lists still show them, so they're only removed on purge.
+function movePlantTo(setPlants, plantId, destination) {
+  const today = fmt(getToday());
+  setPlants(ps => ps.map(p => {
+    if (p.id !== plantId) return p;
+    if (destination === "graveyard")
+      return { ...p, status:"graveyard", diedDate: p.diedDate || today };
+    return { ...p, status:"deleted", deletedDate: today,
+             deletedFrom: p.status === "graveyard" ? "graveyard" : "active" };
+  }));
+}
+
+// Restore: caller specifies "active" or "graveyard" — the person chooses this
+// explicitly in the confirm dialog now, rather than it being inferred.
+function restorePlant(setPlants, plant, destination = "active") {
+  setPlants(ps => ps.map(p => {
+    if (p.id !== plant.id) return p;
+    if (destination === "graveyard") {
+      const { deletedDate, deletedFrom, ...rest } = p;
+      // Prefer an existing died date (it came from the Graveyard originally);
+      // otherwise it died on the day it was deleted, not today.
+      return { ...rest, status:"graveyard", diedDate: p.diedDate || p.deletedDate || fmt(getToday()) };
+    }
+    const { deletedDate, deletedFrom, diedDate, status, ...rest } = p;
+    return rest;   // fully active again
+  }));
 }
 function plantAgeLabel(d) {
   const days = daysBetween(d, fmt(getToday()));
@@ -743,13 +1170,16 @@ function plantAgeLabel(d) {
 function potAge(d)       { return plantAgeLabel(d); }
 function repotEveryLabel(p){
   const total = (p.potYears||0) + (p.potMonths||0)/12;
-  if(!total) return "—";
+  if(!total) return "-";
   return total===Math.floor(total) ? total+"y" : total.toFixed(1)+"y";
 }
 function isPotDue(p,now) { const pd=daysBetween(p.pottedDate,fmt(now||getToday())),dd=(p.potYears*365)+(p.potMonths*30); return dd>0&&pd>=dd; }
 function potOverdueDays(p,now){ const pd=daysBetween(p.pottedDate,fmt(now||getToday())),dd=(p.potYears*365)+(p.potMonths*30); return dd===0?0:Math.max(0,pd-dd); }
-function isWaterDue(p,now)   { return daysBetween(p.lastWatered,fmt(now||getToday()))>=p.waterFreqDays; }
-function isTomorrow(p,now)   { return daysBetween(p.lastWatered,fmt(now||getToday()))+1>=p.waterFreqDays; }
+function hasWaterSchedule(p){ return Number(p && p.waterFreqDays) > 0; }
+const DUE_SECTION_MIN_H = 220;
+
+function isWaterDue(p,now)   { return hasWaterSchedule(p) && daysBetween(p.lastWatered,fmt(now||getToday()))>=p.waterFreqDays; }
+function isTomorrow(p,now)   { return hasWaterSchedule(p) && daysBetween(p.lastWatered,fmt(now||getToday()))+1>=p.waterFreqDays; }
 function waterFreqColor(d){
   if(d<=2)  return "#f0fdf4"; // near white-green
   if(d<=4)  return "#dcfce7"; // very pale mint
@@ -775,7 +1205,8 @@ function freqTextColor(d){
   if(d<=10) return "#14532d";
   return "white";
 }
-function formatMD(s)     { if(!s)return"—"; const d=new Date(s+"T00:00:00"); return `${d.getMonth()+1}/${d.getDate()}`; }
+function formatMD(s)     { if(!s)return"-"; const d=new Date(s+"T00:00:00"); return `${d.getMonth()+1}/${d.getDate()}`; }
+function formatDateUS(s) { if(!s)return""; const d=new Date(s+"T00:00:00"); return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`; }
 function uid()           { return Math.random().toString(36).slice(2,10); }
 // Display a YYYY-MM-DD string as M/D/YY (no leading zeros)
 function fmtDisplay(s){ if(!s)return""; const d=new Date(s+"T00:00:00"); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; }
@@ -975,6 +1406,9 @@ const styles = `
   .dark .page-header.brown{background:#8b3e22;}
   .page-header h1{font-size:32px;font-weight:700;letter-spacing:-.3px;line-height:1.1;}
   .page-header p{font-size:13px;opacity:.72;margin-top:3px;}
+  @keyframes undoIn{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
+  .header-undo-btn{animation:undoIn .22s ease-out both;display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.22);border:none;color:white;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;padding:8px 14px;min-height:36px;border-radius:20px;cursor:pointer;flex-shrink:0;transition:background .15s;}
+  @media (hover:hover) and (pointer:fine) { .header-undo-btn:hover{background:rgba(255,255,255,.34);} }
 
   /* Dashboard */
   .dashboard{padding:9px 12px 5px;}
@@ -990,6 +1424,22 @@ const styles = `
   .health-pill .num{font-size:30px;font-weight:700;line-height:1;}
   .health-pill .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.3px;margin-top:2px;font-weight:700;}
   .pct-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:6px;}
+  /* Health score explainer, revealed by tapping the tile */
+  @keyframes scoreTipIn{from{opacity:0;transform:translate(-50%,-4px);}to{opacity:1;transform:translate(-50%,0);}}
+  .score-tip-backdrop{position:fixed;inset:0;z-index:59;background:transparent;}
+  .score-tip{position:absolute;left:50%;top:calc(100% + 10px);transform:translateX(-50%);width:auto;min-width:170px;z-index:60;background:var(--card-bg);border:1.5px solid var(--border-strong);border-radius:10px;padding:10px 14px;box-shadow:0 8px 28px rgba(0,0,0,.28);cursor:default;animation:scoreTipIn .18s ease-out;}
+  .score-tip-arrow{position:absolute;top:-6px;left:50%;width:12px;height:12px;background:var(--card-bg);border-left:1.5px solid var(--border-strong);border-top:1.5px solid var(--border-strong);transform:translateX(-50%) rotate(45deg);z-index:61;}
+  .score-tip-emoji{font-size:32px;line-height:1;text-align:center;margin-bottom:6px;}
+  /* Thriving's colour (#276749) is a dark forest green meant for a light
+     pill background — on the tooltip's dark card-bg it's only ~1.7:1
+     contrast, nearly unreadable. Brightened just here, not globally, since
+     the original colour still works fine everywhere it's normally used. */
+  .dark .score-tip-thriving{color:#4ade80!important;}
+  .score-tip-row{display:flex;align-items:center;gap:14px;font-size:14px;color:var(--text);padding:3px 0;white-space:nowrap;}
+  .score-tip-row>span:first-child{min-width:92px;}
+  .score-tip-pts{color:var(--text-muted);font-weight:600;}
+  .score-tip-total{margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
+  .score-tip-total .score-tip-row{font-weight:700;}
   .pct-bar-fill{height:100%;background:linear-gradient(90deg,var(--leaf-light),var(--leaf));border-radius:3px;transition:width .6s;}
   .dark .pct-bar-fill{background:linear-gradient(90deg,#68d391,var(--leaf-light));}
 
@@ -1000,7 +1450,8 @@ const styles = `
 
   /* Plant list */
   .section{padding:0 10px 85px;}
-  .room-group{margin-bottom:12px;}
+  .room-group{margin-bottom:12px;transition:margin-bottom .34s cubic-bezier(.16,.84,.44,1) .05s;}
+  .room-group.emptying{margin-bottom:0;}
   .room-header{display:flex;align-items:center;gap:5px;margin-bottom:5px;padding:3px 1px;border-bottom:1px solid var(--border);}
   .room-header h3{font-size:13px;font-weight:700;color:var(--bark);text-transform:uppercase;letter-spacing:.7px;}
   .room-count{font-size:12px;color:var(--text-muted);margin-left:auto;font-weight:700;}
@@ -1028,13 +1479,21 @@ const styles = `
 
   /* Check button (water/repot) */
   .check-btn{width:34px;height:34px;border-radius:50%;border:2px solid #0e7490;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#0e7490;transition:all .18s;}
-  .check-btn:hover{background:#0e7490;color:white;border-color:#0e7490;}
   .dark .check-btn{border-color:#22d3ee;color:#22d3ee;}
-  .dark .check-btn:hover{background:#22d3ee;color:#0c1a1f;border-color:#22d3ee;}
   .check-btn.brown{border-color:#c1603a;color:#c1603a;}
-  .check-btn.brown:hover{background:#c1603a;color:white;border-color:#c1603a;}
   .dark .check-btn.brown{border-color:#e07850;color:#e07850;}
-  .dark .check-btn.brown:hover{background:#e07850;color:white;border-color:#e07850;}
+  /* :hover is scoped to devices that actually have a pointer that can hover.
+     On touch devices, tapping the check button removes the card (it "leaves"),
+     the layout reshuffles, and the next card's button ends up under the
+     finger — mobile Safari then applies :hover to it and never clears it
+     since there's no real mouse to move away. Without this guard, that
+     highlight sticks until the page repaints (e.g. backgrounding the app). */
+  @media (hover:hover) and (pointer:fine) {
+    .check-btn:hover{background:#0e7490;color:white;border-color:#0e7490;}
+    .dark .check-btn:hover{background:#22d3ee;color:#0c1a1f;border-color:#22d3ee;}
+    .check-btn.brown:hover{background:#c1603a;color:white;border-color:#c1603a;}
+    .dark .check-btn.brown:hover{background:#e07850;color:white;border-color:#e07850;}
+  }
 
   /* Freq increase button */
   .freq-inc-btn{width:34px;height:34px;border-radius:50%;border:2px solid #0e7490;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#0e7490;transition:all .18s;font-size:15px;font-weight:700;font-family:'DM Sans',sans-serif;}
@@ -1048,7 +1507,9 @@ const styles = `
   .freq-tooltip::after{content:'';position:absolute;bottom:-5px;right:10px;width:10px;height:10px;background:var(--soil);transform:rotate(45deg);border-radius:1px;}
   .freq-tooltip-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:white;margin-bottom:8px;}
   .freq-tooltip .check-btn{border-color:white!important;color:white!important;border-width:2.5px!important;}
-  .freq-tooltip .check-btn:hover{background:rgba(255,255,255,.2)!important;border-color:white!important;}
+  @media (hover:hover) and (pointer:fine) {
+    .freq-tooltip .check-btn:hover{background:rgba(255,255,255,.2)!important;border-color:white!important;}
+  }
   .freq-tooltip-row{display:flex;align-items:center;gap:7px;}
   .freq-opt{background:rgba(255,255,255,.12);border:none;color:white;border-radius:6px;padding:7px 12px;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;white-space:nowrap;}
   .freq-opt:hover,.freq-opt.active{background:var(--leaf-light);color:var(--soil);}
@@ -1057,8 +1518,8 @@ const styles = `
   .freq-custom:focus{outline:none;background:rgba(255,255,255,.22);}
 
   /* Water cards */
-  .water-card{background:var(--card-bg);border-radius:9px;padding:7px 8px;margin-bottom:4px;box-shadow:var(--shadow);display:flex;align-items:center;gap:7px;transition:opacity .3s,transform .3s;}
-  .water-card.leaving{opacity:0;transform:translateX(60px) scale(.95);}
+  .water-card{background:var(--card-bg);border-radius:9px;padding:7px 8px;box-shadow:var(--shadow);display:flex;align-items:center;gap:7px;transition:opacity .18s ease-in,transform .24s cubic-bezier(.4,0,1,1);}
+  .water-card.leaving{opacity:0;transform:translateX(-108%);}
   .all-done{text-align:center;padding:30px 20px 16px;}
   .all-done .emoji{font-size:52px;display:block;margin-bottom:10px;}
   .all-done h2{font-size:20px;font-weight:700;color:var(--leaf);margin-bottom:5px;}
@@ -1068,15 +1529,63 @@ const styles = `
   .tomorrow-section h3{font-size:11px;font-weight:700;color:var(--bark);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;}
 
   /* Repot cards */
-  .repot-card{background:var(--card-bg);border-radius:9px;padding:7px 8px;margin-bottom:4px;box-shadow:var(--shadow);display:flex;align-items:center;gap:7px;transition:opacity .3s,transform .3s;}
-  .repot-card.leaving{opacity:0;transform:translateX(60px) scale(.95);}
+  .repot-card{background:var(--card-bg);border-radius:9px;padding:7px 8px;box-shadow:var(--shadow);display:flex;align-items:center;gap:7px;transition:opacity .18s ease-in,transform .24s cubic-bezier(.4,0,1,1);}
+  .repot-card.leaving{opacity:0;transform:translateX(-108%);}
   .pot-badge{background:var(--sand);padding:2px 7px;border-radius:20px;font-weight:700;font-size:11px;}
   .pot-badge.next{background:var(--leaf-pale);color:var(--leaf);}
 
   /* Modal */
-  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:200;display:flex;align-items:flex-end;justify-content:center;}
+  /* ── Motion ───────────────────────────────────────────────────────────────
+     Entrances decelerate (fast start, gentle settle); exits accelerate away,
+     and are shorter, since a departing element needs less attention. The
+     sheet entrance carries a small overshoot because arriving at a card is a
+     notable moment; routine actions deliberately don't overshoot, since
+     repeated bounce reads as instability rather than polish. Everything is
+     short enough that it never gates the next tap. */
+  @keyframes sheetIn   { from { transform:translateY(100%); } to { transform:translateY(0); } }
+  @keyframes sheetOut  { from { transform:translateY(0); }    to { transform:translateY(100%); } }
+
+  @keyframes veilIn { from { background:rgba(0,0,0,0); } to { background:rgba(0,0,0,.48); } }
+  @keyframes veilOut{ from { background:rgba(0,0,0,.48); } to { background:rgba(0,0,0,0); } }
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:veilIn .26s ease-out both;}
+  .modal-overlay.closing{animation:veilOut .22s ease-in both;}
+  @keyframes sheetFade{ from { opacity:0; } to { opacity:1; } }
+  @keyframes sheetFadeOut{ from { opacity:1; } to { opacity:0; } }
+  .modal-overlay.ghost{background:transparent;animation:none;pointer-events:none;z-index:201;}
+  .modal-overlay.ghost > .modal{animation:sheetFadeOut .19s ease-in both;}
+  .modal-overlay.swap:not(.closing){animation:none;}       /* backdrop is already dark, but must still fade on close */
+  .modal-overlay.swap > .modal{animation:sheetFade .15s ease-out both;}
+  .modal-overlay > .modal{animation:sheetIn .34s cubic-bezier(.16,.84,.44,1) both;}
+  .modal-overlay.closing > .modal{animation:sheetOut .19s cubic-bezier(.4,0,1,1) both;}
+  /* Fade-through swap. Opacity only, never transform: a transformed ancestor
+     becomes the containing block for position:fixed descendants, which would
+     detach the modal overlays rendered inside these screens from the viewport
+     and strand the card below the fold. */
+  @keyframes xfadeOut{from{opacity:1;}to{opacity:0;}}
+  /* Collapses to the element's real height, so the list closes the gap smoothly
+     for the whole duration instead of sitting still and then snapping shut. */
+  .collapse-slot{overflow:hidden;margin-bottom:4px;
+    transition:height .34s cubic-bezier(.22,.61,.36,1),margin-bottom .34s cubic-bezier(.22,.61,.36,1);}
+  .room-hdr-wrap{transition:opacity .18s ease-in,transform .24s cubic-bezier(.4,0,1,1);}
+  .upnext-day{transition:opacity .22s ease-in;}
+  .upnext-day.leaving{opacity:0;}
+  .room-hdr-wrap.leaving{opacity:0;transform:translateX(-108%);}
+  .collapse-slot.leaving > *{margin-top:0;margin-bottom:0;}
+  @keyframes allDoneIn{from{opacity:0;}to{opacity:1;}}
+  .all-done{animation:allDoneIn .34s ease-out .12s both;}   /* waits for the last row to finish collapsing */
+  .xfade{position:relative;}
+  .xfade-out{position:absolute;top:0;left:0;right:0;z-index:1;pointer-events:none;animation:xfadeOut .09s ease-out both;}
+  @media (prefers-reduced-motion: reduce) {
+    .modal-overlay, .modal-overlay > .modal,
+    .modal-overlay.closing, .modal-overlay.closing > .modal { animation:none !important; }
+    .xfade-out { display:none !important; }
+    .header-undo-btn { animation:none !important; }
+    .all-done { animation:none !important; }
+
+    .water-card, .repot-card, .collapse-slot { transition:none !important; }
+  }
   .phone-only{display:none;}
-  .modal{background:var(--page-bg);border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:12px 12px 20px;}
+  .modal{background:var(--page-bg);border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:88vh;max-height:88dvh;overflow-y:auto;padding:12px 12px 20px;box-shadow:0 26px 0 var(--page-bg);}
   @media (max-width:480px){
     .phone-hide{display:none!important;}
     .phone-only{display:block!important;}
@@ -1091,11 +1600,15 @@ const styles = `
     .form-group input[type=date]{font-size:12px;padding:8px 2px;min-width:0;width:100%;box-sizing:border-box;}
   }
   .modal h2{font-size:20px;font-weight:700;margin-bottom:8px;color:var(--leaf);}
+  .clone-btn{display:flex;align-items:center;gap:5px;background:var(--page-bg);border:1.5px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;padding:5px 11px;border-radius:20px;cursor:pointer;flex-shrink:0;white-space:nowrap;}
+  .clone-btn:hover{border-color:var(--border-strong);}
   .dark .modal h2{color:var(--leaf-light);}
   .form-group{margin-bottom:6px;}
   .form-group>label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:3px;font-weight:700;}
   .dark .form-group>label{color:var(--text);}
   .form-group input,.form-group select{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:15px;background:var(--input-bg);color:var(--text);font-weight:600;}
+  .form-group input.field-error{border-color:#e53e3e;background:#fff5f5;color:#7a1a1a;}
+  .dark .form-group input.field-error{background:#3a1d1d;color:#ff9b9b;}
   .form-group input:focus,.form-group select:focus{outline:none;border-color:var(--leaf-light);}
   /* Input with suffix: input shrinks to content width, suffix sits right next to value */
   .input-suffix-wrap{display:flex;align-items:center;justify-content:center;background:var(--input-bg);border:1.5px solid var(--border);border-radius:7px;overflow:hidden;text-align:center;}
@@ -1127,11 +1640,11 @@ const styles = `
 
 
   /* Detail */
-  .detail-modal{background:var(--cream);border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;}
+  .detail-sheet{max-height:96vh;max-height:96dvh;}
+  .detail-modal{background:var(--cream);border-radius:18px 18px 0 0;width:100%;max-width:480px;max-height:92vh;max-height:92dvh;overflow-y:auto;display:flex;flex-direction:column;}
   .detail-header{padding:18px 14px 14px;color:white;position:relative;border-radius:18px 18px 0 0;flex-shrink:0;}
   .detail-back{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.22);border:none;border-radius:50%;width:28px;height:28px;color:white;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;}
-  .close-x-btn{position:absolute;top:8px;left:8px;background:rgba(255,255,255,.22);border:none;border-radius:50%;width:34px;height:34px;color:white;cursor:pointer;padding:0;}
-  .close-x-btn::before{content:"✕";display:block;width:100%;height:100%;line-height:34px;text-align:center;font-size:16px;pointer-events:none;}
+  .close-x-btn{position:absolute;top:8px;left:8px;background:rgba(255,255,255,.22);border:none;border-radius:50%;width:34px;height:34px;color:white;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;}
   .detail-edit{position:absolute;top:12px;right:12px;background:rgba(255,255,255,.22);border:none;border-radius:20px;padding:4px 11px;color:white;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;font-weight:700;}
   .detail-body{padding:12px 12px 28px;}
   .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px;}
@@ -1141,7 +1654,104 @@ const styles = `
 
   /* Photo lightbox */
   .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-  .lightbox img{max-width:95vw;max-height:78vh;object-fit:contain;border-radius:10px;user-select:none;}
+  .lightbox img{max-width:95vw;max-height:78vh;max-height:78dvh;object-fit:contain;border-radius:10px;user-select:none;}
+  /* Zoom stage: clips the scaled image and owns all pointer gestures */
+  .lightbox-stage{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;max-width:95vw;max-height:78vh;max-height:78dvh;border-radius:10px;}
+  .lightbox-stage img{display:block;-webkit-user-drag:none;transform-origin:center center;will-change:transform;}
+  .lightbox-stage.zoomed{cursor:grab;}
+  .lightbox-stage.panning{cursor:grabbing;}
+  /* Capture date shown in the black space above the photo */
+  .lightbox-date{background:none;border:none;color:rgba(255,255,255,.9);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;letter-spacing:.2px;cursor:pointer;padding:6px 14px;border-radius:20px;margin-bottom:10px;transition:background .15s,color .15s;display:flex;align-items:center;gap:6px;}
+  .lightbox-date:hover{background:rgba(255,255,255,.14);color:white;}
+  .lightbox-date.empty{color:rgba(255,255,255,.45);font-weight:500;font-style:italic;}
+  .lightbox-zoom-hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:rgba(255,255,255,.85);font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;pointer-events:none;}
+  /* Calendar field (custom, replaces native input[type=date] for reliable
+     cross-browser click-to-select behavior — Safari's native picker doesn't
+     commit a date until the picker closes, and re-navigates on out-of-month
+     day clicks instead of selecting them) */
+  .cal-field-btn{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:15px;background:var(--input-bg);color:var(--text);font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:6px;text-align:left;}
+  .cal-field-btn.placeholder{color:var(--text-muted);font-weight:500;}
+  .cal-field-btn svg{flex-shrink:0;opacity:.55;}
+  .cal-popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:520;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .cal-popup{background:var(--card-bg);border-radius:14px;padding:14px;width:100%;max-width:300px;box-shadow:0 12px 44px rgba(0,0,0,.42);}
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .cal-nav-btn{background:none;border:none;color:var(--text);cursor:pointer;padding:4px 8px;border-radius:7px;display:flex;align-items:center;justify-content:center;}
+  .cal-nav-btn:hover{background:var(--page-bg);}
+  .cal-nav-title{font-size:14px;font-weight:700;color:var(--text);}
+  .cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px;}
+  .cal-weekdays span{text-align:center;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+  .cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;}
+  .cal-day:hover{background:var(--page-bg);}
+  .cal-day.other-month{color:var(--text-muted);opacity:.5;}
+  .cal-day.today{box-shadow:inset 0 0 0 1.5px var(--leaf);}
+  .cal-day.selected{background:var(--leaf);color:white;}
+  .cal-day.selected:hover{background:var(--leaf);}
+  /* Import preview + warning boxes.
+     These need explicit dark variants: the default --leaf and --bark text
+     colours sit almost on top of --leaf-pale and --sand once dark mode swaps
+     those backgrounds, which left the text all but unreadable. */
+  .imp-summary{background:var(--leaf-pale);border:1.5px solid var(--leaf);border-radius:8px;padding:9px 12px;margin-bottom:10px;}
+  .imp-summary-title{font-size:12px;font-weight:700;color:#1b4d3e;margin-bottom:2px;}
+  .imp-summary-names{font-size:11px;color:#1b4d3e;}
+  .imp-summary-note{font-size:11px;color:var(--text-muted);margin-top:2px;}
+  .dark .imp-summary{background:#0f2419;border-color:#52b788;}
+  .dark .imp-summary-title,.dark .imp-summary-names{color:#8ee0ad;}
+  .imp-warn{background:#fff5f5;border:1.5px solid #e53e3e;border-radius:8px;padding:8px 12px;margin-bottom:10px;max-height:90px;overflow-y:auto;}
+  .imp-warn-title{font-size:11px;font-weight:700;color:#9b1c1c;margin-bottom:3px;}
+  .imp-warn-item{font-size:10px;color:#9b1c1c;line-height:1.45;}
+  .dark .imp-warn{background:#000;border-color:#ff6b6b;}
+  .dark .imp-warn-title,.dark .imp-warn-item{color:#ff9b9b;}
+  .imp-error{font-size:11px;margin-top:8px;line-height:1.5;color:#c53030;}
+  .dark .imp-error{color:#ff9b9b;}
+  /* The native time-input's clock icon renders black by default (a browser
+     built-in, not something we draw), which disappears against a dark input
+     background. Inverting it makes it white in dark mode only. */
+  .dark .notif-time-input::-webkit-calendar-picker-indicator{filter:invert(1);}
+  /* Watering schedule PDF preview thumbnail */
+  .sched-preview{background:var(--page-bg);border:1.5px solid var(--border);border-radius:9px;padding:10px;margin-bottom:12px;display:flex;align-items:center;justify-content:center;height:132px;}
+  /* Confirm dialog */
+  .cfm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;display:flex;align-items:center;justify-content:center;padding:22px;}
+  .cfm-card{background:var(--card-bg);border-radius:14px;padding:18px;width:100%;max-width:340px;box-shadow:0 12px 44px rgba(0,0,0,.42);}
+  .cfm-title{font-size:17px;font-weight:800;color:var(--text);margin-bottom:6px;}
+  .cfm-msg{font-size:13px;color:var(--text-muted);line-height:1.45;margin-bottom:15px;}
+  .cfm-actions{display:flex;flex-direction:column;gap:7px;}
+  .cfm-btn{width:100%;padding:11px 12px;border-radius:9px;border:1.5px solid var(--border);background:var(--page-bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:filter .15s,border-color .15s;}
+  .cfm-btn:hover{border-color:var(--border-strong);}
+  .cfm-btn.grave{background:#4a5568;border-color:#4a5568;color:white;}
+  .cfm-btn.danger{background:#e53e3e;border-color:#e53e3e;color:white;}
+  .cfm-btn.go{background:var(--leaf);border-color:var(--leaf);color:white;}
+  .cfm-btn.grave:hover,.cfm-btn.danger:hover,.cfm-btn.go:hover{filter:brightness(1.08);}
+  .cfm-btn.cancel{background:none;border-color:transparent;color:var(--text-muted);}
+  .cfm-sub{font-size:11px;font-weight:500;opacity:.85;display:block;margin-top:2px;}
+  /* Graveyard / Recently Deleted */
+  .util-row.tappable{cursor:pointer;}
+  .util-chevron{color:var(--text-muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .sublist-back{background:none;border:none;color:white;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;opacity:.9;display:flex;align-items:center;gap:4px;padding:0;margin-bottom:6px;}
+  .sublist-back:hover{opacity:1;}
+  .purge-label{color:#e53e3e;font-size:10px;font-weight:700;letter-spacing:.2px;white-space:nowrap;}
+  .dark .purge-label{color:#ff8080;}
+  .died-pill{padding:3px 11px;border-radius:20px;font-size:12px;font-weight:700;}
+  /* Date picker */
+  .dp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .dp-card{background:var(--card-bg);border-radius:14px;padding:16px;width:100%;max-width:330px;box-shadow:0 10px 40px rgba(0,0,0,.4);}
+  .dp-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px;}
+  .dp-fields{display:flex;gap:8px;}
+  .dp-field{flex:1;display:flex;flex-direction:column;gap:4px;}
+  .dp-field label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);}
+  .dp-field input,.dp-field select{width:100%;padding:8px 8px;border:1.5px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;background:var(--input-bg);color:var(--text);}
+  .dp-field.month{flex:1.5;}
+  /* Scroll wheels (touch) */
+  .dp-wheels{display:flex;gap:8px;position:relative;}
+  .dp-wheel{flex:1;height:150px;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;position:relative;z-index:2;}
+  .dp-wheel::-webkit-scrollbar{display:none;}
+  .dp-wheel.month{flex:1.5;}
+  .dp-wheel-item{height:38px;display:flex;align-items:center;justify-content:center;scroll-snap-align:center;font-size:17px;font-weight:600;color:var(--text-muted);transition:color .15s,transform .15s;}
+  .dp-wheel-item.sel{color:var(--leaf);font-weight:800;transform:scale(1.08);}
+  .dp-wheel-pad{height:56px;}
+  .dp-wheel-mask{position:absolute;left:0;right:0;top:56px;height:38px;border-top:1.5px solid var(--border);border-bottom:1.5px solid var(--border);background:var(--page-bg);opacity:.5;border-radius:7px;pointer-events:none;z-index:1;}
+  .dp-actions{display:flex;gap:8px;margin-top:14px;}
+  .dp-actions .btn{flex:1;}
   .lightbox-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:none;color:white;border-radius:50%;width:34px;height:34px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
   .lightbox-inner{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;}
   .lightbox-arrow{background:rgba(255,255,255,.15);border:none;color:white;border-radius:50%;width:38px;height:38px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -1154,18 +1764,16 @@ const styles = `
 
   /* Photo grid */
   .photo-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;position:relative;user-select:none;}
-  .photo-thumb-wrap{position:relative;width:68px;height:68px;cursor:grab;touch-action:none;border-radius:8px;transition:transform .2s cubic-bezier(.25,.46,.45,.94),opacity .2s,box-shadow .2s;user-select:none;-webkit-user-select:none;}
-  .photo-thumb-wrap.dragging{opacity:.35;transform:scale(.95);}
-  .photo-thumb-wrap.drag-over{transform:scale(1.04);}
+  .photo-thumb-wrap{position:relative;width:68px;height:68px;cursor:pointer;border-radius:8px;transition:transform .15s,box-shadow .15s;user-select:none;-webkit-user-select:none;}
+  .photo-thumb-wrap:hover{transform:scale(1.04);box-shadow:0 2px 10px rgba(0,0,0,.22);}
   .photo-thumb{width:68px;height:68px;object-fit:cover;border-radius:8px;display:block;pointer-events:none;user-select:none;-webkit-user-select:none;}
-  .photo-ghost{position:fixed;pointer-events:none;z-index:9999;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.4);opacity:.92;transform:scale(1.08);transition:none;user-select:none;-webkit-user-select:none;}
-  .photo-primary-star{position:absolute;top:0;left:2px;font-size:15px;line-height:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));pointer-events:none;color:white;}
-  .photo-menu-btn{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.45);border:none;color:white;border-radius:50%;width:17px;height:17px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
+  .photo-primary-star{position:absolute;top:0;left:2px;font-size:20px;line-height:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));pointer-events:none;color:white;}
+  .photo-menu-btn{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.5);border:none;color:white;border-radius:50%;width:22px;height:22px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
   .photo-menu{position:absolute;top:20px;right:2px;background:#2e2018;border-radius:8px;box-shadow:0 3px 12px rgba(0,0,0,.35);z-index:20;display:flex;flex-direction:row;gap:0;overflow:hidden;}
   .photo-menu-action{background:none;border:none;cursor:pointer;padding:7px 10px;display:flex;align-items:center;justify-content:center;transition:background .15s;}
   .photo-menu-action:hover{background:rgba(255,255,255,.12);}
   @media (pointer:coarse) {
-    .photo-menu-btn{width:22px;height:22px;font-size:14px;top:3px;right:3px;}
+    .photo-menu-btn{width:26px;height:26px;font-size:17px;top:3px;right:3px;}
     .photo-menu{border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.5);}
     .photo-menu-action{padding:13px 18px;}
     .photo-menu-action svg{width:20px;height:20px;}
@@ -1174,7 +1782,7 @@ const styles = `
   .photo-add:hover{border-color:var(--leaf-light);color:var(--leaf);}
 
   /* Manage Rooms */
-  .room-list-item{background:var(--card-bg);border-radius:var(--radius);padding:10px 13px;margin-bottom:6px;display:flex;align-items:center;gap:9px;box-shadow:var(--shadow);}
+  .room-list-item{background:var(--card-bg);border-radius:var(--radius);padding:7px 13px;margin-bottom:6px;display:flex;align-items:center;gap:9px;box-shadow:var(--shadow);}
   .room-color-swatch{width:14px;height:14px;border-radius:50%;border:1.5px solid rgba(0,0,0,.15);flex-shrink:0;}
   .color-picker-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px;}
   .color-swatch-btn{width:26px;height:26px;border-radius:50%;border:2.5px solid transparent;cursor:pointer;transition:transform .1s,border-color .1s;flex-shrink:0;}
@@ -1182,9 +1790,14 @@ const styles = `
   .color-swatch-btn.selected{border-color:var(--soil);}
   .color-swatch-none{background:white;border:2px dashed #aaa;position:relative;}
   .color-swatch-none::after{content:"✕";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#aaa;}
-  .room-actions{margin-left:auto;display:flex;gap:3px;}
+  .room-actions{margin-left:auto;display:flex;gap:6px;flex-shrink:0;}
   .icon-btn{background:none;border:none;cursor:pointer;font-size:18px;padding:5px;opacity:.5;transition:opacity .2s;}
   .icon-btn:hover{opacity:1;}
+  .room-action-tile{background:var(--page-bg);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-size:23px;font-weight:700;color:var(--text);width:46px;height:46px;display:flex;align-items:center;justify-content:center;opacity:.85;transition:opacity .15s,background .15s,border-color .15s;flex-shrink:0;}
+  .room-action-tile:hover{opacity:1;border-color:var(--border-strong);}
+  .room-action-tile-danger:hover{opacity:1;border-color:var(--border-strong);}
+  .room-list-item.clickable{cursor:pointer;}
+  .room-list-item.clickable:hover{box-shadow:0 2px 8px rgba(60,30,10,.15);}
   .checkbox-label{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;}
   .checkbox-label input[type=checkbox]{width:14px;height:14px;accent-color:var(--leaf);}
 
@@ -1352,19 +1965,69 @@ function LoginScreen({ onLogin }) {
 // ─── App ──────────────────────────────────────────────────────────────────────
 function App() {
   const [screen,  setScreen]  = useState("home");
+  const [utilsSub, setUtilsSub] = useState(null); // "graveyard" | "deleted" | null, lifted so Nav can reset it
   const [rooms,   setRooms]   = useState(null);
   const [plants,  setPlants]  = useState(null);
   const [loaded,  setLoaded]  = useState(false);
   const [todayDate, setTodayDate] = useState(fmt(getToday()));
+
+  // ── Cross-screen undo for Water/Repot actions ──
+  // A shared stack rather than one per screen, since undoing needs to be able
+  // to jump between Water and Repot: undo always reverts whatever the most
+  // recent action was, switching screens first if that action happened on
+  // the other one.
+  const [undoStack, setUndoStack] = useState([]); // [{id, screen, plantId, revert, ts}]
+  useEffect(() => { setUndoStack(s => s.filter(a => a.ts === todayDate)); }, [todayDate]);
+  function pushUndo(actionScreen, plantId, revert) {
+    setUndoStack(s => [...s, { id: uid(), screen: actionScreen, plantId, revert, ts: todayDate }]);
+  }
+  function performUndo() {
+    if (!undoStack.length) return;
+    const top = undoStack[undoStack.length - 1];
+    setPlants(ps => ps.map(p => p.id === top.plantId ? { ...p, ...top.revert } : p));
+    if (top.screen !== screen) { setScreen(top.screen); navCaptureScroll(); }
+    setUndoStack(s => s.slice(0, -1));
+  }
+  const canUndo = undoStack.length > 0;
   const [showImport, setShowImport] = useState(false);
   const [importTab,  setImportTab]  = useState("xls");
+  const [showExport, setShowExport] = useState(false);
+  const [exportTab,  setExportTab]  = useState("xls");
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
   const [xlsPreview, setXlsPreview] = useState(null);
   const [xlsLoading, setXlsLoading] = useState(false);
+  const [jsonPreview, setJsonPreview] = useState(null);
   const [xlsxReady,  setXlsxReady]  = useState(!!window.XLSX);
-  const [darkMode,   setDarkMode]   = useState(false);
+  const [excelJsReady, setExcelJsReady] = useState(!!window.ExcelJS);
+  const [jsPdfReady, setJsPdfReady] = useState(!!(window.jspdf && window.jspdf.jsPDF));
+  const [showSchedule, setShowSchedule] = useState(false);
+  // Lets the Utilities sheets animate out before they unmount, the same way
+  // the plant cards do.
+  const [closingSheet, setClosingSheet] = useState(null);
+  const sheetTimer = useRef(null);
+  useEffect(() => () => clearTimeout(sheetTimer.current), []);
+  function dismissSheet(name, done) {
+    if (closingSheet) return;
+    setClosingSheet(name);
+    clearTimeout(sheetTimer.current);
+    sheetTimer.current = setTimeout(() => { setClosingSheet(null); done(); }, SHEET_EXIT_MS);
+  }
+  const [schedFrom, setSchedFrom] = useState("");
+  const [schedTo,   setSchedTo]   = useState("");
+  const [schedBusy, setSchedBusy] = useState(false);
+  const [schedError, setSchedError] = useState("");
+  const [darkMode,   setDarkMode]   = useState(true);
   const [showCardPhotos, setShowCardPhotos] = useState(true);
+  // Notification preferences — stored locally only, not synced to Supabase.
+  // An actual push subscription is tied to one specific device/browser
+  // install anyway, so a per-device preference is the right model even once
+  // delivery is wired up; it also means this ships without needing a
+  // database migration on the settings table.
+  const [notifWaterEnabled, setNotifWaterEnabled] = useState(false);
+  const [notifWaterTime,    setNotifWaterTime]    = useState("08:00");
+  const [notifRepotEnabled, setNotifRepotEnabled] = useState(false);
+  const [notifRepotTime,    setNotifRepotTime]    = useState("08:00");
 
   // Auth state
   const [user,       setUser]       = useState(null);
@@ -1372,8 +2035,12 @@ function App() {
   const [syncStatus, setSyncStatus] = useState(""); // "", "saving", "saved", "error"
 
   const importRef = useRef();
-  const xlsRef    = useRef();
-  const syncTimer = useRef(null);
+  // Separate timer + pending-write slot per resource (rooms vs plants).
+  // A single shared timer here was a real bug: watering a plant right after
+  // any room change would clearTimeout() the room save before it ever fired,
+  // silently dropping it with no error.
+  const syncTimers    = useRef({});
+  const pendingSyncFns = useRef({});
 
   // ── Init Supabase + listen for auth changes ──
   useEffect(() => {
@@ -1398,6 +2065,14 @@ function App() {
         const scp = await loadData("pt_showcardphotos");
         if (dm  !== null) setDarkMode(dm);
         if (scp !== null) setShowCardPhotos(scp);
+        const nwe = await loadData("pt_notif_water_enabled");
+        const nwt = await loadData("pt_notif_water_time");
+        const nre = await loadData("pt_notif_repot_enabled");
+        const nrt = await loadData("pt_notif_repot_time");
+        if (nwe !== null) setNotifWaterEnabled(nwe);
+        if (nwt !== null) setNotifWaterTime(nwt);
+        if (nre !== null) setNotifRepotEnabled(nre);
+        if (nrt !== null) setNotifRepotTime(nrt);
 
         if (!PREVIEW_MODE && user) {
           // Logged in — load from Supabase
@@ -1469,6 +2144,23 @@ function App() {
     return () => clearInterval(id);
   }, []);
 
+  // ── Plant status: only active plants appear in Home / Water / Repot ──
+  // plants is null until the initial load finishes, so guard for that.
+  const livePlants = plants ? plants.filter(isActivePlant) : null;
+
+  // ── Purge Recently Deleted plants past their 30 day window ──
+  useEffect(() => {
+    if (!plants) return;
+    const expired = plants.filter(p => p.status === "deleted" && daysUntilPurge(p) <= 0);
+    if (!expired.length) return;
+    expired.forEach(p => {
+      deletePhotos(p.id);
+      if (!PREVIEW_MODE && user) { sbDeletePlantPhotos(user.id, p.id); sbDeletePlant(user.id, p.id); }
+    });
+    const gone = new Set(expired.map(p => p.id));
+    setPlants(ps => ps.filter(p => !gone.has(p.id)));
+  }, [todayDate, plants ? plants.length : 0]);
+
   // ── XLSX loader ──
   useEffect(() => {
     if (window.XLSX) { setXlsxReady(true); return; }
@@ -1478,15 +2170,71 @@ function App() {
     document.head.appendChild(s);
   }, []);
 
+  // ── jsPDF loader ──
+  // Only needed for the watering schedule export, so it's loaded the same
+  // lazy way as the spreadsheet libraries rather than bundled up front.
+  useEffect(() => {
+    if (window.jspdf && window.jspdf.jsPDF) { setJsPdfReady(true); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.3/jspdf.umd.min.js";
+    s.onload = () => setJsPdfReady(true);
+    document.head.appendChild(s);
+  }, []);
+
+  // ── ExcelJS loader ──
+  // Used only for WRITING styled workbooks (the Export and Template
+  // downloads) — the free/community build of SheetJS (xlsx.full.min.js
+  // above) silently drops cell styling (.s) on write, so it can't produce
+  // colored headers or bold text. Reading uploaded files still goes through
+  // SheetJS, unchanged; ExcelJS output is cross-compatible with it.
+  useEffect(() => {
+    if (window.ExcelJS) { setExcelJsReady(true); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
+    s.onload = () => setExcelJsReady(true);
+    document.head.appendChild(s);
+  }, []);
+
   // ── Debounced cloud sync helper ──
-  function triggerSync(fn) {
-    if (syncTimer.current) clearTimeout(syncTimer.current);
+  // Debouncing avoids firing a Supabase write on every single tap when
+  // checking off several plants in a row — but a plain setTimeout can be
+  // silently dropped if the tab closes, the app is backgrounded, or the
+  // phone locks before it fires. That's a real data-loss window: watering
+  // the last plant and immediately switching away loses that write, and on
+  // next load the stale cloud copy overwrites it, so it reappears as due.
+  // The visibilitychange/pagehide listeners below flush any pending write
+  // the instant the page starts to disappear, closing that window.
+  function triggerSync(key, fn) {
+    if (syncTimers.current[key]) clearTimeout(syncTimers.current[key]);
+    pendingSyncFns.current[key] = fn;
     setSyncStatus("saving");
-    syncTimer.current = setTimeout(async () => {
+    syncTimers.current[key] = setTimeout(async () => {
+      pendingSyncFns.current[key] = null;
       try { await fn(); setSyncStatus("saved"); setTimeout(()=>setSyncStatus(""),2000); }
       catch { setSyncStatus("error"); }
     }, 1200);
   }
+
+  useEffect(() => {
+    function flushPendingSyncs() {
+      Object.keys(pendingSyncFns.current).forEach(key => {
+        const fn = pendingSyncFns.current[key];
+        if (!fn) return;
+        if (syncTimers.current[key]) clearTimeout(syncTimers.current[key]);
+        pendingSyncFns.current[key] = null;
+        fn().catch(()=>{});   // page may be closing — fire and forget
+      });
+    }
+    function onVisibilityChange() { if (document.hidden) flushPendingSyncs(); }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", flushPendingSyncs);
+    window.addEventListener("beforeunload", flushPendingSyncs);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", flushPendingSyncs);
+      window.removeEventListener("beforeunload", flushPendingSyncs);
+    };
+  }, []);
 
   // ── Save rooms (local + cloud) ──
   const saveReady = useRef(false);
@@ -1495,7 +2243,7 @@ function App() {
     if (!saveReady.current) { saveReady.current = true; return; }
     if (!rooms) return;
     saveData("pt_rooms", rooms);
-    if (!PREVIEW_MODE && user) triggerSync(() => sbSaveRooms(user.id, rooms));
+    if (!PREVIEW_MODE && user) triggerSync("rooms", () => sbSaveRooms(user.id, rooms));
   }, [rooms, loaded]);
 
   // ── Save plants (local + cloud) ──
@@ -1528,7 +2276,7 @@ function App() {
     }
     const stripped = plants.map(p => ({...p, photos: [], primaryPhoto: null}));
     saveData("pt_plants", stripped);
-    if (!PREVIEW_MODE && user) triggerSync(() => sbSavePlants(user.id, plants));
+    if (!PREVIEW_MODE && user) triggerSync("plants", () => sbSavePlants(user.id, plants));
   }, [plants, loaded]);
 
   // ── Save settings ──
@@ -1545,6 +2293,10 @@ function App() {
     saveData("pt_showcardphotos", showCardPhotos);
     if (!PREVIEW_MODE && user) sbSaveSettings(user.id, { dark_mode: darkMode, show_photos: showCardPhotos });
   }, [showCardPhotos, loaded]);
+  useEffect(() => { if (loaded) saveData("pt_notif_water_enabled", notifWaterEnabled); }, [notifWaterEnabled, loaded]);
+  useEffect(() => { if (loaded) saveData("pt_notif_water_time", notifWaterTime); }, [notifWaterTime, loaded]);
+  useEffect(() => { if (loaded) saveData("pt_notif_repot_enabled", notifRepotEnabled); }, [notifRepotEnabled, loaded]);
+  useEffect(() => { if (loaded) saveData("pt_notif_repot_time", notifRepotTime); }, [notifRepotTime, loaded]);
 
   // ── Sign out ──
   async function handleSignOut() {
@@ -1579,51 +2331,361 @@ function App() {
     }
   }
 
+  // Dotted M.D.YY used in the schedule filename, e.g. 8.1.26
+  function fmtDotDate(dateStr) {
+    const m = String(dateStr || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return "";
+    return `${Number(m[2])}.${Number(m[3])}.${m[1].slice(2)}`;
+  }
+
+  function fmtFileDate(d) {
+    const o = d instanceof Date ? d : new Date(d);
+    return `${o.getMonth()+1}-${o.getDate()}-${String(o.getFullYear()).slice(2)}`;
+  }
+
   function exportData() {
     const payload = JSON.stringify({ rooms, plants }, null, 2);
     const b64 = btoa(unescape(encodeURIComponent(payload)));
     const a = document.createElement("a");
     a.href = "data:application/json;base64," + b64;
-    a.download = `plantalog-backup-${fmt(getToday())}.json`;
+    a.download = `Plantalog Backup ${fmtFileDate(getToday())}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   }
 
-  async function importData() {
+  // ── XLSX layout & styling ────────────────────────────────────────────────
+  // These constants are a direct transcription of Matt's reference workbook
+  // (Plantalog_XLS_Template.xlsx) — every colour, font size, width, height and
+  // hint string below was read out of that file rather than approximated, so
+  // the Export and the blank Import Template render identically to it.
+  const XLS_HEADERS = ["ID","Plant Name","Room #","Health","Date Obtained",
+    "Water Every","Last Watered","Date Potted","Original Pot",
+    "Keep In Pot\nYears","Keep In Pot\nMonths","Pot Size","Next Pot","Notes"];
+  const XLS_HINTS = ["Leave blank\nfor new plant","Your plant's full name",
+    "Where your plant\nlives (see Rooms tab)","1=Dying 2=Caution\n3=Good 4=Thriving","MM/DD/YY",
+    "Days between\nwaterings","MM/DD/YY","MM/DD/YY","X = Yes\nBlank = No",
+    "Whole years","0–11 months","Inches","Inches","Additional notations about your plant"];
+  // [startCol, endCol, label, headerFill, hintFill] — 0-indexed, inclusive.
+  // The OTHER band's greys are Excel's "Text 1 lighter 25%" (#404040) and
+  // "Background 1 darker 15%" (#D9D9D9), resolved from the theme colours the
+  // reference file stores them as.
+  const XLS_GROUPS = [
+    [0, 4,  "PLANT INFO", "FF2D6A4F", "FFD8F3DC"],
+    [5, 6,  "WATERING",   "FF1B4D3E", "FFC8E6D8"],
+    [7, 12, "POTTING",    "FF6B4226", "FFEFE0D5"],
+    [13,13, "OTHER",      "FF404040", "FFD9D9D9"],
+  ];
+  const XLS_COL_WIDTHS = [9.83203125, 28, 16.6640625, 14.6640625, 13.33203125,
+    10.6640625, 10.6640625, 10.6640625, 10.6640625, 10.6640625, 10.6640625,
+    10.6640625, 10.6640625, 52.5];
+  const XLS_SPACER_WIDTH = 8.83203125;   // column O
+  // Blank rows of spacer kept below the data so there's room to type new
+  // plants in. The reference workbook fills column O for all 1,048,576 rows,
+  // which is why it weighs 5.5 MB — replicating that would make every export
+  // enormous and take ~30s to build in the browser, so it's bounded here.
+  // Visually identical: the spacer only matters on rows that hold text.
+  const XLS_SPACER_SPARE_ROWS = 300;
+  const XLS_ROOMS_SPARE_ROWS = 100;      // blank Rooms rows kept ready to type into
+  const XLS_ROW_HEIGHTS = { 1:14, 2:42, 3:35 };
+  const XLS_REQUIRED_COLS = [1,2,3,4,5,6,7,9,10,11,12]; // all but ID(0), Original Pot(8), Notes(13)
+  const XLS_REQUIRED_LABELS = { 1:"Plant Name",2:"Room #",3:"Health",4:"Date Obtained",
+    5:"Water Every",6:"Last Watered",7:"Date Potted",9:"Keep In Pot Years",
+    10:"Keep In Pot Months",11:"Pot Size",12:"Next Pot" };
+  const XLS_DATE_COLS = [4,6,7];         // Date Obtained, Last Watered, Date Potted
+  const XLS_DATE_FORMAT = "m/d/yy";      // no leading zeros, e.g. 7/1/23 and 12/23/25
+  const XLS_HEALTH_BY_LABEL = {dying:1,caution:2,good:3,thriving:4};
+  const XLS_HINT_TEXT = "FF555555";
+  const XLS_ROOM_HINT_TEXT = "FF777777";
+  const XLS_LINE = { style:"thin", color:{argb:"FFCCCCCC"} };
+  const XLS_BOX = { top:XLS_LINE, bottom:XLS_LINE, left:XLS_LINE, right:XLS_LINE };
+  function isBlankCell(v) { return v===undefined || v===null || String(v).trim()===""; }
+  function xlsFill(argb) { return { type:"pattern", pattern:"solid", fgColor:{argb} }; }
+
+  // Header rows are centre-aligned and data rows left-aligned, matching the
+  // reference; everything is vertically centred. Note ExcelJS spells vertical
+  // centring "middle" — "center" is silently dropped on write.
+  function styleXlsPlantsSheet(ws, dataRows) {
+    Object.keys(XLS_ROW_HEIGHTS).forEach(r => { ws.getRow(Number(r)).height = XLS_ROW_HEIGHTS[r]; });
+
+    // Data-entry cells default to left / vertically-centred, so anything typed
+    // in below the headers matches the alignment of exported rows. Set at
+    // column level first (which covers the whole sheet, however far down you
+    // scroll); the header rows below re-assert their own centring on top of it.
+    for (let c = 1; c <= XLS_HEADERS.length; c++) {
+      ws.getColumn(c).alignment = { horizontal:"left", vertical:"middle" };
+    }
+
+    XLS_GROUPS.forEach(([startCol, endCol, label, headerFill]) => {
+      if (startCol !== endCol) {
+        ws.mergeCells(`${ws.getColumn(startCol+1).letter}1:${ws.getColumn(endCol+1).letter}1`);
+      }
+      for (let c = startCol; c <= endCol; c++) {
+        const cell = ws.getCell(1, c+1);
+        if (c === startCol) cell.value = label;
+        cell.font = { name:"Arial", size:11, bold:true, color:{argb:"FFFFFFFF"} };
+        cell.fill = xlsFill(headerFill);
+        cell.alignment = { horizontal:"center", vertical:"middle" };
+        cell.border = { bottom:XLS_LINE };
+      }
+    });
+
+    XLS_HEADERS.forEach((header, i) => {
+      const col = i + 1;
+      const [, , , headerFill, hintFill] = XLS_GROUPS.find(g => i >= g[0] && i <= g[1]);
+
+      const headerCell = ws.getCell(2, col);
+      headerCell.value = header;
+      headerCell.font = { name:"Arial", size:10, bold:true, color:{argb:"FFFFFFFF"} };
+      headerCell.fill = xlsFill(headerFill);
+      headerCell.alignment = { horizontal:"center", vertical:"middle", wrapText:true };
+      headerCell.border = XLS_BOX;
+
+      const hintCell = ws.getCell(3, col);
+      hintCell.value = XLS_HINTS[i];
+      hintCell.font = { name:"Arial", size:9, italic:true, color:{argb:XLS_HINT_TEXT} };
+      hintCell.fill = xlsFill(hintFill);
+      hintCell.alignment = { horizontal:"center", vertical:"middle", wrapText:true };
+      hintCell.border = XLS_BOX;
+
+      ws.getColumn(col).width = XLS_COL_WIDTHS[i];
+    });
+
+    dataRows.forEach((row, r) => {
+      const rowNum = 4 + r;
+      ws.getRow(rowNum).values = row;
+      for (let c = 1; c <= XLS_HEADERS.length; c++) {
+        const cell = ws.getCell(rowNum, c);
+        cell.font = { name:"Arial", size:10 };
+        cell.alignment = { horizontal:"left", vertical:"middle" };
+        cell.border = XLS_BOX;
+        if (XLS_DATE_COLS.includes(c - 1)) cell.numFmt = XLS_DATE_FORMAT;
+      }
+    });
+
+    // Column O holds a single space on every row. Excel lets long text spill
+    // into a genuinely empty neighbour, which makes Notes look like it bleeds
+    // past its column; a space makes the cell non-empty so it never does,
+    // while still appearing blank.
+    const spacerCol = XLS_HEADERS.length + 1;
+    ws.getColumn(spacerCol).width = XLS_SPACER_WIDTH;
+    const lastSpacer = dataRows.length + 3 + XLS_SPACER_SPARE_ROWS;
+    for (let r = 4; r <= lastSpacer; r++) ws.getCell(r, spacerCol).value = " ";
+
+    // The column-level default above is inherited rather than stored on each
+    // cell, so selecting an empty cell in Excel shows no alignment chosen.
+    // Writing it explicitly across the working rows makes it actually set.
+    for (let r = 4 + dataRows.length; r <= lastSpacer; r++) {
+      for (let c = 1; c <= XLS_HEADERS.length; c++) {
+        ws.getCell(r, c).alignment = { horizontal:"left", vertical:"middle" };
+      }
+    }
+
+    ws.views = [{ state:"frozen", ySplit:3 }];
+  }
+
+  function styleXlsRoomsSheet(ws, { blank, rooms: roomList }) {
+    // Same treatment as the Plants sheet: left / vertically-centred by default
+    // for anything typed in below the header, set at column level first so the
+    // header row can re-assert its own centring on top.
+    [1,2].forEach(c => { ws.getColumn(c).alignment = { horizontal:"left", vertical:"middle" }; });
+
+    ["Room #","Room Name"].forEach((header, i) => {
+      const cell = ws.getCell(1, i+1);
+      cell.value = header;
+      cell.font = { name:"Arial", size:10, bold:true, color:{argb:"FFFFFFFF"} };
+      cell.fill = xlsFill("FF2D6A4F");
+      cell.alignment = { horizontal:"center", vertical:"middle" };
+      cell.border = XLS_BOX;
+    });
+    ws.getColumn(1).width = 12;
+    ws.getColumn(2).width = 28;
+
+    if (blank) {
+      ws.getRow(2).height = 24;
+      ["Use this # in the Plants tab","Your room names appear here"].forEach((hint, i) => {
+        const cell = ws.getCell(2, i+1);
+        cell.value = hint;
+        cell.font = { name:"Arial", size:9, italic:true, color:{argb:XLS_ROOM_HINT_TEXT} };
+        cell.fill = xlsFill("FFD8F3DC");
+        cell.alignment = { horizontal:"center", vertical:"middle", wrapText:true };
+        cell.border = XLS_BOX;
+      });
+    } else {
+      roomList.forEach((room, i) => {
+        const rowNum = 2 + i;
+        ws.getCell(rowNum, 1).value = room.order;
+        ws.getCell(rowNum, 2).value = room.name;
+        [1,2].forEach(c => {
+          const cell = ws.getCell(rowNum, c);
+          cell.font = { name:"Arial", size:10 };
+          cell.alignment = { horizontal:"left", vertical:"middle" };
+          cell.border = XLS_BOX;
+        });
+      });
+    }
+
+    // Column-level alignment is inherited rather than stored per cell, so an
+    // empty cell would show nothing selected in Excel. Write it explicitly
+    // across the rows below the content so it is actually set.
+    const firstEmpty = blank ? 3 : 2 + roomList.length;
+    for (let r = firstEmpty; r < firstEmpty + XLS_ROOMS_SPARE_ROWS; r++) {
+      [1,2].forEach(c => { ws.getCell(r, c).alignment = { horizontal:"left", vertical:"middle" }; });
+    }
+  }
+
+  // One download mechanism for every generated file. Kept separate from any
+  // library's own save() helper, since this path is already proven to work
+  // in this app (it's what the spreadsheet exports use).
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  async function downloadXlsWorkbook(plantRows, roomsConfig, filename) {
+    const ExcelJS = window.ExcelJS;
+    if (!ExcelJS) return;
+    const wb = new ExcelJS.Workbook();
+    styleXlsPlantsSheet(wb.addWorksheet("Plants"), plantRows);
+    styleXlsRoomsSheet(wb.addWorksheet("Rooms"), roomsConfig);
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportXlsx() {
+    const roomById = {}; (rooms||[]).forEach(r => { roomById[r.id] = r; });
+    const toDate = s => s ? new Date(String(s).slice(0,10)+"T12:00:00") : "";
+    const dataRows = (plants||[]).filter(isActivePlant).map(p => {
+      const room = roomById[p.roomId];
+      return [
+        p.id, p.name, room ? room.order : "",
+        p.health,
+        toDate(p.obtainedDate), p.waterFreqDays, toDate(p.lastWatered), toDate(p.pottedDate),
+        p.originalPot ? "X" : "",
+        p.potYears, p.potMonths, p.currentPotSize, p.nextPotSize,
+        p.notes || "",
+      ];
+    });
+    const sortedRooms = [...(rooms||[])].sort((a,b) => (a.order??0)-(b.order??0));
+    return downloadXlsWorkbook(dataRows, { blank:false, rooms:sortedRooms }, `Plantalog Export ${fmtFileDate(getToday())}.xlsx`);
+  }
+
+  // Range must be complete, in order, and within the 90-day cap. The cap keeps
+  // the PDF (and the image loading behind it) from ballooning by accident.
+  const schedRangeDays = (schedFrom && schedTo) ? rangeLengthDays(schedFrom, schedTo) : 0;
+  const schedRangeValid = !!(schedFrom && schedTo && schedRangeDays >= 1 && schedRangeDays <= WATER_PDF_MAX_DAYS);
+  const schedRangeMessage =
+    (!schedFrom || !schedTo) ? "" :
+    schedRangeDays < 1 ? "The To date needs to be on or after the From date." :
+    schedRangeDays > WATER_PDF_MAX_DAYS ? `That's ${schedRangeDays} days. Please choose a range of ${WATER_PDF_MAX_DAYS} days or fewer.` :
+    `${schedRangeDays} day${schedRangeDays===1?"":"s"}`;
+
+  async function createSchedulePdf() {
+    if (!schedRangeValid) return;
+    setSchedBusy(true); setSchedError("");
+    try {
+      const doc = await generateWateringPdf({ plants, rooms, from:schedFrom, to:schedTo });
+      downloadBlob(doc.output("blob"), `OOT Water Schedule ${fmtDotDate(schedFrom)} - ${fmtDotDate(schedTo)}.pdf`);
+      setShowSchedule(false);
+    } catch (err) {
+      setSchedError(err.message || "Could not create the PDF. Please try again.");
+    } finally {
+      setSchedBusy(false);
+    }
+  }
+
+  // Blank template for new imports — identical layout and styling to the real
+  // export, just with no plant rows. The Rooms tab lists the person's actual
+  // rooms (sorted by number) so they can see which Room # to put against each
+  // plant; it falls back to the instructional placeholder only when there are
+  // no rooms yet, which is the case the placeholder was written for.
+  function exportXlsTemplate() {
+    const sortedRooms = [...(rooms||[])].sort((a,b) => (a.order??0)-(b.order??0));
+    return downloadXlsWorkbook([], { blank: sortedRooms.length === 0, rooms: sortedRooms },
+      "Plantalog Import Template.xlsx");
+  }
+
+  function checkJsonImport() {
+    setImportError(""); setJsonPreview(null);
     try {
       const data = JSON.parse(importText);
-      if (!Array.isArray(data.rooms) || !Array.isArray(data.plants)) throw new Error();
-      setRooms(data.rooms);
-      setPlants(data.plants);
-      if (!PREVIEW_MODE && user) {
-        sbSaveRooms(user.id, data.rooms);
-        sbSavePlants(user.id, data.plants);
-        // Upload any base64 photos in the import to Supabase Storage
-        migratePhotosToSupabase(user.id, data.plants, setPlants);
-      } else {
-        data.plants.forEach(p => {
-          if (p.photos && p.photos.length > 0) savePhotos(p.id, p.photos, p.primaryPhoto);
-        });
+      if (!Array.isArray(data.rooms) || !Array.isArray(data.plants)) throw new Error("Invalid backup file. Please select a Plantalog backup JSON file.");
+
+      // Same rule as Excel: an ID used on more than one plant almost always
+      // means the file was hand-edited or duplicated by mistake. Rather than
+      // guess which one was intended, reject the whole import.
+      const idCounts = {};
+      data.plants.forEach(p => { const id = String(p.id||"").trim(); if (id) idCounts[id] = (idCounts[id]||0) + 1; });
+      const duplicateIds = Object.keys(idCounts).filter(id => idCounts[id] > 1);
+      if (duplicateIds.length) {
+        throw new Error(`Import rejected: this backup contains the same plant ID more than once (${duplicateIds.join(", ")}). Each plant needs a unique ID, so this file can't be safely imported as-is.`);
       }
-      closeImport();
-    } catch { setImportError("Invalid backup file. Please paste the full contents of a Plantalog backup JSON."); }
+
+      const existingById = {}; (plants||[]).forEach(p => { existingById[p.id] = p; });
+      const toAdd = [], toUpdate = [];
+      data.plants.forEach(p => {
+        const id = String(p.id||"").trim();
+        const existing = id ? existingById[id] : null;
+        if (existing) {
+          const changed = Object.keys(p).some(k => JSON.stringify(existing[k]) !== JSON.stringify(p[k]));
+          toUpdate.push({ id, name: p.name, fields: p, changed });
+        } else {
+          toAdd.push(id ? p : { ...p, id: uid() });
+        }
+      });
+
+      setJsonPreview({ toAdd, toUpdate, warnings: [], rooms: data.rooms });
+    } catch (err) {
+      setImportError(err.message || "Invalid backup file. Please select a Plantalog backup JSON file.");
+    }
+  }
+
+  function confirmJsonImport() {
+    const { toAdd, toUpdate, rooms: incomingRooms } = jsonPreview;
+    const updateMap = {};
+    toUpdate.forEach(u => { if (u.changed) updateMap[u.id] = u.fields; });
+
+    // Rooms: merge by ID the same way plants do, rather than a blind
+    // replace, so existing room references stay valid.
+    const roomById = {}; (rooms||[]).forEach(r => { roomById[r.id] = true; });
+    const mergedRooms = [
+      ...(rooms||[]).map(r => incomingRooms.find(ir => ir.id === r.id) || r),
+      ...incomingRooms.filter(ir => !roomById[ir.id]),
+    ];
+
+    const mergedPlants = [
+      ...(plants||[]).map(p => updateMap[p.id] ? { ...p, ...updateMap[p.id] } : p),
+      ...toAdd,
+    ];
+
+    setRooms(mergedRooms);
+    setPlants(mergedPlants);
+    if (!PREVIEW_MODE && user) {
+      sbSaveRooms(user.id, mergedRooms);
+      sbSavePlants(user.id, mergedPlants);
+      migratePhotosToSupabase(user.id, mergedPlants, setPlants);
+    } else {
+      mergedPlants.forEach(p => {
+        if (p.photos && p.photos.length > 0) savePhotos(p.id, p.photos, p.primaryPhoto);
+      });
+    }
+    closeImport();
   }
 
   function closeImport() {
     setShowImport(false); setImportTab("xls"); setImportText(""); setImportError("");
-    setXlsPreview(null); setXlsLoading(false);
+    setXlsPreview(null); setXlsLoading(false); setJsonPreview(null);
   }
 
-  function downloadTemplate() {
-    const b64 = "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";
-    const a = document.createElement("a");
-    a.href = "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + b64;
-    a.download = "plantalog_import_template.xlsx";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
+
 
   function parseDate(val) {
     if (!val) return fmt(getToday());
@@ -1645,62 +2707,121 @@ function App() {
     const reader = new FileReader();
     reader.onload = ev => {
       try {
-        const wb   = XLSX.read(ev.target.result, { type: "array", cellDates: false });
+        let wb;
+        try {
+          wb = XLSX.read(ev.target.result, { type: "array", cellDates: false });
+        } catch (readErr) {
+          throw new Error("That file isn't a spreadsheet. Pick the .xlsx file you downloaded from Plantalog (Export, or the blank Import template).");
+        }
+        if (!wb || !wb.SheetNames || !wb.SheetNames.length) {
+          throw new Error("That spreadsheet has no sheets in it. Pick the .xlsx file you downloaded from Plantalog.");
+        }
         const ws   = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
-        // Find header row: the row where col A is exactly "Plant Name"
+        // Find header row: the row where col A is exactly "ID"
         let headerRow = -1;
         for (let i = 0; i < Math.min(rows.length, 6); i++) {
-          if (String(rows[i][0]).trim().toLowerCase() === "plant name") { headerRow = i; break; }
+          if (String(rows[i][0]).trim().toLowerCase() === "id") { headerRow = i; break; }
         }
-        if (headerRow < 0) throw new Error("Could not find header row. Make sure column A header is 'Plant Name'.");
+        // SheetJS will happily parse almost anything into a sheet, so a file
+        // that isn't a Plantalog workbook lands here rather than throwing
+        // above — this covers both "wrong file entirely" and "spreadsheet in
+        // the wrong layout".
+        if (headerRow < 0) throw new Error("This doesn't look like a Plantalog spreadsheet. Pick the .xlsx file you downloaded from Plantalog, either an Export or the blank Import template. Its header row should start with 'ID' in column A.");
 
-        // Template structure: row after headers is hints/descriptions — skip it too
-        // Data starts at headerRow + 2
-        // Read rooms sheet — but primary mapping is always from app's own rooms by order
-        const roomMap = {}; // order → room id
+        const roomMap = {}; // room # (order) → room id
         rooms.forEach(r => { roomMap[r.order] = r.id; });
-        // Do NOT override with sheet name-matching — it can produce wrong mappings
+
+        function parseHealth(v) {
+          const s = String(v||"").trim().toLowerCase();
+          if (XLS_HEALTH_BY_LABEL[s]) return XLS_HEALTH_BY_LABEL[s];
+          return Math.min(4, Math.max(1, Number(v)||3));
+        }
+
+        const existingById = {}; plants.forEach(p => { existingById[p.id] = p; });
+
+        // Gather every named row first — before deciding add vs. update — so
+        // we can catch a duplicate ID across the WHOLE sheet up front. A
+        // duplicate almost always means an accidental copy-paste while
+        // editing, and silently keeping "whichever row came last" could
+        // quietly discard real edits, so the whole import is rejected
+        // instead rather than guessing which row the person meant.
+        const parsedRows = [];
+        rows.slice(headerRow + 2).forEach((row, i) => {
+          const name = String(row[1]||"").trim();
+          if (!name) return; // skip empty rows
+          parsedRows.push({ row, rowNum: headerRow + 3 + i, name, idCell: String(row[0]||"").trim() });
+        });
+
+        const idRowNums = {};
+        parsedRows.forEach(r => { if (r.idCell) (idRowNums[r.idCell] ||= []).push(r.rowNum); });
+        const duplicateIds = Object.keys(idRowNums).filter(id => idRowNums[id].length > 1);
+        if (duplicateIds.length) {
+          const detail = duplicateIds.map(id => `ID "${id}" appears on rows ${idRowNums[id].join(", ")}`).join("; ");
+          throw new Error(`Import rejected: the same plant ID appears more than once. ${detail}. Each row must have its own unique ID. Fix the spreadsheet and try again.`);
+        }
+
+        // Every field is required except ID, Original Pot, and Notes — a
+        // row missing anything else almost always means a typo or a
+        // half-filled row, so (like duplicate IDs) the whole import is
+        // rejected up front rather than silently guessing a default.
+        // Labels come from the shared constant so the error text always
+        // matches the column headings the person is actually looking at.
+        const missingByRow = [];
+        parsedRows.forEach(({ row, rowNum }) => {
+          const missing = XLS_REQUIRED_COLS.filter(idx => isBlankCell(row[idx]));
+          if (missing.length) missingByRow.push(`Row ${rowNum}: missing ${missing.map(idx=>XLS_REQUIRED_LABELS[idx]).join(", ")}`);
+        });
+        if (missingByRow.length) {
+          const shown = missingByRow.slice(0,6).join("; ");
+          const more = missingByRow.length > 6 ? ` (+${missingByRow.length-6} more row${missingByRow.length-6!==1?"s":""})` : "";
+          throw new Error(`Import rejected: some required fields are missing. ${shown}${more}. Only ID, Original Pot, and Notes may be left blank.`);
+        }
 
         const warnings = [];
-        const newPlants = [];
+        const toAdd = [];
+        const toUpdate = []; // { id, name, fields, changed }
 
-        // headerRow=1 (0-indexed): row 0=section labels, row 1=col headers, row 2=hints → data starts at headerRow+2
-        // But template has: row 0=section labels, row 1=headers, row 2=hints → skip 2 rows after header row
-        rows.slice(headerRow + 2).forEach((row, i) => {
-          const name = String(row[0]||"").trim();
-          if (!name) return; // skip empty rows
+        parsedRows.forEach(({ row, rowNum, name, idCell }) => {
+          const roomNum = Number(row[2]) || 1;
+          const roomId  = roomMap[roomNum] || rooms[0]?.id || "r1";
+          if (!roomMap[roomNum]) warnings.push(`Row ${rowNum}: Room # ${roomNum} not found, so it was assigned to the first room.`);
 
-          const roomNum  = Number(row[1]) || 1;
-          const roomId   = roomMap[roomNum] || rooms[0]?.id || "r1";
-          if (!roomMap[roomNum]) warnings.push(`Row ${headerRow+3+i}: Room # ${roomNum} not found — assigned to first room.`);
+          const origPot = String(row[8]||"").toLowerCase().trim() === "x";
+          const keepYrs = Math.max(0, Number(row[9])||0);
+          const keepMo  = Math.min(11, Math.max(0, Number(row[10])||0));
+          const potSize = Math.max(1, Number(row[11])||6);
+          const nextPot = Math.max(1, Number(row[12])||potSize+2);
 
-          const health   = Math.min(4, Math.max(1, Number(row[2])||3));
-          const origPot  = String(row[7]||"").toLowerCase().trim() === "x";
-          const keepYrs  = Math.max(0, Number(row[8])||0);
-          const keepMo   = Math.min(11, Math.max(0, Number(row[9])||0));
-          const potSize  = Math.max(1, Number(row[10])||6);
-          const nextPot  = Math.max(1, Number(row[11])||potSize+2);
-
-          newPlants.push({
-            id: uid(), roomId, name, health,
-            obtainedDate: parseDate(row[3]),
-            waterFreqDays: Math.max(1, Number(row[4])||7),
-            lastWatered:   parseDate(row[5]),
-            pottedDate:    parseDate(row[6]),
+          const fields = {
+            roomId, name, health: parseHealth(row[3]),
+            obtainedDate: parseDate(row[4]),
+            waterFreqDays: Math.max(1, Number(row[5])||7),
+            lastWatered:   parseDate(row[6]),
+            pottedDate:    parseDate(row[7]),
             originalPot: origPot,
             potYears: keepYrs, potMonths: keepMo,
             currentPotSize: potSize, nextPotSize: nextPot,
-            photos: [], primaryPhoto: null,
-          });
+            notes: String(row[13]||""),
+          };
+
+          const existing = idCell ? existingById[idCell] : null;
+          if (existing) {
+            const changed = Object.keys(fields).some(k => existing[k] !== fields[k]);
+            toUpdate.push({ id: idCell, name, fields, changed });
+          } else {
+            if (idCell) warnings.push(`Row ${rowNum}: ID "${idCell}" doesn't match an existing plant, so it was added as new with a new ID.`);
+            // Photos are never touched by XLS import — new plants simply start with none.
+            toAdd.push({ id: uid(), photos: [], photoDates: [], primaryPhoto: null, ...fields });
+          }
         });
 
-        if (!newPlants.length) throw new Error("No plant rows found. Make sure rows start below the header and hint rows.");
-        setXlsPreview({ plants: newPlants, warnings });
+        if (!toAdd.length && !toUpdate.length) throw new Error("No plant rows found. Make sure rows start below the header and hint rows.");
+        setXlsPreview({ toAdd, toUpdate, warnings });
         setXlsLoading(false);
       } catch(err) {
-        setImportError(err.message || "Could not read file. Please use the Plantalog template.");
+        setImportError(err.message || "Could not read file. Please use the current Plantalog export/template format.");
         setXlsLoading(false);
       }
     };
@@ -1708,10 +2829,17 @@ function App() {
     e.target.value = "";
   }
 
-  function confirmXlsImport(mode) {
-    // mode: "add" = append, "replace" = replace all plants
-    if (mode === "replace") setPlants(xlsPreview.plants);
-    else setPlants(ps => [...ps, ...xlsPreview.plants]);
+  function confirmXlsImport() {
+    const { toAdd, toUpdate } = xlsPreview;
+    const updateMap = {};
+    toUpdate.forEach(u => { if (u.changed) updateMap[u.id] = u.fields; });
+    setPlants(ps => {
+      // Existing plants are spread first, so anything XLS doesn't carry —
+      // photos, photoDates, primaryPhoto, graveyard/deleted status — is left
+      // completely untouched. Only the spreadsheet-controlled fields change.
+      const merged = ps.map(p => updateMap[p.id] ? { ...p, ...updateMap[p.id] } : p);
+      return [...merged, ...toAdd];
+    });
     closeImport();
   }
 
@@ -1743,23 +2871,27 @@ function App() {
         {syncStatus==="saved"  && <div style={{position:"fixed",top:8,right:12,fontSize:11,color:"rgba(74,222,128,0.8)",zIndex:999,fontFamily:"'DM Sans',sans-serif"}}>✓ Saved</div>}
         {syncStatus==="error"  && <div style={{position:"fixed",top:8,right:12,fontSize:11,color:"rgba(252,129,129,0.9)",zIndex:999,fontFamily:"'DM Sans',sans-serif"}}>⚠ Sync error</div>}
 
-        {screen==="home"  && <HomeScreen  rooms={rooms} setRooms={setRooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} />}
-        {screen==="water" && <WaterScreen rooms={rooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} />}
-        {screen==="repot" && <RepotScreen rooms={rooms} plants={plants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} />}
-        {screen==="utils" && <UtilitiesScreen darkMode={darkMode} setDarkMode={setDarkMode} showCardPhotos={showCardPhotos} setShowCardPhotos={setShowCardPhotos} onExport={exportData} onImport={()=>setShowImport(true)} user={user || (PREVIEW_MODE ? {email:"preview@plantalog.app"} : null)} onSignOut={handleSignOut} onDeleteAccount={handleDeleteAccount} />}
-        <Nav screen={screen} setScreen={setScreen} plants={plants} todayDate={todayDate} />
+        <CrossFade value={screen} offsetFromScroll onSwapped={()=>window.scrollTo({top:0,behavior:"instant"})}>{shownScreen => (<>
+        {shownScreen==="home"  && <HomeScreen  rooms={rooms} setRooms={setRooms} plants={livePlants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} />}
+        {shownScreen==="water" && <WaterScreen rooms={rooms} plants={livePlants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} pushUndo={pushUndo} canUndo={canUndo} onUndo={performUndo} />}
+        {shownScreen==="repot" && <RepotScreen rooms={rooms} plants={livePlants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} pushUndo={pushUndo} canUndo={canUndo} onUndo={performUndo} />}
+        {shownScreen==="utils" && <UtilitiesScreen darkMode={darkMode} setDarkMode={setDarkMode} showCardPhotos={showCardPhotos} setShowCardPhotos={setShowCardPhotos} onOpenExport={()=>setShowExport(true)} onImport={()=>setShowImport(true)} onOpenSchedule={()=>setShowSchedule(true)} user={user || (PREVIEW_MODE ? {email:"preview@plantalog.app"} : null)} onSignOut={handleSignOut} onDeleteAccount={handleDeleteAccount} rooms={rooms} plants={plants} setPlants={setPlants} sub={utilsSub} setSub={setUtilsSub}
+          notifWaterEnabled={notifWaterEnabled} setNotifWaterEnabled={setNotifWaterEnabled} notifWaterTime={notifWaterTime} setNotifWaterTime={setNotifWaterTime}
+          notifRepotEnabled={notifRepotEnabled} setNotifRepotEnabled={setNotifRepotEnabled} notifRepotTime={notifRepotTime} setNotifRepotTime={setNotifRepotTime} />}
+        </>)}</CrossFade>
+        <Nav screen={screen} setScreen={setScreen} plants={livePlants} todayDate={todayDate} onUtilsClick={()=>setUtilsSub(null)} />
 
         {/* Import modal — inside .app so dark class applies */}
         {showImport && (
-        <div className="modal-overlay" onClick={closeImport}>
+        <div className={`modal-overlay${closingSheet==="import"?" closing":""}`} onClick={()=>dismissSheet("import", closeImport)}>
           <div className="modal" onClick={e=>e.stopPropagation()} style={{paddingBottom:30}}>
             <h2>Import Plants</h2>
 
             {/* Tabs */}
             <div style={{display:"flex",gap:0,marginBottom:14,background:"var(--sand)",borderRadius:8,padding:3}}>
-              {[["xls","📊  Excel Template"],["json","💾  JSON Backup"]].map(([id,label])=>(
-                <button key={id} onClick={()=>{setImportTab(id);setImportError("");setXlsPreview(null);}}
-                  style={{flex:1,padding:"6px 4px",border:"none",borderRadius:6,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:700,
+              {[["xls","📊  XLS"],["json","💾  JSON"]].map(([id,label])=>(
+                <button key={id} onClick={()=>{setImportTab(id);setImportError("");setXlsPreview(null);setJsonPreview(null);}}
+                  style={{flex:1,padding:"6px 4px",border:"none",borderRadius:6,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:700,
                     background:importTab===id?"var(--card-bg)":(darkMode?"rgba(255,255,255,0.08)":"transparent"),
                     color:importTab===id?"var(--leaf-light)":(darkMode?"var(--leaf-light)":"var(--text-muted)"),
                     boxShadow:importTab===id?"0 1px 4px rgba(0,0,0,.15)":"none",transition:"all .15s"}}>
@@ -1774,78 +2906,246 @@ function App() {
             {/* ── Excel tab ── */}
             {importTab==="xls" && !xlsPreview && (
               <>
-                <p style={{fontSize:12,color:"var(--text-muted)",marginBottom:12,lineHeight:1.5}}>
-                  Download the template, fill it in with your plants, then upload it here. Your existing rooms will be pre-filled on the Rooms tab.
+                <p style={{fontSize:12,color:"var(--text-muted)",marginBottom:8,lineHeight:1.5}}>
+                  Download and complete the blank template to add a batch of new plants. If you have an export with plant updates, import the file here to save those updates in bulk.
                 </p>
-                <button onClick={downloadTemplate}
-                  style={{width:"100%",padding:"10px",marginBottom:14,borderRadius:9,border:"1.5px dashed var(--leaf-light)",background:"var(--leaf-pale)",color:darkMode?"var(--leaf-light)":"var(--leaf)",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                <p style={{fontSize:12,color:"var(--text-muted)",marginBottom:12,lineHeight:1.5}}>
+                  Rows with an ID update that plant. Rows without one are added as a new plant. Photos are never affected. Make sure to check the import tool's summary and warnings before importing.
+                </p>
+                <button onClick={exportXlsTemplate} disabled={!excelJsReady}
+                  style={{width:"100%",padding:"10px",marginBottom:14,borderRadius:9,border:"1.5px dashed var(--leaf-light)",background:"var(--leaf-pale)",color:darkMode?"var(--leaf-light)":"var(--leaf)",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:excelJsReady?"pointer":"default",opacity:excelJsReady?1:0.6,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Download Template (.xlsx)
                 </button>
-                <div style={{textAlign:"center",fontSize:11,color:"var(--text-muted)",marginBottom:10}}>— then —</div>
-                <button onClick={()=>xlsRef.current.click()} disabled={!xlsxReady}
-                  style={{width:"100%",padding:"10px",borderRadius:9,border:"1.5px solid var(--border)",background:"var(--card-bg)",color:"var(--text)",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:xlsxReady?"pointer":"default",opacity:xlsxReady?1:0.6,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  {xlsLoading ? "Reading file…" : "Upload Completed Template"}
-                </button>
-                <input ref={xlsRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={handleXlsFile}/>
-                {importError && <div style={{fontSize:11,color:"#fc8181",marginTop:8,lineHeight:1.5}}>{importError}</div>}
+                <div style={{textAlign:"center",fontSize:11,color:"var(--text-muted)",marginBottom:10}}>then</div>
+                <label style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"14px 10px",borderRadius:8,border:"2px dashed var(--border-strong)",cursor:xlsxReady?"pointer":"default",color:"var(--text-muted)",fontSize:13,fontWeight:600,background:"var(--page-bg)",opacity:xlsxReady?1:0.6}}>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  {xlsLoading ? "Reading file…" : "Tap to choose your XLS file"}
+                  <input type="file" style={{display:"none"}} disabled={!xlsxReady} onChange={handleXlsFile}/>
+                </label>
+                {importError && <div className="imp-error">{importError}</div>}
               </>
             )}
 
             {/* ── Excel preview / confirm ── */}
-            {importTab==="xls" && xlsPreview && (
+            {importTab==="xls" && xlsPreview && (()=>{
+              const changedUpdates = xlsPreview.toUpdate.filter(u=>u.changed);
+              const unchangedCount = xlsPreview.toUpdate.length - changedUpdates.length;
+              const summaryNames = [...xlsPreview.toAdd.map(p=>p.name), ...changedUpdates.map(u=>u.name)];
+              return (
               <>
-                <div style={{background:"var(--leaf-pale)",border:"1px solid var(--leaf-light)",borderRadius:8,padding:"9px 12px",marginBottom:10}}>
-                  <div style={{fontSize:12,fontWeight:700,color:"var(--leaf)",marginBottom:2}}>✓ {xlsPreview.plants.length} plant{xlsPreview.plants.length!==1?"s":""} ready to import</div>
-                  <div style={{fontSize:11,color:"var(--leaf)"}}>{xlsPreview.plants.slice(0,5).map(p=>p.name).join(", ")}{xlsPreview.plants.length>5?` + ${xlsPreview.plants.length-5} more`:""}</div>
+                <div className="imp-summary">
+                  <div className="imp-summary-title">
+                    ✓ {xlsPreview.toAdd.length>0 && `${xlsPreview.toAdd.length} new`}
+                    {xlsPreview.toAdd.length>0 && changedUpdates.length>0 && " · "}
+                    {changedUpdates.length>0 && `${changedUpdates.length} updated`}
+                    {xlsPreview.toAdd.length===0 && changedUpdates.length===0 && "Nothing to change"}
+                  </div>
+                  {summaryNames.length>0 && <div className="imp-summary-names">{summaryNames.slice(0,5).join(", ")}{summaryNames.length>5?` + ${summaryNames.length-5} more`:""}</div>}
+                  {unchangedCount>0 && <div className="imp-summary-note">{unchangedCount} plant{unchangedCount!==1?"s":""} matched with no changes</div>}
                 </div>
                 {xlsPreview.warnings.length>0 && (
-                  <div style={{background:"var(--sand)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 12px",marginBottom:10,maxHeight:80,overflowY:"auto"}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"var(--bark)",marginBottom:3}}>⚠ {xlsPreview.warnings.length} warning{xlsPreview.warnings.length!==1?"s":""}</div>
-                    {xlsPreview.warnings.map((w,i)=><div key={i} style={{fontSize:10,color:"var(--bark)"}}>{w}</div>)}
+                  <div className="imp-warn">
+                    <div className="imp-warn-title">⚠ {xlsPreview.warnings.length} warning{xlsPreview.warnings.length!==1?"s":""}</div>
+                    {xlsPreview.warnings.map((w,i)=><div key={i} className="imp-warn-item">{w}</div>)}
                   </div>
                 )}
-                <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:12}}>How would you like to import?</div>
                 <div style={{display:"flex",gap:8}}>
                   <button className="btn btn-secondary" onClick={()=>setXlsPreview(null)} style={{flex:"none"}}>← Back</button>
-                  <button className="btn" onClick={()=>confirmXlsImport("add")} style={{flex:1,background:"var(--leaf-pale)",color:"var(--leaf)",border:"1.5px solid var(--leaf-light)"}}>Add to existing plants</button>
-                  <button className="btn btn-primary" onClick={()=>confirmXlsImport("replace")} style={{flex:1}}>Replace all plants</button>
+                  <button className="btn btn-primary" onClick={confirmXlsImport} style={{flex:1}}
+                    disabled={xlsPreview.toAdd.length===0 && changedUpdates.length===0}>Import</button>
                 </div>
               </>
-            )}
+              );
+            })()}
 
-            {/* ── JSON tab ── */}
-            {importTab==="json" && (
+            {/* ── JSON tab: file picker ── */}
+            {importTab==="json" && !jsonPreview && (
               <>
-                <p style={{fontSize:12,color:"var(--text-muted)",marginBottom:10}}>Select a Plantalog backup JSON file. This will replace all rooms and plants.</p>
+                <p style={{fontSize:12,color:"var(--text-muted)",marginBottom:10}}>Restore from a previously exported backup of your plant data.</p>
                 <label style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"14px 10px",borderRadius:8,border:"2px dashed var(--border-strong)",cursor:"pointer",color:"var(--text-muted)",fontSize:13,fontWeight:600,background:"var(--page-bg)"}}>
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  {importText ? "✓ File loaded — ready to restore" : "Tap to choose a .json file"}
+                  {importText ? "✓ File loaded, ready to check" : "Tap to choose a .json file"}
                   <input type="file" accept=".json,application/json" style={{display:"none"}} onChange={e=>{
                     const file=e.target.files[0]; if(!file) return;
                     const reader=new FileReader();
-                    reader.onload=ev=>{setImportText(ev.target.result);setImportError("");};
+                    reader.onload=ev=>{setImportText(ev.target.result);setImportError("");setJsonPreview(null);};
                     reader.readAsText(file);
                     e.target.value="";
                   }}/>
                 </label>
-                {importText && <div style={{fontSize:11,color:"var(--leaf)",marginTop:6,fontWeight:600}}>✓ File loaded — tap Restore to apply</div>}
-                {importError && <div style={{fontSize:11,color:"#fc8181",marginTop:6}}>{importError}</div>}
+                {importError && <div className="imp-error">{importError}</div>}
                 <div className="modal-actions" style={{marginTop:12}}>
-                  <button className="btn btn-secondary" onClick={closeImport}>Cancel</button>
-                  <button className="btn btn-primary" onClick={importData} style={{opacity:importText?1:0.5,pointerEvents:importText?"auto":"none"}}>Restore</button>
+                  <button className="btn btn-secondary" onClick={()=>dismissSheet("import", closeImport)}>Cancel</button>
+                  <button className="btn btn-primary" onClick={checkJsonImport} style={{opacity:importText?1:0.5,pointerEvents:importText?"auto":"none"}}>Check Import</button>
                 </div>
               </>
             )}
 
+            {/* ── JSON tab: preview / confirm ── */}
+            {importTab==="json" && jsonPreview && (()=>{
+              const changedUpdates = jsonPreview.toUpdate.filter(u=>u.changed);
+              const unchangedCount = jsonPreview.toUpdate.length - changedUpdates.length;
+              const summaryNames = [...jsonPreview.toAdd.map(p=>p.name), ...changedUpdates.map(u=>u.name)];
+              return (
+              <>
+                <div className="imp-summary">
+                  <div className="imp-summary-title">
+                    ✓ {jsonPreview.toAdd.length>0 && `${jsonPreview.toAdd.length} new`}
+                    {jsonPreview.toAdd.length>0 && changedUpdates.length>0 && " · "}
+                    {changedUpdates.length>0 && `${changedUpdates.length} updated`}
+                    {jsonPreview.toAdd.length===0 && changedUpdates.length===0 && "Nothing to change"}
+                  </div>
+                  {summaryNames.length>0 && <div className="imp-summary-names">{summaryNames.slice(0,5).join(", ")}{summaryNames.length>5?` + ${summaryNames.length-5} more`:""}</div>}
+                  {unchangedCount>0 && <div className="imp-summary-note">{unchangedCount} plant{unchangedCount!==1?"s":""} matched with no changes</div>}
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button className="btn btn-secondary" onClick={()=>setJsonPreview(null)} style={{flex:"none"}}>← Back</button>
+                  <button className="btn btn-primary" onClick={confirmJsonImport} style={{flex:1}}
+                    disabled={jsonPreview.toAdd.length===0 && changedUpdates.length===0}>Restore</button>
+                </div>
+              </>
+              );
+            })()}
+
             {importTab==="xls" && !xlsPreview && (
               <div style={{marginTop:14}}>
-                <button className="btn btn-secondary" style={{width:"100%"}} onClick={closeImport}>Cancel</button>
+                <button className="btn btn-secondary" style={{width:"100%"}} onClick={()=>dismissSheet("import", closeImport)}>Cancel</button>
               </div>
             )}
 
             </div>{/* end fixed-height tab content */}
+          </div>
+        </div>
+        )}
+
+        {/* ── Export modal — same card/tab styling as Import ── */}
+        {showExport && (
+        <div className={`modal-overlay${closingSheet==="export"?" closing":""}`} onClick={()=>dismissSheet("export", ()=>setShowExport(false))}>
+          <div className="modal" onClick={e=>e.stopPropagation()} style={{paddingBottom:30}}>
+            <h2>Export Plants</h2>
+
+            {/* Tabs */}
+            <div style={{display:"flex",gap:0,marginBottom:14,background:"var(--sand)",borderRadius:8,padding:3}}>
+              {[["xls","📊  XLS"],["json","💾  JSON"]].map(([id,label])=>(
+                <button key={id} onClick={()=>setExportTab(id)}
+                  style={{flex:1,padding:"6px 4px",border:"none",borderRadius:6,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:700,
+                    background:exportTab===id?"var(--card-bg)":(darkMode?"rgba(255,255,255,0.08)":"transparent"),
+                    color:exportTab===id?"var(--leaf-light)":(darkMode?"var(--leaf-light)":"var(--text-muted)"),
+                    boxShadow:exportTab===id?"0 1px 4px rgba(0,0,0,.15)":"none",transition:"all .15s"}}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab content — fixed min-height to match Import's card sizing */}
+            <div style={{minHeight:220}}>
+
+            {/* ── Excel tab ── */}
+            {exportTab==="xls" && (
+              <>
+                <p style={{fontSize:12,color:"var(--text-muted)",marginBottom:20,lineHeight:1.5}}>
+                  All of your plant data in a nice lookin' spreadsheet. You can make edits to your plants and import them back in to make bulk updates. For example, to change your plant rooms after a move. It's also yours to keep if you ever stop using Plantalog.
+                </p>
+                <button onClick={exportXlsx} disabled={!excelJsReady}
+                  style={{width:"100%",padding:"10px",borderRadius:9,border:"1.5px dashed var(--leaf-light)",background:"var(--leaf-pale)",color:darkMode?"var(--leaf-light)":"var(--leaf)",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:excelJsReady?"pointer":"default",opacity:excelJsReady?1:0.6,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Download Plants (.xlsx)
+                </button>
+              </>
+            )}
+
+            {/* ── JSON tab ── */}
+            {exportTab==="json" && (
+              <>
+                <p style={{fontSize:12,color:"var(--text-muted)",marginBottom:20,lineHeight:1.5}}>
+                  A complete backup of your plant data, including photos. A safety net in case anything ever goes wrong.
+                </p>
+                <button onClick={exportData}
+                  style={{width:"100%",padding:"10px",borderRadius:9,border:"1.5px dashed var(--leaf-light)",background:"var(--leaf-pale)",color:darkMode?"var(--leaf-light)":"var(--leaf)",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Download Backup (.json)
+                </button>
+              </>
+            )}
+
+            <div style={{marginTop:14}}>
+              <button className="btn btn-secondary" style={{width:"100%"}} onClick={()=>dismissSheet("export", ()=>setShowExport(false))}>Close</button>
+            </div>
+
+            </div>{/* end fixed-height tab content */}
+          </div>
+        </div>
+        )}
+
+        {/* ── OOT Water Schedule modal ── */}
+        {showSchedule && (
+        <div className={`modal-overlay${closingSheet==="schedule"?" closing":""}`} onClick={()=>dismissSheet("schedule", ()=>setShowSchedule(false))}>
+          <div className="modal" onClick={e=>e.stopPropagation()} style={{paddingBottom:30}}>
+            <h2>OOT Water Schedule</h2>
+
+            {/* Vague preview of the document — drawn as SVG so it needs no
+                assets and stays crisp; deliberately unreadable placeholder
+                lines rather than a real render, just to convey the shape. */}
+            <div className="sched-preview">
+              <svg viewBox="0 0 200 116" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+                <rect x="30" y="4" width="140" height="108" rx="4" fill="var(--card-bg)" stroke="var(--border-strong)" strokeWidth="1"/>
+                <rect x="40" y="13" width="58" height="7" rx="2" fill="var(--leaf)"/>
+                <rect x="40" y="24" width="34" height="4" rx="2" fill="var(--border-strong)" opacity=".6"/>
+                {[
+                  { y:36, c:"#ffd166" },
+                  { y:64, c:"#8ecae6" },
+                  { y:92, c:"#c1603a" },
+                ].map(({y,c},i)=>(
+                  <g key={i}>
+                    <rect x="40" y={y} width="120" height="6" rx="2" fill={c}/>
+                    {[0,1].map(r=>(
+                      <g key={r}>
+                        <rect x="41" y={y+10+r*8} width="7" height="7" rx="1.5" fill="var(--sand)"/>
+                        <rect x="51" y={y+12+r*8} width={r?34:46} height="3" rx="1.5" fill="var(--border-strong)" opacity=".55"/>
+                        <rect x="139" y={y+11+r*8} width="4" height="4" rx="1" fill="none" stroke="var(--border-strong)" strokeWidth=".8"/>
+                        <rect x="151" y={y+11+r*8} width="4" height="4" rx="1" fill="none" stroke="var(--border-strong)" strokeWidth=".8"/>
+                      </g>
+                    ))}
+                  </g>
+                ))}
+              </svg>
+            </div>
+
+            <p style={{fontSize:12,color:"var(--text-muted)",marginBottom:14,lineHeight:1.5}}>
+              A printable guide for whoever is looking after your plants while you're away. Every day in the range gets its own section listing the plants due for water that day, grouped by room, with a photo and a box to tick once it's done.
+            </p>
+
+            <div style={{display:"flex",gap:8,marginBottom:4}}>
+              <div className="form-group" style={{flex:1,marginBottom:0}}>
+                <label>From</label>
+                <CalendarField value={schedFrom} onChange={d=>{setSchedFrom(d);setSchedError("");}}/>
+              </div>
+              <div className="form-group" style={{flex:1,marginBottom:0}}>
+                <label>To</label>
+                <CalendarField value={schedTo} viewHint={schedFrom} onChange={d=>{setSchedTo(d);setSchedError("");}}/>
+              </div>
+            </div>
+
+            <div style={{minHeight:18,marginBottom:10}}>
+              {schedRangeMessage && (
+                <div style={{fontSize:11,fontWeight:600,color:schedRangeValid?"var(--text-muted)":"#c53030"}}>
+                  {schedRangeMessage}
+                </div>
+              )}
+            </div>
+
+            {schedError && <div className="imp-error" style={{marginTop:0,marginBottom:8}}>{schedError}</div>}
+
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={()=>dismissSheet("schedule", ()=>setShowSchedule(false))}>Cancel</button>
+              <button className="btn btn-primary"
+                onClick={createSchedulePdf}
+                disabled={!schedRangeValid || schedBusy || !jsPdfReady}
+                style={{opacity:(schedRangeValid && !schedBusy && jsPdfReady)?1:0.5}}>
+                {schedBusy ? "Creating…" : "Create"}
+              </button>
+            </div>
           </div>
         </div>
         )}
@@ -1855,25 +3155,32 @@ function App() {
 }
 
 // ─── Nav ──────────────────────────────────────────────────────────────────────
-function Nav({ screen, setScreen, plants, todayDate }) {
+// Scroll offset at the instant a nav tap happened, recorded before the reset
+// so the crossfade can place the outgoing screen where it visually was.
+let swapScrollY = 0;
+function navCaptureScroll() {
+  swapScrollY = window.scrollY || window.pageYOffset || 0;
+}
+
+function Nav({ screen, setScreen, plants, todayDate, onUtilsClick }) {
   const now = todayDate ? new Date(todayDate+"T00:00:00") : getToday();
   const due = plants ? plants.filter(p=>isWaterDue(p,now)).length : 0;
   return (
     <nav className="nav">
-      <button className={`nav-btn home${screen==="home" ?" active":""}`} onClick={()=>{ setScreen("home"); window.scrollTo({top:0,behavior:"instant"}); }}>
+      <button className={`nav-btn home${screen==="home" ?" active":""}`} onClick={()=>{ setScreen("home"); navCaptureScroll(); }}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
         Home
       </button>
-      <button className={`nav-btn water${screen==="water"?" active water":""}`} onClick={()=>{ setScreen("water"); window.scrollTo({top:0,behavior:"instant"}); }}>
+      <button className={`nav-btn water${screen==="water"?" active water":""}`} onClick={()=>{ setScreen("water"); navCaptureScroll(); }}>
         {due>0 && <span className="nav-badge">{due}</span>}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2C6 9 4 13.5 4 16a8 8 0 0016 0c0-2.5-2-7-8-14z"/></svg>
         Water
       </button>
-      <button className={`nav-btn repot${screen==="repot"?" active repot":""}`} onClick={()=>{ setScreen("repot"); window.scrollTo({top:0,behavior:"instant"}); }}>
+      <button className={`nav-btn repot${screen==="repot"?" active repot":""}`} onClick={()=>{ setScreen("repot"); navCaptureScroll(); }}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2v10M8 6l4-4 4 4M5 14h14l-2 7H7l-2-7z"/></svg>
         Repot
       </button>
-      <button className={`nav-btn utils${screen==="utils"?" active utils":""}`} onClick={()=>{ setScreen("utils"); window.scrollTo({top:0,behavior:"instant"}); }}>
+      <button className={`nav-btn utils${screen==="utils"?" active utils":""}`} onClick={()=>{ setScreen("utils"); onUtilsClick && onUtilsClick(); navCaptureScroll(); }}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         Utils
       </button>
@@ -1888,18 +3195,23 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
   const photo        = getPrimaryPhoto(plant);
   const daysSince    = daysBetween(plant.lastWatered, fmt(getToday()));
   const daysLeft     = plant.waterFreqDays - daysSince;
-  const od           = potOverdueDays(plant);
-  const potDue       = isPotDue(plant);
+  const frozenAt     = ageAsOf(plant);                 // graveyard plants stop aging
+  const frozenNow    = frozenAt ? new Date(String(frozenAt).slice(0,10)+"T12:00:00") : null;
+  const od           = potOverdueDays(plant, frozenNow);
+  const potDue       = isPotDue(plant, frozenNow);
   const potCrimson   = od >= 365;
   const potColor     = potCrimson?"#9b1c1c":potDue?"#be185d":"var(--text)";
   const potBg        = potCrimson?"#fee2e2":potDue?"#fce7f3":"var(--page-bg)";
   const room         = rooms ? rooms.find(r=>r.id===plant.roomId) : null;
+  const purgeDays    = mode==="deleted" ? daysUntilPurge(plant) : null;
 
   const cardClass = mode==="water" ? `water-card${leaving?" leaving":""}` :
                     mode==="repot" ? `repot-card${leaving?" leaving":""}` :
                     "plant-card";
+  const showRoomPill = mode==="repot" || mode==="deleted";
+  const collapsible  = mode==="water" || mode==="repot";
 
-  return (
+  const card = (
     <div className={cardClass} onClick={onClick} style={{cursor:"pointer"}}>
       {/* Thumbnail */}
       {showCardPhotos && (
@@ -1911,13 +3223,23 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
       {/* Name + sub */}
       <div className="plant-name-col">
         <div className="plant-name">{plant.name}</div>
-        {mode==="repot" && room && (
+        {showRoomPill && room && (
           <div style={{display:"flex",gap:4,alignItems:"center",marginTop:2,flexWrap:"wrap"}}>
             {room.color
               ? <span style={{background:room.color,color:roomTextColor(room.color),padding:"1px 8px",borderRadius:20,fontSize:10,fontWeight:700,whiteSpace:"nowrap",display:"inline-block"}}>{room.name}</span>
               : <span style={{fontSize:10,fontWeight:700,color:"var(--text-muted)"}}>{room.name}</span>
             }
-            {plant.originalPot && <span style={{background:"transparent",color:"#c1603a",border:"1.5px solid #c1603a",padding:"1px 8px",borderRadius:20,fontSize:10,fontWeight:700,whiteSpace:"nowrap",display:"inline-block",letterSpacing:".3px"}}>ORIGINAL</span>}
+            {mode==="repot" && plant.originalPot && <span style={{background:"transparent",color:"#c1603a",border:"1.5px solid #c1603a",padding:"1px 8px",borderRadius:20,fontSize:10,fontWeight:700,whiteSpace:"nowrap",display:"inline-block",letterSpacing:".3px"}}>ORIGINAL</span>}
+          </div>
+        )}
+        {mode==="deleted" && (
+          <div className="purge-label" style={{marginTop:3}}>
+            {Math.max(0,purgeDays)} day{Math.max(0,purgeDays)===1?"":"s"}
+          </div>
+        )}
+        {mode==="graveyard" && plant.diedDate && (
+          <div style={{fontSize:10,fontWeight:700,color:"var(--text-muted)",marginTop:3}}>
+            Died {formatDiedDate(plant.diedDate)}
           </div>
         )}
       </div>
@@ -1946,6 +3268,23 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
           <div className="stat-tile phone-hide" title="Plant age" style={{background:"var(--page-bg)"}}>
             <div className="st-lbl">Age</div>
             <div className="st-val">{plantAgeDecimal(plant.obtainedDate)}</div>
+          </div>
+        </>}
+
+        {/* GRAVEYARD / RECENTLY DELETED tiles — same as home minus the watering
+            countdown, and with ages frozen at the date the plant died. */}
+        {(mode==="graveyard"||mode==="deleted") && <>
+          <div className="stat-tile" title="Watering frequency" style={{background:waterFreqColor(plant.waterFreqDays)}}>
+            <div className="st-lbl" style={{color:freqTextColor(plant.waterFreqDays)}}>Freq</div>
+            <div className="st-val" style={{color:freqTextColor(plant.waterFreqDays)}}>{plant.waterFreqDays}d</div>
+          </div>
+          <div className="stat-tile" title="Pot age" style={{background:"var(--page-bg)"}}>
+            <div className="st-lbl">Pot Age</div>
+            <div className="st-val">{plantAgeDecimal(plant.pottedDate, frozenAt)}</div>
+          </div>
+          <div className="stat-tile phone-hide" title="Plant age" style={{background:"var(--page-bg)"}}>
+            <div className="st-lbl">Age</div>
+            <div className="st-val">{plantAgeDecimal(plant.obtainedDate, frozenAt)}</div>
           </div>
         </>}
 
@@ -1999,6 +3338,9 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
       )}
     </div>
   );
+  return collapsible
+    ? <CollapseSlot leaving={!!leaving}>{card}</CollapseSlot>
+    : card;
 }
 
 // ─── Home Screen ──────────────────────────────────────────────────────────────
@@ -2006,24 +3348,47 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
   const [showModal,    setShowModal]    = useState(false);
   const [editPlant,    setEditPlant]    = useState(null);
   const [detailPlant,  setDetailPlant]  = useState(null);
+  const [sheetSwap, setSheetSwap] = useState(false);
+  const [ghost, setGhost] = useState(null);   // {kind:"detail"|"modal", plant} held during a swap
+  const ghostTimer = useRef(null);
+  useEffect(() => () => clearTimeout(ghostTimer.current), []);
+  function beginSwap(kind, plant) {
+    setSheetSwap(true);
+    setGhost({ kind, plant });
+    clearTimeout(ghostTimer.current);
+    ghostTimer.current = setTimeout(() => setGhost(null), 210);
+  }
   const [homeTab,      setHomeTab]      = useState("plants");
   const openNewRef = useRef(null);
   // null = all, 1-4 = health filter
   const [healthFilter, setHealthFilter] = useState(null);
+  const [scoreInfoOpen, setScoreInfoOpen] = useState(false);
   const [collapsedRooms, setCollapsedRooms] = useState({});
 
   const healthCounts = [1,2,3,4].map(h=>plants.filter(p=>p.health===h).length);
-  const greenCount   = healthCounts[2]+healthCounts[3];
-  const greenPct     = plants.length ? Math.round(greenCount/plants.length*100) : 0;
+  // Health score: each plant contributes its health value as points
+  // (Dying 1 ... Thriving 4), measured against a perfect score of 4 per
+  // plant. Unlike a simple "how many are Good or better" count, this
+  // distinguishes a collection of Thriving plants from one that is merely
+  // Good, and lets a Dying plant drag the number down rather than counting
+  // the same as a Caution one.
+  const healthScore    = plants.reduce((sum,p)=>sum+(Number(p.health)||0),0);
+  const healthScoreMax = plants.length * 4;
+  const greenPct       = healthScoreMax ? Math.round(healthScore/healthScoreMax*100) : 0;
   const sortedRooms  = [...rooms].sort((a,b)=>(a.order??0)-(b.order??0));
 
-  const filtered = healthFilter ? plants.filter(p=>p.health===healthFilter) : plants;
 
   function selectHealth(h) {
     setHealthFilter(prev => prev===h ? null : h);
     setHomeTab("plants");
   }
   function selectAll() { setHealthFilter(null); }
+  function selectRoom(roomId) {
+    const collapsed = {};
+    rooms.forEach(r => { collapsed[r.id] = r.id !== roomId; });
+    setCollapsedRooms(collapsed);
+    setHomeTab("plants");
+  }
 
 
 
@@ -2058,14 +3423,50 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
             ))}
           </div>
         </div>
-        {/* Row 2: health % bar */}
+        {/* Row 2: health score */}
         <div className="dash-row">
-          <div className="dash-card" style={{flex:1,cursor:"default"}}>
+          <div className="dash-card" style={{flex:1,position:"relative"}}
+            onClick={()=>setScoreInfoOpen(o=>!o)}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-              <span className="good-health-lbl" style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,color:"var(--text-muted)"}}>In Good Health</span>
+              <span className="good-health-lbl" style={{fontSize:13,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,color:"var(--text-muted)"}}>
+                Health Score
+              </span>
               <span className="good-health-pct" style={{fontSize:22,fontWeight:700,color:greenPct>=75?"#276749":greenPct>=50?"#d69e2e":"#e53e3e"}}>{greenPct}%</span>
             </div>
             <div className="pct-bar"><div className="pct-bar-fill" style={{width:`${greenPct}%`}}/></div>
+
+            {scoreInfoOpen && (
+              <>
+                {/* Covers the whole screen so any tap anywhere just closes the
+                    tooltip instead of also activating whatever's underneath
+                    (e.g. opening a plant card). stopPropagation keeps it from
+                    also re-triggering the tile's own onClick, which would
+                    immediately flip it back open. */}
+                <div className="score-tip-backdrop" onClick={e=>{e.stopPropagation();setScoreInfoOpen(false);}}/>
+                <div className="score-tip">
+                  <div className="score-tip-arrow"/>
+                  <div className="score-tip-emoji">{healthScoreEmoji(greenPct)}</div>
+                  <div className="score-tip-rows">
+                    {[1,2,3,4].map(h=>(
+                      <div key={h} className="score-tip-row">
+                        <span className={h===4?"score-tip-thriving":undefined} style={{color:HEALTH[h].color,fontWeight:700}}>{HEALTH[h].label}</span>
+                        <span className="score-tip-pts">{h} {h===1?"point":"points"}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="score-tip-total">
+                    <div className="score-tip-row">
+                      <span>Your plants</span>
+                      <span className="score-tip-pts">{healthScore} points</span>
+                    </div>
+                    <div className="score-tip-row">
+                      <span>Possible</span>
+                      <span className="score-tip-pts">{healthScoreMax} points</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -2073,20 +3474,25 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
       <div className="tab-bar" style={{display:"flex",alignItems:"center"}}>
         <button className={`tab-btn${homeTab==="plants"?" active":""}`} onClick={()=>setHomeTab("plants")}>Plants</button>
         <button className={`tab-btn${homeTab==="rooms" ?" active":""}`} onClick={()=>setHomeTab("rooms")}>Rooms</button>
-        <button onClick={()=>{ if(homeTab==="plants"){ setEditPlant(null); setShowModal(true); } else { openNewRef.current?.(); } }}
+        <button onClick={()=>{ if(homeTab==="plants"){ setSheetSwap(false); setEditPlant(null); setShowModal(true); } else { openNewRef.current?.(); } }}
           style={{marginLeft:4,flexShrink:0,padding:"8px 14px",borderRadius:7,background:"var(--leaf)",color:"white",border:"none",cursor:"pointer",fontSize:15,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>&#xff0b;</button>
       </div>
 
-      {homeTab==="plants" ? (
+      <CrossFade value={`${homeTab}|${healthFilter ?? "all"}`}>{shown => {
+      const [sTab, sfRaw] = shown.split("|");
+      const sFilter   = sfRaw === "all" ? null : Number(sfRaw);
+      const sFiltered = sFilter ? plants.filter(p=>p.health===sFilter) : plants;
+      return (
+      sTab==="plants" ? (
         <div className="section">
-          {healthFilter && (
+          {sFilter && (
             <div style={{fontSize:11,color:"var(--text-muted)",margin:"0 2px 8px",fontWeight:600}}>
-              Showing: {HEALTH[healthFilter].label} plants
+              Showing: {HEALTH[sFilter].label} plants
               <button onClick={selectAll} style={{marginLeft:8,background:"none",border:"none",cursor:"pointer",color:"var(--leaf)",fontSize:11,fontWeight:700}}>× Clear</button>
             </div>
           )}
           {sortedRooms.map(room=>{
-            const rPlants = filtered.filter(p=>p.roomId===room.id).sort((a,b)=>a.name.localeCompare(b.name));
+            const rPlants = sFiltered.filter(p=>p.roomId===room.id).sort((a,b)=>a.name.localeCompare(b.name));
             if (!rPlants.length) return null;
             const isCollapsed = !!collapsedRooms[room.id];
             return (
@@ -2097,33 +3503,43 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
                 />
                 {!isCollapsed && rPlants.map(plant=>(
                   <PlantCard key={plant.id} plant={plant} rooms={rooms} mode="home" showCardPhotos={showCardPhotos}
-                    onClick={()=>setDetailPlant(plant)}
-                    onEdit={()=>{ setEditPlant(plant); setShowModal(true); }}
+                    onClick={()=>{setSheetSwap(false);setDetailPlant(plant);}}
+                    onEdit={()=>{ beginSwap("detail", plant); setEditPlant(plant); setShowModal(true); }}
                   />
                 ))}
               </div>
             );
           })}
-          {filtered.length===0 && <div className="empty"><span className="ico">🌱</span><p>No plants match this filter.</p></div>}
+          {sFiltered.length===0 && <div className="empty"><span className="ico">🌱</span><p>No plants match this filter.</p></div>}
         </div>
       ) : (
-        <div className="section"><ManageRooms rooms={rooms} setRooms={setRooms} plants={plants} user={user} openNewRef={openNewRef}/></div>
+        <div className="section"><ManageRooms rooms={rooms} setRooms={setRooms} plants={plants} user={user} openNewRef={openNewRef} onSelectRoom={selectRoom}/></div>
+      ));
+      }}</CrossFade>
+
+
+      {ghost && ghost.kind==="detail" && (
+        <PlantDetail ghost plant={ghost.plant} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
+          onClose={()=>{}} onEdit={()=>{}} />
       )}
-
-
+      {ghost && ghost.kind==="modal" && (
+        <PlantModal ghost plant={ghost.plant} rooms={rooms}
+          onSave={()=>{}} onDelete={null} onClose={()=>{}} onCancel={null} onClone={()=>{}} />
+      )}
       {showModal && (
-        <PlantModal
+        <PlantModal enter={sheetSwap?"swap":"slide"}
           plant={editPlant} rooms={rooms}
           onSave={p=>{ if(editPlant) setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); else setPlants(ps=>[...ps,{...p,id:uid()}]); setShowModal(false); setEditPlant(null); setDetailPlant(null); }}
-          onDelete={editPlant?()=>{ deletePhotos(editPlant.id); if(!PREVIEW_MODE&&user) { sbDeletePlantPhotos(user.id,editPlant.id); sbDeletePlant(user.id,editPlant.id); } setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); setDetailPlant(null); }:null}
+          onDelete={editPlant?(dest)=>{ movePlantTo(setPlants, editPlant.id, dest); setShowModal(false); setEditPlant(null); setDetailPlant(null); }:null}
           onClose={()=>{ setShowModal(false); setEditPlant(null); setDetailPlant(null); }}
-          onCancel={detailPlant?()=>{ setShowModal(false); setEditPlant(null); /* detailPlant stays, reopening detail */ }:null}
+          onCancel={detailPlant?()=>{ beginSwap("modal", editPlant); setShowModal(false); setEditPlant(null); /* detailPlant stays, reopening detail */ }:null}
+          onClone={()=>setEditPlant(null)}
         />
       )}
       {!showModal && detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
-        <PlantDetail plant={dp} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
+        <PlantDetail enter={sheetSwap?"swap":"slide"} plant={dp} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
           onClose={()=>setDetailPlant(null)}
-          onEdit={()=>{ setDetailPlant(dp); setShowModal(true); setEditPlant(dp); }}
+          onEdit={()=>{ beginSwap("detail", dp); setDetailPlant(dp); setShowModal(true); setEditPlant(dp); }}
         />
       );})()}
     </>
@@ -2131,50 +3547,564 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
 }
 
 // ─── Plant Detail ─────────────────────────────────────────────────────────────
-function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user }) {
+
+// ─── Custom calendar field ─────────────────────────────────────────────────────
+// Replaces native <input type="date"> in the Add/Edit Plant card. Safari's
+// native date picker has two quirks we can't work around with just JS: it
+// doesn't commit a selection until the picker loses focus, and clicking a
+// day from an adjacent month just re-navigates the calendar instead of
+// selecting it. Owning the whole UI sidesteps both.
+function CalendarPopup({ value, onSelect, onClose, viewHint }) {
+  // With no value of its own, open on viewHint's month if given (used so the
+  // To picker starts where the From date is, rather than on today).
+  const seed = value || viewHint;
+  const init = seed ? new Date(String(seed).slice(0,10)+"T12:00:00") : getToday();
+  const [viewYear,  setViewYear]  = useState(init.getFullYear());
+  const [viewMonth, setViewMonth] = useState(init.getMonth());
+
+  const first = new Date(viewYear, viewMonth, 1);
+  const startWeekday = first.getDay();
+  const cells = Array.from({length:42}, (_,i) => new Date(viewYear, viewMonth, 1 - startWeekday + i));
+  const todayStr = fmt(getToday());
+
+  function nav(delta) {
+    const d = new Date(viewYear, viewMonth + delta, 1);
+    setViewYear(d.getFullYear()); setViewMonth(d.getMonth());
+  }
+
+  return (
+    <div className="cal-popup-overlay" onClick={onClose}>
+      <div className="cal-popup" onClick={e=>e.stopPropagation()}>
+        <div className="cal-nav">
+          <button className="cal-nav-btn" onClick={()=>nav(-1)} aria-label="Previous month">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span className="cal-nav-title">{MONTH_NAMES[viewMonth]} {viewYear}</span>
+          <button className="cal-nav-btn" onClick={()=>nav(1)} aria-label="Next month">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <div className="cal-weekdays">{["S","M","T","W","T","F","S"].map((d,i)=><span key={i}>{d}</span>)}</div>
+        <div className="cal-grid">
+          {cells.map((d,i) => {
+            const dStr = fmt(d);
+            const otherMonth = d.getMonth() !== viewMonth;
+            const isSelected = value && dStr === value;
+            const isToday = dStr === todayStr;
+            return (
+              <button key={i} type="button"
+                className={`cal-day${otherMonth?" other-month":""}${isSelected?" selected":""}${isToday && !isSelected?" today":""}`}
+                onClick={()=>onSelect(dStr)}>
+                {d.getDate()}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CalendarField({ value, onChange, placeholder="Select date", style, viewHint }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className={`cal-field-btn${value?"":" placeholder"}`} style={style} onClick={()=>setOpen(true)}>
+        {value ? formatDateUS(value) : placeholder}
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </button>
+      {open && (
+        <CalendarPopup value={value} viewHint={viewHint}
+          onSelect={d=>{ onChange(d); setOpen(false); }}
+          onClose={()=>setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// ─── Confirm dialog ───────────────────────────────────────────────────────────
+// actions: [{ label, sub, kind: "grave"|"danger"|"go"|undefined, onClick }]
+// True crossfade: the outgoing and incoming content overlap, so the area never
+// dips to empty the way a fade-out-then-fade-in does. The outgoing layer is
+// taken out of flow while it fades so the new content can occupy the space
+// immediately. Absolute positioning is safe here; a transform would not be,
+// since it would become the containing block for the fixed modal overlays
+// rendered inside these screens.
+function CrossFade({ value, children, ms = 90, offsetFromScroll = false, onSwapped }) {
+  const [st, setSt] = useState({ cur: value, prev: null, top: 0 });
+  const timer = useRef(null);
+  const first = useRef(true);
+
+  if (st.cur !== value) {
+    // Derived during render on purpose: doing this in an effect would commit a
+    // frame still showing the previous content, which is what produced the
+    // scroll-position flash.
+    setSt({ cur: value, prev: st.cur, top: offsetFromScroll ? swapScrollY : 0 });
+    if (offsetFromScroll) swapScrollY = 0;
+  }
+
+  useEffect(() => {
+    if (st.prev === null) return;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setSt(p => ({ ...p, prev: null })), ms);
+    return () => clearTimeout(timer.current);
+  }, [st.prev, st.cur]);
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  // Runs before paint, with the new content already in the DOM.
+  useLayoutEffect(() => {
+    if (first.current) { first.current = false; return; }
+    onSwapped && onSwapped();
+  }, [st.cur]);
+
+  return (
+    <div className="xfade">
+      {st.prev !== null && <div className="xfade-out" key={"p"+st.prev} aria-hidden="true" style={{top:-st.top}}>{children(st.prev)}</div>}
+      <div className="xfade-in" key={"c"+st.cur}>{children(st.cur)}</div>
+    </div>
+  );
+}
+
+// Collapses its content to zero height so the list below closes the gap in one
+// continuous movement. Uses a measured pixel height rather than a max-height
+// guess (which spends most of its duration doing nothing) or grid fr units
+// (which interpolate unevenly, notably in Safari).
+function CollapseSlot({ leaving, className = "", style, children }) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (leaving) {
+      el.style.height = el.scrollHeight + "px";
+      void el.offsetHeight;                 // flush, so the transition has a start value
+      el.style.height = "0px";
+      el.style.marginBottom = "0px";
+    } else {
+      el.style.height = "";
+      el.style.marginBottom = "";
+    }
+  }, [leaving]);
+  return <div ref={ref} className={`collapse-slot${leaving?" leaving":""}${className?" "+className:""}`} style={style}>{children}</div>;
+}
+
+// Lets a sheet animate itself out before the parent unmounts it. Dismissing to
+// the background animates; swapping between the view and edit cards does not,
+// so those swaps stay instant rather than playing a slide-down immediately
+// followed by a slide-up.
+const SHEET_EXIT_MS = 190;
+function useSheetDismiss(onClose) {
+  const [closing, setClosing] = useState(false);
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  function dismiss() {
+    if (closing) return;
+    setClosing(true);
+    timer.current = setTimeout(() => onClose && onClose(), SHEET_EXIT_MS);
+  }
+  return [closing, dismiss];
+}
+
+function ConfirmDialog({ title, message, actions, cancelLabel = "Cancel", onClose, center=false }) {
+  return (
+    <div className="cfm-overlay" onClick={onClose}>
+      <div className="cfm-card" onClick={e => e.stopPropagation()}>
+        <div className="cfm-title" style={center?{textAlign:"center",marginBottom:message?6:16}:undefined}>{title}</div>
+        {message && <div className="cfm-msg" style={center?{textAlign:"center"}:undefined}>{message}</div>}
+        <div className="cfm-actions">
+          {actions.map((a, i) => (
+            <button key={i} className={`cfm-btn ${a.kind || ""}`} onClick={a.onClick}>
+              {a.label}
+              {a.sub && <span className="cfm-sub">{a.sub}</span>}
+            </button>
+          ))}
+          <button className="cfm-btn cancel" onClick={onClose}>{cancelLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Photo capture-date picker ────────────────────────────────────────────────
+// Scroll wheels on touch devices, plain fields on desktop.
+function PhotoDatePicker({ value, onSave, onClose }) {
+  const isTouch = typeof window !== "undefined" &&
+    window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+  const init = (() => {
+    const m = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const t = getToday();
+    return m ? { y: +m[1], mo: +m[2], d: +m[3] }
+             : { y: t.getFullYear(), mo: t.getMonth() + 1, d: t.getDate() };
+  })();
+  const [y,  setY]  = useState(init.y);
+  const [mo, setMo] = useState(init.mo);
+  const [d,  setD]  = useState(init.d);
+
+  const thisYear = getToday().getFullYear();
+  const years = [];
+  for (let i = thisYear + 1; i >= thisYear - 40; i--) years.push(i);
+  const daysInMonth = new Date(y, mo, 0).getDate();
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const clampedDay = Math.min(d, daysInMonth);
+
+  function save() {
+    const pad = n => String(n).padStart(2, "0");
+    onSave(`${y}-${pad(mo)}-${pad(clampedDay)}`);
+  }
+
+  return (
+    <div className="dp-overlay" onClick={onClose}>
+      <div className="dp-card" onClick={e => e.stopPropagation()}>
+        <div className="dp-title">Photo Date</div>
+        {isTouch ? (
+          <div className="dp-wheels">
+            <div className="dp-wheel-mask"/>
+            <Wheel className="month" items={MONTH_NAMES} values={MONTH_NAMES.map((_,i)=>i+1)} value={mo} onChange={setMo}/>
+            <Wheel items={days.map(String)} values={days} value={clampedDay} onChange={setD}/>
+            <Wheel items={years.map(String)} values={years} value={y} onChange={setY}/>
+          </div>
+        ) : (
+          <div className="dp-fields">
+            <div className="dp-field month">
+              <label>Month</label>
+              <select value={mo} onChange={e => setMo(Number(e.target.value))}>
+                {MONTH_NAMES.map((n, i) => <option key={n} value={i + 1}>{n}</option>)}
+              </select>
+            </div>
+            <div className="dp-field">
+              <label>Day</label>
+              <input type="number" min="1" max={daysInMonth} value={clampedDay}
+                onChange={e => setD(Math.max(1, Math.min(daysInMonth, Number(e.target.value) || 1)))}/>
+            </div>
+            <div className="dp-field">
+              <label>Year</label>
+              <input type="number" min="1900" max={thisYear + 1} value={y}
+                onChange={e => setY(Number(e.target.value) || thisYear)}/>
+            </div>
+          </div>
+        )}
+        <div className="dp-actions">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={save}>Save</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// A single snap-scrolling wheel column
+function Wheel({ items, values, value, onChange, className = "" }) {
+  const ref = useRef(null);
+  const ITEM = 38;
+  const settle = useRef(null);
+  const idx = Math.max(0, values.indexOf(value));
+
+  // Position the wheel on the selected item when it first mounts
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = idx * ITEM;
+  }, []);
+
+  function onScroll() {
+    clearTimeout(settle.current);
+    settle.current = setTimeout(() => {
+      if (!ref.current) return;
+      const i = Math.round(ref.current.scrollTop / ITEM);
+      const clamped = Math.max(0, Math.min(values.length - 1, i));
+      if (values[clamped] !== value) onChange(values[clamped]);
+    }, 90);
+  }
+
+  return (
+    <div className={`dp-wheel ${className}`} ref={ref} onScroll={onScroll}>
+      <div className="dp-wheel-pad"/>
+      {items.map((label, i) => (
+        <div key={label + i} className={`dp-wheel-item${i === idx ? " sel" : ""}`}>{label}</div>
+      ))}
+      <div className="dp-wheel-pad"/>
+    </div>
+  );
+}
+
+// ─── Photo lightbox (pinch / wheel zoom + swipe + capture date) ───────────────
+// All gestures run through pointer events so touch and mouse share one code
+// path — mixing touch+pointer handlers is the usual source of jitter here.
+function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose }) {
+  const MAX_Z = 5, DBL_Z = 2.5;
+  const [z, setZ]           = useState(1);
+  const [t, setT]           = useState({ x: 0, y: 0 });
+  const [swipeDx, setSwipeDx] = useState(0);
+  const [panning, setPanning] = useState(false);
+  const [smooth, setSmooth]   = useState(false);
+  const [pickDate, setPickDate] = useState(false);
+
+  const stageRef  = useRef(null);
+  const imgRef    = useRef(null);
+  const baseDims  = useRef(null);           // rendered size at scale 1
+  const pointers  = useRef(new Map());
+  const gesture   = useRef(null);
+  const lastTap   = useRef(0);
+  const moved     = useRef(false);
+
+  const zRef = useRef(z), tRef = useRef(t);
+  zRef.current = z; tRef.current = t;
+
+  const zoomed = z > 1.01;
+
+  function resetZoom(animate) {
+    setSmooth(!!animate);
+    setZ(1); setT({ x: 0, y: 0 });
+    if (animate) setTimeout(() => setSmooth(false), 220);
+  }
+
+  // Reset zoom whenever the visible photo changes
+  useEffect(() => { resetZoom(false); }, [index]);
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Escape")     { if (zoomed) resetZoom(true); else onClose(); }
+      if (e.key === "ArrowLeft"  && !zoomed) setIndex(i => (i > 0 ? i - 1 : i));
+      if (e.key === "ArrowRight" && !zoomed) setIndex(i => (i < photos.length - 1 ? i + 1 : i));
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoomed, photos.length]);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  function measure() {
+    const img = imgRef.current;
+    if (!img) return;
+    baseDims.current = { w: img.offsetWidth, h: img.offsetHeight };
+  }
+  useEffect(() => {
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  // Keep the image from being dragged past its own edges
+  function clamp(x, y, scale) {
+    const b = baseDims.current;
+    if (!b) return { x, y };
+    const maxX = Math.max(0, (b.w * scale - b.w) / 2);
+    const maxY = Math.max(0, (b.h * scale - b.h) / 2);
+    return { x: Math.min(maxX, Math.max(-maxX, x)),
+             y: Math.min(maxY, Math.max(-maxY, y)) };
+  }
+
+  // Scale about a screen point so that point stays put under the finger/cursor
+  function zoomAt(clientX, clientY, nextZ, animate) {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const r = stage.getBoundingClientRect();
+    const px = clientX - (r.left + r.width / 2);
+    const py = clientY - (r.top + r.height / 2);
+    const z0 = zRef.current, t0 = tRef.current;
+    const z1 = Math.max(1, Math.min(MAX_Z, nextZ));
+    const nx = px - (px - t0.x) * (z1 / z0);
+    const ny = py - (py - t0.y) * (z1 / z0);
+    const c = z1 <= 1.001 ? { x: 0, y: 0 } : clamp(nx, ny, z1);
+    if (animate) { setSmooth(true); setTimeout(() => setSmooth(false), 220); }
+    setZ(z1); setT(c);
+  }
+
+  function midpoint() {
+    const pts = [...pointers.current.values()];
+    return { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+  }
+  function spread() {
+    const pts = [...pointers.current.values()];
+    return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+  }
+
+  function onPointerDown(e) {
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    moved.current = false;
+
+    if (pointers.current.size === 2) {
+      gesture.current = { mode: "pinch", startDist: spread(), startZ: zRef.current };
+    } else if (pointers.current.size === 1) {
+      gesture.current = {
+        mode: zRef.current > 1.01 ? "pan" : "swipe",
+        startX: e.clientX, startY: e.clientY,
+        startT: { ...tRef.current },
+      };
+    }
+  }
+
+  function onPointerMove(e) {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const g = gesture.current;
+    if (!g) return;
+
+    if (g.mode === "pinch" && pointers.current.size >= 2) {
+      moved.current = true;
+      const dist = spread();
+      if (!g.startDist) return;
+      const mp = midpoint();
+      zoomAt(mp.x, mp.y, g.startZ * (dist / g.startDist), false);
+      return;
+    }
+    if (g.mode === "pan") {
+      const dx = e.clientX - g.startX, dy = e.clientY - g.startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) { moved.current = true; setPanning(true); }
+      setT(clamp(g.startT.x + dx, g.startT.y + dy, zRef.current));
+      return;
+    }
+    if (g.mode === "swipe") {
+      const dx = e.clientX - g.startX, dy = e.clientY - g.startY;
+      if (Math.abs(dx) < 4 || Math.abs(dx) < Math.abs(dy)) return;
+      moved.current = true;
+      const atLeft  = index === 0 && dx > 0;
+      const atRight = index === photos.length - 1 && dx < 0;
+      setSwipeDx(atLeft || atRight ? dx * 0.2 : dx);
+    }
+  }
+
+  // Double tap/click: zoom in at the point, or reset if already zoomed.
+  // This lives only in the pointer handlers — having a separate onDoubleClick
+  // as well made the two fight (one reset, the other immediately re-zoomed).
+  function handleTap(clientX, clientY) {
+    const now = Date.now();
+    if (now - lastTap.current < 300) {
+      lastTap.current = 0;
+      if (zRef.current > 1.01) resetZoom(true);
+      else zoomAt(clientX, clientY, DBL_Z, true);
+    } else {
+      lastTap.current = now;
+    }
+  }
+
+  function onPointerUp(e) {
+    const g = gesture.current;
+    pointers.current.delete(e.pointerId);
+
+    if (g && g.mode === "swipe") {
+      const dx = e.clientX - g.startX;
+      setSwipeDx(0);
+      if (Math.abs(dx) > 50) {
+        if (dx < 0 && index < photos.length - 1) setIndex(i => i + 1);
+        else if (dx > 0 && index > 0)            setIndex(i => i - 1);
+      } else if (!moved.current) {
+        handleTap(e.clientX, e.clientY);
+      }
+    }
+    if (g && g.mode === "pan" && !moved.current) handleTap(e.clientX, e.clientY);
+    setPanning(false);
+
+    if (pointers.current.size === 0) {
+      gesture.current = null;
+      if (zRef.current <= 1.001) resetZoom(true);
+    } else if (pointers.current.size === 1) {
+      // Second finger lifted mid-pinch — continue as a pan without jumping
+      const only = [...pointers.current.values()][0];
+      gesture.current = { mode: zRef.current > 1.01 ? "pan" : "swipe",
+        startX: only.x, startY: only.y, startT: { ...tRef.current } };
+    }
+  }
+
+  function onWheel(e) {
+    e.preventDefault();
+    const factor = Math.exp(-e.deltaY * 0.0016);
+    zoomAt(e.clientX, e.clientY, zRef.current * factor, false);
+  }
+
+  const dateStr = prettyPhotoDate(dateAt(index));
+
+  return (
+    <div className="lightbox" onClick={() => { if (!zoomed && !moved.current) onClose(); }}>
+      <button className="lightbox-close" onClick={e => { e.stopPropagation(); onClose(); }}>✕</button>
+
+      {/* Capture date — sits in the black space above the photo */}
+      <button className={`lightbox-date${dateStr ? "" : " empty"}`}
+        onClick={e => { e.stopPropagation(); setPickDate(true); }}>
+        {dateStr || "Add date"}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" opacity=".75">
+          <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>
+        </svg>
+      </button>
+
+      <div className="lightbox-inner" onClick={e => e.stopPropagation()}>
+        <button className={`lightbox-arrow${index === 0 || zoomed ? " hidden" : ""}`}
+          onClick={e => { e.stopPropagation(); setIndex(i => i - 1); }}>‹</button>
+
+        <div ref={stageRef}
+          className={`lightbox-stage${zoomed ? " zoomed" : ""}${panning ? " panning" : ""}`}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          onWheel={onWheel}
+          onContextMenu={e => e.preventDefault()}>
+          <img ref={imgRef} src={photos[index]} alt="" onLoad={measure} draggable="false"
+            style={{
+              transform: `translate3d(${t.x + swipeDx}px, ${t.y}px, 0) scale(${z})`,
+              transition: smooth || swipeDx === 0 ? "transform .2s cubic-bezier(.22,.61,.36,1)" : "none",
+            }}/>
+        </div>
+
+        <button className={`lightbox-arrow${index === photos.length - 1 || zoomed ? " hidden" : ""}`}
+          onClick={e => { e.stopPropagation(); setIndex(i => i + 1); }}>›</button>
+      </div>
+
+      {zoomed && <div className="lightbox-zoom-hint">{z.toFixed(1)}× · double-tap to reset</div>}
+
+      {photos.length > 1 && !zoomed && (
+        <div className="lightbox-dots">
+          {photos.map((_, i) => (
+            <div key={i} className={`lightbox-dot${i === index ? " active" : ""}`}
+              onClick={e => { e.stopPropagation(); setIndex(i); }}/>
+          ))}
+        </div>
+      )}
+
+      {pickDate && (
+        <div onClick={e => e.stopPropagation()}>
+          <PhotoDatePicker value={dateAt(index)}
+            onSave={d => { onDateChange(index, d); setPickDate(false); }}
+            onClose={() => setPickDate(false)}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, variant="active", onRestore, onSendToDeleted, enter="slide", ghost=false }) {
+  const [confirm, setConfirm] = useState(null);   // "restore" | "delete"
+  const [detailClosing, dismissDetail] = useSheetDismiss(onClose);
   const room    = rooms.find(r=>r.id===plant.roomId);
   const h       = HEALTH[plant.health];
   const fileRef = useRef();
   const [lightboxIdx, setLightboxIdx] = useState(null);
-  const [swipeDx, setSwipeDx] = useState(0);
-  const swipeStart = useRef(null);
-
-  // Keyboard navigation
-  useEffect(() => {
-    if(lightboxIdx===null) return;
-    function onKey(e) {
-      if(e.key==='ArrowLeft')  setLightboxIdx(i=>i>0?i-1:i);
-      if(e.key==='ArrowRight') setLightboxIdx(i=>i<plant.photos.length-1?i+1:i);
-      if(e.key==='Escape')     setLightboxIdx(null);
-    }
-    window.addEventListener('keydown', onKey);
-    return ()=>window.removeEventListener('keydown', onKey);
-  }, [lightboxIdx, plant.photos.length]);
-
-  // Lock body scroll while lightbox is open
-  useEffect(() => {
-    if(lightboxIdx===null) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
-  }, [lightboxIdx]);
   const [openMenuIdx, setOpenMenuIdx] = useState(null);
-  const [dragState, setDragState] = useState(null); // {fromIdx, overIdx, ghostStyle}
-  const [localOrder, setLocalOrder] = useState(null); // reordered indices during drag
-  const pointerDown = useRef(false);
-  const ghostRef = useRef(null);
 
   const daysSince = daysBetween(plant.lastWatered, fmt(getToday()));
   const daysLeft  = plant.waterFreqDays - daysSince;
   const potDue    = isPotDue(plant);
 
+  // photoDates is a parallel array to photos, so it survives reorder/delete
+  // and the Supabase upload swap (which preserves order) automatically.
+  function datesOf(p, len) {
+    const d = Array.isArray(p.photoDates) ? [...p.photoDates] : [];
+    while (d.length < len) d.push(null);
+    return d.slice(0, len);
+  }
+
   function handlePhoto(e) {
     const file=e.target.files[0]; if(!file) return;
-    compressPhoto(file).then(dataUrl =>
+    Promise.all([compressPhoto(file), derivePhotoDate(file)]).then(([dataUrl, date]) =>
       setPlants(ps=>ps.map(p=>{
         if(p.id!==plant.id) return p;
         const photos=[...p.photos, dataUrl];
-        return {...p, photos, primaryPhoto: photos.length-1};
+        const photoDates=[...datesOf(p, p.photos.length), date];
+        // New photo becomes primary, then everything re-sorts into date order
+        const sorted=sortPhotosByDate(photos, photoDates, photos.length-1);
+        return {...p, ...sorted};
       }))
     );
     e.target.value="";
@@ -2187,107 +4117,42 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
     setPlants(ps=>ps.map(p=>{
       if(p.id!==plant.id) return p;
       const photos=[...p.photos]; photos.splice(i,1);
+      const photoDates=datesOf(p, p.photos.length); photoDates.splice(i,1);
+      const wasPrimary = (p.primaryPhoto==null?0:p.primaryPhoto)===i;
       let primary=p.primaryPhoto;
-      if(primary===i) primary=null;
+      // Deleting the primary promotes the most recent photo (now the last one,
+      // since photos are ordered oldest -> newest).
+      if(wasPrimary) primary = photos.length ? photos.length-1 : null;
       else if(primary>i) primary=primary-1;
-      return {...p,photos,primaryPhoto:primary};
+      return {...p,photos,photoDates,primaryPhoto:primary};
     }));
   }
   function setPrimary(i) {
     setPlants(ps=>ps.map(p=>p.id===plant.id?{...p,primaryPhoto:i}:p));
   }
-  function commitOrder(order) {
+  function setPhotoDate(i, date) {
     setPlants(ps=>ps.map(p=>{
       if(p.id!==plant.id) return p;
-      const photos = order.map(i=>p.photos[i]);
-      const oldPrimary = p.primaryPhoto==null ? 0 : p.primaryPhoto;
-      const primary = order.indexOf(oldPrimary);
-      return {...p, photos, primaryPhoto: primary===0?null:primary};
+      const photoDates=datesOf(p, p.photos.length);
+      photoDates[i]=date;
+      // Editing a date can change where the photo belongs in the sequence
+      return {...p, ...sortPhotosByDate(p.photos, photoDates, p.primaryPhoto)};
     }));
   }
 
-  function onPointerDown(e, fromIdx) {
-    if(e.button===2) return;
-    pointerDown.current = true;
-    const el = e.currentTarget;
-    const rect = el.getBoundingClientRect();
-    const offsetX = e.clientX - rect.left;
-    const offsetY = e.clientY - rect.top;
-    const startX = e.clientX;
-    const startY = e.clientY;
-    let dragStarted = false;
-
-    function onMove(ev) {
-      const cx = ev.touches?.[0]?.clientX ?? ev.clientX;
-      const cy = ev.touches?.[0]?.clientY ?? ev.clientY;
-      // Only start drag after moving more than 6px
-      if (!dragStarted) {
-        if (Math.abs(cx - startX) < 6 && Math.abs(cy - startY) < 6) return;
-        dragStarted = true;
-        ev.preventDefault();
-        document.body.style.userSelect = 'none';
-        document.body.style.webkitUserSelect = 'none';
-        const order = plant.photos.map((_,i)=>i);
-        setLocalOrder(order);
-        setDragState({ fromIdx, overIdx: fromIdx, offsetX, offsetY,
-          ghostStyle:{ left: startX - offsetX, top: startY - offsetY, width: rect.width, height: rect.height }
-        });
-      }
-      setDragState(ds => ds ? {...ds, ghostStyle:{...ds.ghostStyle, left: cx - ds.offsetX, top: cy - ds.offsetY}} : ds);
-      // find which slot we're hovering
-      const thumbs = document.querySelectorAll('.photo-thumb-wrap[data-idx]');
-      let hit = fromIdx;
-      thumbs.forEach(t => {
-        const r = t.getBoundingClientRect();
-        if(cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom) {
-          hit = Number(t.dataset.idx);
-        }
-      });
-      setDragState(ds => ds ? {...ds, overIdx: hit} : ds);
-      // live reorder
-      setLocalOrder(() => {
-        const o = plant.photos.map((_,i)=>i);
-        const [item] = o.splice(fromIdx, 1);
-        o.splice(hit, 0, item);
-        return o;
-      });
-    }
-
-    function onUp() {
-      pointerDown.current = false;
-      document.body.style.userSelect = '';
-      document.body.style.webkitUserSelect = '';
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('touchmove', onMove);
-      window.removeEventListener('touchend', onUp);
-      if (!dragStarted) {
-        // It was a tap — open lightbox (unless menu is open)
-        if(openMenuIdx===fromIdx) setOpenMenuIdx(null);
-        else setLightboxIdx(fromIdx);
-      }
-      setDragState(ds => {
-        if(ds) {
-          setLocalOrder(lo => { if(lo) commitOrder(lo); return null; });
-        }
-        return null;
-      });
-    }
-
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('touchmove', onMove, {passive:false});
-    window.addEventListener('touchend', onUp);
-  }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{padding:0,overflow:"hidden",maxHeight:"96vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+    <div className={`modal-overlay${detailClosing?" closing":""}${enter==="swap"?" swap":""}${ghost?" ghost":""}`} onClick={ghost?undefined:dismissDetail}>
+      <div className="modal detail-sheet" style={{padding:0,overflow:"hidden",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
 
         {/* Header — health color */}
         <div style={{background:h.color,color:plant.health===3?"#1a4731":"white",padding:"14px 14px 12px",position:"relative",flexShrink:0,borderRadius:"14px 14px 0 0"}}>
-          <button className="close-x-btn" onClick={e=>{e.stopPropagation();onClose();}} style={{zIndex:10,background:plant.health===3?"rgba(0,0,0,.15)":"rgba(255,255,255,.22)",color:plant.health===3?"#1a4731":"white"}}/>
-          <button onClick={e=>{e.stopPropagation();onEdit();}} style={{position:"absolute",top:10,right:10,zIndex:10,background:plant.health===3?"rgba(0,0,0,.15)":"rgba(255,255,255,.22)",border:"none",borderRadius:20,padding:"0 14px",height:26,minWidth:44,color:plant.health===3?"#1a4731":"white",cursor:"pointer",fontSize:11,fontFamily:"'DM Sans',sans-serif",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>Edit</button>
+          <button className="close-x-btn" onClick={e=>{e.stopPropagation();dismissDetail();}} style={{zIndex:10,background:plant.health===3?"rgba(0,0,0,.15)":"rgba(255,255,255,.22)",color:plant.health===3?"#1a4731":"white"}}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+          <button onClick={e=>{e.stopPropagation(); if(variant==="active") onEdit(); else setConfirm("restore");}} style={{position:"absolute",top:10,right:10,zIndex:10,background:plant.health===3?"rgba(0,0,0,.15)":"rgba(255,255,255,.22)",border:"none",borderRadius:20,padding:"0 14px",height:26,minWidth:44,color:plant.health===3?"#1a4731":"white",cursor:"pointer",fontSize:11,fontFamily:"'DM Sans',sans-serif",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            {variant==="graveyard" ? "Revive" : variant==="deleted" ? "Restore" : "Edit"}
+          </button>
           <div style={{textAlign:"center",paddingTop:4}}>
             <div style={{display:"flex",justifyContent:"center",marginBottom:4}}>
               {room?.color
@@ -2296,9 +4161,12 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
               }
             </div>
             <div style={{fontSize:22,fontWeight:700,lineHeight:1.2}}>{plant.name}</div>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,marginTop:5}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,marginTop:5,flexWrap:"wrap"}}>
               <span style={{background:plant.health===3?"rgba(0,0,0,.12)":"rgba(255,255,255,.22)",padding:"3px 11px",borderRadius:20,fontSize:12,fontWeight:700}}>{h.label}</span>
-              <span style={{background:plant.health===3?"rgba(0,0,0,.12)":"rgba(255,255,255,.22)",padding:"3px 11px",borderRadius:20,fontSize:12,fontWeight:700}}>Age: {plantAgeDecimal(plant.obtainedDate)}</span>
+              <span style={{background:plant.health===3?"rgba(0,0,0,.12)":"rgba(255,255,255,.22)",padding:"3px 11px",borderRadius:20,fontSize:12,fontWeight:700}}>Age: {plantAgeDecimal(plant.obtainedDate, ageAsOf(plant))}</span>
+              {plant.diedDate && (
+                <span className="died-pill" style={{background:plant.health===3?"rgba(0,0,0,.12)":"rgba(255,255,255,.22)"}}>Died: {formatDiedDate(plant.diedDate)}</span>
+              )}
             </div>
           </div>
         </div>
@@ -2351,7 +4219,7 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
               </div>
               <div style={{background:"var(--card-bg)",borderRadius:9,padding:"7px 10px",boxShadow:"var(--shadow)"}}>
                 <div className="tile-lbl" style={{fontSize:11,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:".4px",marginBottom:3}}>Last Potted</div>
-                <div className="info-val" style={{fontSize:20,fontWeight:700,color:"var(--leaf)"}}>{plant.pottedDate?new Date(plant.pottedDate+"T00:00:00").toLocaleDateString("en-US",{month:"numeric",day:"numeric",year:"2-digit"}):"—"}</div>
+                <div className="info-val" style={{fontSize:20,fontWeight:700,color:"var(--leaf)"}}>{plant.pottedDate?new Date(plant.pottedDate+"T00:00:00").toLocaleDateString("en-US",{month:"numeric",day:"numeric",year:"2-digit"}):"-"}</div>
               </div>
               {/* Row 2: Current Pot | Next Pot */}
               <div style={{background:"var(--card-bg)",borderRadius:9,padding:"7px 10px",boxShadow:"var(--shadow)"}}>
@@ -2369,28 +4237,26 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
           <div style={{background:"var(--card-bg)",borderRadius:10,padding:12,boxShadow:"var(--shadow)"}}>
             <div className="section-hdr-photos" style={{fontSize:12,fontWeight:700,marginBottom:7,textTransform:"uppercase",letterSpacing:".5px",color:"var(--bark)"}}>Photos</div>
             <div className="photo-row">
-              {(localOrder || plant.photos.map((_,i)=>i)).map((origIdx, slotIdx)=>{
-                const src = plant.photos[origIdx];
-                const isPrimary = (plant.primaryPhoto==null?0:plant.primaryPhoto)===origIdx;
-                const isDragging = dragState && dragState.fromIdx===origIdx;
+              {plant.photos.map((src, i)=>{
+                const isPrimary = (plant.primaryPhoto==null?0:plant.primaryPhoto)===i;
                 return (
-                  <div key={origIdx} data-idx={slotIdx}
-                    className={`photo-thumb-wrap${isDragging?" dragging":""}`}
-                    style={{width:68,height:68,touchAction:"none"}}
-                    onPointerDown={e=>onPointerDown(e,origIdx)}>
+                  <div key={i}
+                    className="photo-thumb-wrap"
+                    style={{width:68,height:68}}
+                    onClick={()=>{ if(openMenuIdx===i) setOpenMenuIdx(null); else setLightboxIdx(i); }}>
                     <img src={src} className="photo-thumb" style={{width:68,height:68}} alt=""/>
-                    {isPrimary && <span style={{position:"absolute",top:3,left:2,fontSize:15,lineHeight:1,filter:"drop-shadow(0 1px 3px rgba(0,0,0,.7))",pointerEvents:"none",color:"white"}}>★</span>}
-                    <button className="photo-menu-btn" onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setOpenMenuIdx(openMenuIdx===origIdx?null:origIdx);}}>⋯</button>
-                    {openMenuIdx===origIdx && (
+                    {isPrimary && <span style={{position:"absolute",top:2,left:3,fontSize:20,lineHeight:1,filter:"drop-shadow(0 1px 3px rgba(0,0,0,.7))",pointerEvents:"none",color:"white"}}>★</span>}
+                    <button className="photo-menu-btn" onClick={e=>{e.stopPropagation();setOpenMenuIdx(openMenuIdx===i?null:i);}}>⋯</button>
+                    {openMenuIdx===i && (
                       <div className="photo-menu" onClick={e=>e.stopPropagation()}>
-                        <button className="photo-menu-action" title={isPrimary?"Primary":"Set as primary"} onPointerDown={e=>e.stopPropagation()} onClick={()=>{setPrimary(origIdx);setOpenMenuIdx(null);}}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill={isPrimary?"white":"none"} stroke="white" strokeWidth="2">
+                        <button className="photo-menu-action" title={isPrimary?"Primary":"Set as primary"} onClick={()=>{setPrimary(i);setOpenMenuIdx(null);}}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill={isPrimary?"white":"none"} stroke="white" strokeWidth="2">
                             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                           </svg>
                         </button>
                         <div style={{width:1,background:"rgba(255,255,255,.15)",margin:"5px 0"}}/>
-                        <button className="photo-menu-action" title="Remove" onPointerDown={e=>e.stopPropagation()} onClick={()=>{removePhoto(origIdx);setOpenMenuIdx(null);}}>
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                        <button className="photo-menu-action" title="Remove" onClick={()=>{removePhoto(i);setOpenMenuIdx(null);}}>
+                          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
                             <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
                           </svg>
                         </button>
@@ -2399,18 +4265,11 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
                   </div>
                 );
               })}
-              <div className="photo-add" style={{width:68,height:68}} onClick={()=>{ if(!dragState) fileRef.current.click(); }}>+</div>
+              <div className="photo-add" style={{width:68,height:68}} onClick={()=>fileRef.current.click()}>+</div>
             </div>
-            {/* Drag ghost */}
-            {dragState && (
-              <div ref={ghostRef} className="photo-ghost"
-                style={{...dragState.ghostStyle, width:68, height:68}}>
-                <img src={plant.photos[dragState.fromIdx]} style={{width:68,height:68,objectFit:"cover",borderRadius:8,display:"block"}} alt=""/>
-              </div>
-            )}
             <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
-            {plant.photos.length===0 && <div style={{fontSize:11,color:"var(--text-muted)",marginTop:3}}>Tap + to add a photo. Hold & drag to reorder.</div>}
-            {plant.photos.length>1 && <div style={{fontSize:10,color:"var(--text-muted)",marginTop:5}}>Hold & drag to reorder · tap ⋯ to set primary or remove</div>}
+            {plant.photos.length===0 && <div style={{fontSize:11,color:"var(--text-muted)",marginTop:3}}>Tap + to add a photo.</div>}
+            {plant.photos.length>1 && <div style={{fontSize:10,color:"var(--text-muted)",marginTop:5}}>Oldest to newest · tap a photo to view or change its date</div>}
           </div>
 
           {/* Notes */}
@@ -2420,54 +4279,58 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
               <div className="notes-preview">{plant.notes}</div>
             </div>
           )}
+
+          {/* Graveyard: permanently move this plant on to Recently Deleted */}
+          {variant==="graveyard" && (
+            <button className="btn btn-danger" style={{width:"100%",marginTop:4}}
+              onClick={()=>setConfirm("delete")}>Delete</button>
+          )}
         </div>
 
+        {confirm==="restore" && variant==="graveyard" && (
+          <ConfirmDialog
+            title={`Revive ${plant.name}?`}
+            message="It will return to your active plants."
+            actions={[{ label:"Revive", kind:"go",
+              onClick: () => { setConfirm(null); onRestore && onRestore("active"); } }]}
+            onClose={()=>setConfirm(null)}
+          />
+        )}
+        {confirm==="restore" && variant==="deleted" && (
+          <ConfirmDialog
+            title={`Restore ${plant.name}?`}
+            center
+            actions={[
+              { label:"Restore", kind:"go",
+                onClick: () => { setConfirm(null); onRestore && onRestore("active"); } },
+              { label:"Graveyard", kind:"grave",
+                onClick: () => { setConfirm(null); onRestore && onRestore("graveyard"); } },
+            ]}
+            onClose={()=>setConfirm(null)}
+          />
+        )}
+        {confirm==="delete" && (
+          <ConfirmDialog
+            title={`Delete ${plant.name}?`}
+            message="It will be permanently deleted in 30 days."
+            actions={[{
+              label: "Delete", kind: "danger",
+              onClick: () => { setConfirm(null); onSendToDeleted && onSendToDeleted(); },
+            }]}
+            onClose={()=>setConfirm(null)}
+          />
+        )}
+
         {/* Lightbox */}
-        {lightboxIdx!==null && (
-          <div className="lightbox"
-            style={{touchAction:'none',overflow:'hidden'}}
-            onClick={()=>setLightboxIdx(null)}
-            onTouchStart={e=>{
-              swipeStart.current={x:e.touches[0].clientX,y:e.touches[0].clientY};
-              setSwipeDx(0);
-            }}
-            onTouchMove={e=>{
-              if(!swipeStart.current) return;
-              const dx=e.touches[0].clientX-swipeStart.current.x;
-              const dy=e.touches[0].clientY-swipeStart.current.y;
-              if(Math.abs(dx)>Math.abs(dy)){
-                e.preventDefault();
-                const atLeft=lightboxIdx===0&&dx>0;
-                const atRight=lightboxIdx===plant.photos.length-1&&dx<0;
-                setSwipeDx(atLeft||atRight ? dx*0.2 : dx);
-              }
-            }}
-            onTouchEnd={e=>{
-              if(!swipeStart.current) return;
-              const dx=e.changedTouches[0].clientX-swipeStart.current.x;
-              swipeStart.current=null;
-              setSwipeDx(0);
-              if(Math.abs(dx)>50){
-                if(dx<0&&lightboxIdx<plant.photos.length-1) setLightboxIdx(i=>i+1);
-                else if(dx>0&&lightboxIdx>0) setLightboxIdx(i=>i-1);
-              }
-            }}>
-            <button className="lightbox-close" onClick={e=>{e.stopPropagation();setLightboxIdx(null);}}>✕</button>
-            <div className="lightbox-inner" onClick={e=>e.stopPropagation()}>
-              <button className={`lightbox-arrow${lightboxIdx===0?" hidden":""}`} onClick={e=>{e.stopPropagation();setLightboxIdx(i=>i-1);}}>‹</button>
-              <img src={plant.photos[lightboxIdx]} alt=""
-                style={{transform:`translateX(${swipeDx}px)`,transition:swipeDx===0?'transform .25s ease':'none'}}/>
-              <button className={`lightbox-arrow${lightboxIdx===plant.photos.length-1?" hidden":""}`} onClick={e=>{e.stopPropagation();setLightboxIdx(i=>i+1);}}>›</button>
-            </div>
-            {plant.photos.length>1 && (
-              <div className="lightbox-dots">
-                {plant.photos.map((_,i)=>(
-                  <div key={i} className={`lightbox-dot${i===lightboxIdx?" active":""}`}
-                    onClick={e=>{e.stopPropagation();setLightboxIdx(i);}}/>
-                ))}
-              </div>
-            )}
-          </div>
+        {lightboxIdx!==null && plant.photos[lightboxIdx] && (
+          <PhotoLightbox
+            photos={plant.photos}
+            index={lightboxIdx}
+            setIndex={setLightboxIdx}
+            dateAt={i=>(plant.photoDates||[])[i]}
+            onDateChange={setPhotoDate}
+            onClose={()=>setLightboxIdx(null)}
+          />
         )}
         {openMenuIdx!==null && <div style={{position:"fixed",inset:0,zIndex:10}} onClick={()=>setOpenMenuIdx(null)}/>}
       </div>
@@ -2476,28 +4339,35 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user })
 }
 
 // ─── Manage Rooms ─────────────────────────────────────────────────────────────
-function ManageRooms({ rooms, setRooms, plants, user, openNewRef }) {
+function ManageRooms({ rooms, setRooms, plants, user, openNewRef, onSelectRoom }) {
   const [editing,setEditing]=useState(null);
   const [formName,setFormName]=useState("");
   const [formOrder,setFormOrder]=useState("");
   const [formColor,setFormColor]=useState(null);
+  const [orderError,setOrderError]=useState(false);
   const sorted=[...rooms].sort((a,b)=>(a.order??0)-(b.order??0));
-  function openNew(){setEditing({});setFormName("");setFormOrder(rooms.length+1);setFormColor(null);}
+  function openNew(){setEditing({});setFormName("");setFormOrder(rooms.length+1);setFormColor(null);setOrderError(false);}
   useEffect(()=>{ if(openNewRef) openNewRef.current = openNew; });
-  function openEdit(r){setEditing(r);setFormName(r.name);setFormOrder(r.order);setFormColor(r.color||null);}
+  function openEdit(r){setEditing(r);setFormName(r.name);setFormOrder(r.order);setFormColor(r.color||null);setOrderError(false);}
   function save(){
     if(!formName.trim())return;
-    if(editing.id) setRooms(rs=>rs.map(r=>r.id===editing.id?{...r,name:formName,order:Number(formOrder),color:formColor}:r));
-    else setRooms(rs=>[...rs,{id:uid(),name:formName,order:Number(formOrder),color:formColor}]);
+    const orderNum = Number(formOrder);
+    const taken = rooms.some(r=>r.order===orderNum && r.id!==editing.id);
+    if(taken){ setOrderError(true); return; }
+    if(editing.id) setRooms(rs=>rs.map(r=>r.id===editing.id?{...r,name:formName,order:orderNum,color:formColor}:r));
+    else setRooms(rs=>[...rs,{id:uid(),name:formName,order:orderNum,color:formColor}]);
     setEditing(null);
   }
   function del(id){if(plants.some(p=>p.roomId===id)){alert("Move or delete this room's plants first.");return;} if(!PREVIEW_MODE&&user) sbDeleteRooms(user.id,[id]); setRooms(rs=>rs.filter(r=>r.id!==id));}
   return(<>
     {sorted.map(r=>(
-      <div key={r.id} className="room-list-item">
+      <div key={r.id} className={`room-list-item${onSelectRoom?" clickable":""}`} onClick={onSelectRoom?()=>onSelectRoom(r.id):undefined}>
         <div style={{background:r.color||"var(--bark)",color:r.color?roomTextColor(r.color):"white",borderRadius:"50%",width:25,height:25,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,flexShrink:0}}>{r.order}</div>
         <div><div className="room-list-name" style={{fontWeight:700,fontSize:15}}>{r.name}</div><div className="room-list-count" style={{fontSize:12,color:"var(--text-muted)",marginTop:1}}>{plants.filter(p=>p.roomId===r.id).length} plants</div></div>
-        <div className="room-actions"><button className="icon-btn" onClick={()=>openEdit(r)}>✎</button><button className="icon-btn" onClick={()=>del(r.id)}>🗑</button></div>
+        <div className="room-actions">
+          <button className="room-action-tile" onClick={e=>{e.stopPropagation();openEdit(r);}} title="Edit room">✎</button>
+          <button className="room-action-tile room-action-tile-danger" onClick={e=>{e.stopPropagation();del(r.id);}} title="Delete room">🗑</button>
+        </div>
       </div>
     ))}
     {editing!==null&&(
@@ -2505,7 +4375,14 @@ function ManageRooms({ rooms, setRooms, plants, user, openNewRef }) {
         <div className="modal" onClick={e=>e.stopPropagation()}>
           <h2>{editing.id?"Edit Room":"New Room"}</h2>
           <div className="form-group"><label>Room Name</label><input value={formName} onChange={e=>setFormName(e.target.value)} placeholder="e.g. Living Room"/></div>
-          <div className="form-group"><label>Sort Order</label><input type="number" value={formOrder} onChange={e=>setFormOrder(e.target.value)} placeholder="1"/></div>
+          <div className="form-group">
+            <label>Sort Order</label>
+            <input type="number" value={formOrder}
+              onChange={e=>{setFormOrder(e.target.value);setOrderError(false);}}
+              placeholder="1"
+              className={orderError?"field-error":undefined}/>
+            {orderError && <div style={{fontSize:11,color:"#c53030",marginTop:4}}>That Sort Order is already used by another room. Choose a different number.</div>}
+          </div>
           <div className="form-group">
             <label>Room Color</label>
             <div className="color-picker-row">
@@ -2528,7 +4405,7 @@ function ManageRooms({ rooms, setRooms, plants, user, openNewRef }) {
 }
 
 // ─── Plant Modal ──────────────────────────────────────────────────────────────
-function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
+function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone, enter="slide", ghost=false }) {
   const blank = {
     roomId:rooms[0]?.id||"", name:"", obtainedDate:fmt(getToday()), pottedDate:fmt(getToday()),
     originalPot:true, potMonths:0, potYears:2, currentPotSize:6, nextPotSize:7,
@@ -2540,26 +4417,68 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
   const fileRef=useRef();
   const [editingNotes,setEditingNotes]=useState(false);
   const [notesDraft,setNotesDraft]=useState("");
+  const [confirmDel,setConfirmDel]=useState(false);
+  const [modalClosing, dismissModal] = useSheetDismiss(onClose);
 
+  // Browsers sometimes leave a typed leading zero ("020") on screen after a
+  // number input's value is reprogrammed to "20", since the parsed number
+  // didn't change — they treat it as a no-op. Forcing the DOM value directly
+  // on blur (rather than relying on React's props diff) clears it reliably.
+  function cleanNumberOnBlur(e) {
+    const n = parseFloat(e.target.value);
+    if (!isNaN(n)) e.target.value = String(n);
+  }
+
+  // Clone: carries every setting + notes forward, but never the photos, and
+  // drops the id so Save creates a brand-new plant rather than overwriting
+  // this one. No confirmation — it's non-destructive to the original.
+  function handleClone(){
+    const { id, photos, photoDates, primaryPhoto, ...rest } = form;
+    const draft = { ...rest, photos:[], photoDates:[], primaryPhoto:null };
+    setForm(draft);
+    onClone && onClone();   // tells the parent this session is now "Add", not "Edit"
+  }
+
+  function padDates(f, len){
+    const d = Array.isArray(f.photoDates) ? [...f.photoDates] : [];
+    while(d.length<len) d.push(null);
+    return d.slice(0,len);
+  }
   function handlePhoto(e){
     const file=e.target.files[0]; if(!file) return;
-    compressPhoto(file).then(dataUrl =>
-      set("photos",[...(form.photos||[]),dataUrl])
+    Promise.all([compressPhoto(file), derivePhotoDate(file)]).then(([dataUrl, date]) =>
+      setForm(f=>{
+        const photos=[...(f.photos||[]),dataUrl];
+        const photoDates=[...padDates(f,(f.photos||[]).length), date];
+        return {...f, ...sortPhotosByDate(photos, photoDates, photos.length-1)};
+      })
     );
     e.target.value="";
   }
   function removePhoto(i){
-    const photos=[...form.photos]; photos.splice(i,1);
-    let primary=form.primaryPhoto;
-    if(primary===i) primary=null;
-    else if(primary>i) primary=primary-1;
-    setForm(f=>({...f,photos,primaryPhoto:primary}));
+    setForm(f=>{
+      const photos=[...f.photos]; photos.splice(i,1);
+      const photoDates=padDates(f,f.photos.length); photoDates.splice(i,1);
+      const wasPrimary=(f.primaryPhoto==null?0:f.primaryPhoto)===i;
+      let primary=f.primaryPhoto;
+      if(wasPrimary) primary = photos.length ? photos.length-1 : null;
+      else if(primary>i) primary=primary-1;
+      return {...f,photos,photoDates,primaryPhoto:primary};
+    });
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className={`modal-overlay${modalClosing?" closing":""}${enter==="swap"?" swap":""}${ghost?" ghost":""}`} onClick={ghost?undefined:dismissModal}>
       <div className="modal" onClick={e=>e.stopPropagation()}>
-        <h2>{plant?"Edit Plant":"Add Plant"}</h2>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:8}}>
+          <h2 style={{margin:0}}>{plant?"Edit Plant":"Add Plant"}</h2>
+          {plant && onClone && (
+            <button type="button" className="clone-btn" onClick={handleClone}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+              Clone
+            </button>
+          )}
+        </div>
 
         {/* Row 1: Name + Room */}
         <div className="form-row" style={{gap:7,marginBottom:7}}>
@@ -2591,13 +4510,13 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
           </div>
           <div className="form-group phone-hide" style={{marginBottom:0}}>
             <label>Date Obtained</label>
-            <input type="date" value={form.obtainedDate} onChange={e=>set("obtainedDate",e.target.value)}/>
+            <CalendarField value={form.obtainedDate} onChange={d=>set("obtainedDate",d)}/>
           </div>
         </div>
         {/* Date Obtained — phones only, own row, left-aligned */}
         <div className="form-group phone-only" style={{marginBottom:7}}>
           <label>Date Obtained</label>
-          <input type="date" value={form.obtainedDate} onChange={e=>set("obtainedDate",e.target.value)} style={{width:"auto"}}/>
+          <CalendarField value={form.obtainedDate} onChange={d=>set("obtainedDate",d)} style={{width:"auto"}}/>
         </div>
 
         {/* ── Watering ── */}
@@ -2607,13 +4526,13 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
             <div className="form-group" style={{marginBottom:0}}>
               <label>Water Every</label>
               <div className="input-suffix-wrap">
-                <input type="number" min="1" value={form.waterFreqDays} onChange={e=>set("waterFreqDays",Number(e.target.value))}/>
+                <input type="number" min="1" value={form.waterFreqDays} onChange={e=>set("waterFreqDays",Number(e.target.value))} onBlur={cleanNumberOnBlur}/>
                 <span className="input-suffix">d</span>
               </div>
             </div>
             <div className="form-group" style={{marginBottom:0}}>
               <label>Last Watered</label>
-              <input type="date" value={form.lastWatered} onChange={e=>set("lastWatered",e.target.value)}/>
+              <CalendarField value={form.lastWatered} onChange={d=>set("lastWatered",d)}/>
             </div>
           </div>
         </div>
@@ -2627,18 +4546,18 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
               <label>Repot Every</label>
               <div style={{display:"flex",gap:5}}>
                 <div className="input-suffix-wrap" style={{flex:1}}>
-                  <input type="number" min="0" value={form.potYears} onChange={e=>set("potYears",Number(e.target.value))}/>
+                  <input type="number" min="0" value={form.potYears} onChange={e=>set("potYears",Number(e.target.value))} onBlur={cleanNumberOnBlur}/>
                   <span className="input-suffix">y</span>
                 </div>
                 <div className="input-suffix-wrap" style={{flex:1}}>
-                  <input type="number" min="0" max="11" value={form.potMonths} onChange={e=>set("potMonths",Number(e.target.value))}/>
+                  <input type="number" min="0" max="11" value={form.potMonths} onChange={e=>set("potMonths",Number(e.target.value))} onBlur={cleanNumberOnBlur}/>
                   <span className="input-suffix">m</span>
                 </div>
               </div>
             </div>
             <div className="form-group" style={{marginBottom:0}}>
               <label>Last Potted</label>
-              <input type="date" value={form.pottedDate} onChange={e=>set("pottedDate",e.target.value)}/>
+              <CalendarField value={form.pottedDate} onChange={d=>set("pottedDate",d)}/>
             </div>
           </div>
           {/* Row 2: Pot Size | Next Pot (aligned to y/m cols) | Original Pot */}
@@ -2660,13 +4579,13 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
                   onChange={e=>{
                     const v=parseFloat(e.target.value)||0;
                     setForm(f=>({...f, currentPotSize:v, nextPotSize:Math.round((v+1)*2)/2}));
-                  }}/>
+                  }} onBlur={cleanNumberOnBlur}/>
                 <span className="input-suffix">"</span>
               </div>
               {/* Next pot size */}
               <div className="input-suffix-wrap">
                 <input type="number" min="1" step="0.5" style={{minWidth:0,width:"100%"}} value={form.nextPotSize}
-                  onChange={e=>set("nextPotSize",parseFloat(e.target.value)||0)}/>
+                  onChange={e=>set("nextPotSize",parseFloat(e.target.value)||0)} onBlur={cleanNumberOnBlur}/>
                 <span className="input-suffix">"</span>
               </div>
               {/* Original pot checkbox — spans cols 3+4, centered */}
@@ -2685,8 +4604,8 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
             {(form.photos||[]).map((src,i)=>(
               <div key={i} style={{position:"relative",width:64,height:64,flexShrink:0}}>
                 <img src={src} style={{width:64,height:64,objectFit:"cover",borderRadius:7,display:"block"}} alt=""/>
-                {(form.primaryPhoto===i||(form.primaryPhoto==null&&i===0))&&<span style={{position:"absolute",top:1,left:2,fontSize:15,lineHeight:1,filter:"drop-shadow(0 1px 3px rgba(0,0,0,.7))",pointerEvents:"none",color:"white"}}>★</span>}
-                <button onClick={()=>removePhoto(i)} style={{position:"absolute",top:1,right:1,background:"rgba(0,0,0,.55)",border:"none",color:"white",borderRadius:"50%",width:15,height:15,fontSize:9,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>✕</button>
+                {(form.primaryPhoto===i||(form.primaryPhoto==null&&i===0))&&<span style={{position:"absolute",top:1,left:3,fontSize:20,lineHeight:1,filter:"drop-shadow(0 1px 3px rgba(0,0,0,.7))",pointerEvents:"none",color:"white"}}>★</span>}
+                <button onClick={()=>removePhoto(i)} style={{position:"absolute",top:1,right:1,background:"rgba(0,0,0,.55)",border:"none",color:"white",borderRadius:"50%",width:20,height:20,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>✕</button>
               </div>
             ))}
             <div style={{width:64,height:64,border:"2px dashed var(--border-strong,#b0a898)",borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"var(--text-muted)",fontSize:22,flexShrink:0}} onClick={()=>fileRef.current.click()}>+</div>
@@ -2721,47 +4640,88 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel }) {
         </div>
 
         <div className="modal-actions">
-          {onDelete&&<button className="btn btn-danger" onClick={onDelete}>Delete</button>}
+          {onDelete&&<button className="btn btn-danger" onClick={()=>setConfirmDel(true)}>Delete</button>}
           <button className="btn btn-secondary" onClick={onCancel||onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={()=>{ if(!form.name.trim()) return alert("Plant name required."); onSave(form); }}>Save</button>
         </div>
+
+        {confirmDel && (
+          <ConfirmDialog
+            title="Where should this plant go?"
+            center
+            actions={[
+              { label:"Graveyard", sub:"Your plant has died, but its memory lives on.", kind:"grave",
+                onClick:()=>{ setConfirmDel(false); onDelete("graveyard"); } },
+              { label:"Delete", sub:"It will permanently delete in 30 days", kind:"danger",
+                onClick:()=>{ setConfirmDel(false); onDelete("deleted"); } },
+            ]}
+            onClose={()=>setConfirmDel(false)}
+          />
+        )}
       </div>
     </div>
   );
 }
 
 // ─── Water Screen ─────────────────────────────────────────────────────────────
-function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true, user }) {
+function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true, user, pushUndo, canUndo, onUndo }) {
   const now = new Date(todayDate + "T00:00:00");
   const [leaving,    setLeaving]    = useState({});
   const [openFreq,   setOpenFreq]   = useState(null);
   const [freqPick,   setFreqPick]   = useState(null);
   const [freqCustom, setFreqCustom] = useState("");
   const [detailPlant,setDetailPlant]= useState(null);
+  const [sheetSwap, setSheetSwap] = useState(false);
+  const [ghost, setGhost] = useState(null);   // {kind:"detail"|"modal", plant} held during a swap
+  const ghostTimer = useRef(null);
+  useEffect(() => () => clearTimeout(ghostTimer.current), []);
+  function beginSwap(kind, plant) {
+    setSheetSwap(true);
+    setGhost({ kind, plant });
+    clearTimeout(ghostTimer.current);
+    ghostTimer.current = setTimeout(() => setGhost(null), 210);
+  }
   const [editPlant,  setEditPlant]  = useState(null);
   const [showModal,  setShowModal]  = useState(false);
 
   const sortedRooms = [...rooms].sort((a,b)=>(a.order??0)-(b.order??0));
   const due     = plants.filter(p=>isWaterDue(p,now));
   const allDone = due.length===0;
+  // Counts what will remain once the in-flight rows finish leaving, so the
+  // header updates on tap rather than waiting for the animation.
+  const pendingDue = due.filter(p=>!leaving[p.id]).length;
+  // Fade the all-clear message in only when it appears as a result of the last
+  // check-off. Revisiting the screen with nothing due should just show it.
+  const [doneEntering, setDoneEntering] = useState(false);
+  const wasDone = useRef(allDone);
+  useLayoutEffect(() => {
+    let t;
+    if (allDone && !wasDone.current) { setDoneEntering(true); t = setTimeout(()=>setDoneEntering(false), 700); }
+    wasDone.current = allDone;
+    return () => clearTimeout(t);
+  }, [allDone]);
 
   function water(id) {
+    const prev = plants.find(p=>p.id===id);
     setLeaving(l=>({...l,[id]:true}));
     setTimeout(()=>{
       setPlants(ps=>ps.map(p=>p.id===id?{...p,lastWatered:fmt(now)}:p));
+      if (prev) pushUndo && pushUndo("water", id, { lastWatered: prev.lastWatered });
       setLeaving(l=>{const n={...l};delete n[id];return n;});
-    },350);
+    },440);
   }
 
   function saveFreq(plantId) {
     const add = freqPick ?? (freqCustom ? parseInt(freqCustom,10) : null);
     if (!add || add <= 0) return;
+    const prev = plants.find(p=>p.id===plantId);
     setOpenFreq(null); setFreqPick(null); setFreqCustom("");
     setLeaving(l=>({...l,[plantId]:true}));
     setTimeout(()=>{
       setPlants(ps=>ps.map(p=>p.id===plantId?{...p,waterFreqDays:p.waterFreqDays+add}:p));
+      if (prev) pushUndo && pushUndo("water", plantId, { waterFreqDays: prev.waterFreqDays });
       setLeaving(l=>{const n={...l};delete n[plantId];return n;});
-    },350);
+    },440);
   }
 
   function openTooltip(e, plantId) {
@@ -2774,9 +4734,14 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
     return sortedRooms.map(room=>{
       const rp = list.filter(p=>p.roomId===room.id).sort((a,b)=>a.name.localeCompare(b.name));
       if (!rp.length) return null;
+      const roomEmptying = showActions && rp.every(p=>leaving[p.id]);
       return (
-        <div key={room.id} className="room-group">
-          <RoomHeader room={room} count={rp.length} />
+        <div key={room.id} className={`room-group${roomEmptying?" emptying":""}`}>
+          <CollapseSlot leaving={roomEmptying}>
+            <div className={`room-hdr-wrap${roomEmptying?" leaving":""}`}>
+              <RoomHeader room={room} count={rp.length} />
+            </div>
+          </CollapseSlot>
           {rp.map(plant=>(
             <div key={plant.id} style={{position:"relative"}}>
               {/* Freq tooltip */}
@@ -2803,7 +4768,7 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
               )}
               <PlantCard plant={plant} rooms={rooms} mode="water" showCardPhotos={showCardPhotos}
                 leaving={!!leaving[plant.id]}
-                onClick={()=>setDetailPlant(plant)}
+                onClick={()=>{setSheetSwap(false);setDetailPlant(plant);}}
                 onCheck={showActions?()=>water(plant.id):null}
                 onFreqInc={showActions?(e)=>openTooltip(e,plant.id):null}
               />
@@ -2838,9 +4803,14 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
     const byRoom = sortedRooms.map(room => {
       const rp = gPlants.filter(p => p.roomId === room.id).sort((a,b) => a.name.localeCompare(b.name));
       if (!rp.length) return null;
+      const roomEmptying = rp.every(p=>leaving[p.id]);
       return (
-        <div key={room.id} className="room-group" style={{marginBottom:4}}>
-          <RoomHeader room={room} count={rp.length} style={{marginBottom:4}} />
+        <div key={room.id} className="room-group" style={{marginBottom:roomEmptying?0:4}}>
+          <CollapseSlot leaving={roomEmptying}>
+            <div className={`room-hdr-wrap${roomEmptying?" leaving":""}`}>
+              <RoomHeader room={room} count={rp.length} style={{marginBottom:4}} />
+            </div>
+          </CollapseSlot>
           {rp.map(plant=>(
             <div key={plant.id} style={{position:"relative"}}>
               {openFreq===plant.id && (
@@ -2866,7 +4836,7 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
               )}
               <PlantCard key={plant.id} plant={plant} rooms={rooms} mode="water" showCardPhotos={showCardPhotos}
                 leaving={!!leaving[plant.id]}
-                onClick={()=>setDetailPlant(plant)}
+                onClick={()=>{setSheetSwap(false);setDetailPlant(plant);}}
                 onCheck={()=>water(plant.id)}
                 onFreqInc={(e)=>openTooltip(e,plant.id)}
               />
@@ -2875,17 +4845,20 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
         </div>
       );
     });
+    const dayEmptying = gPlants.length > 0 && gPlants.every(p=>leaving[p.id]);
     return (
-      <div key={daysAway} style={{marginBottom:14}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-          <div className="upnext-lbl" style={{fontSize:13,fontWeight:700,color:"var(--leaf)",textTransform:"uppercase",letterSpacing:.5}}>
-            {dayLabel(daysAway)}
+      <CollapseSlot key={daysAway} leaving={dayEmptying} style={{marginBottom:14}}>
+        <div className={`upnext-day${dayEmptying?" leaving":""}`}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+            <div className="upnext-lbl" style={{fontSize:13,fontWeight:700,color:"var(--leaf)",textTransform:"uppercase",letterSpacing:.5}}>
+              {dayLabel(daysAway)}
+            </div>
+            <div style={{flex:1,height:1,background:"var(--text-muted)"}}/>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--text-muted)"}}>{gPlants.length} plant{gPlants.length!==1?"s":""}</div>
           </div>
-          <div style={{flex:1,height:1,background:"var(--text-muted)"}}/>
-          <div style={{fontSize:11,color:"var(--text-muted)"}}>{gPlants.length} plant{gPlants.length!==1?"s":""}</div>
+          {byRoom}
         </div>
-        {byRoom}
-      </div>
+      </CollapseSlot>
     );
   }
 
@@ -2894,25 +4867,39 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
       {/* Close tooltip on outside click */}
       {openFreq!==null && <div style={{position:"fixed",inset:0,zIndex:40}} onClick={()=>{setOpenFreq(null);setFreqPick(null);setFreqCustom("");}}/>}
       <div className="page-header teal">
-        <h1>Water</h1>
-        <p>{allDone?"All plants watered today 🎉":`${due.length} plant${due.length!==1?"s":""} need${due.length===1?"s":""} water today`}</p>
+        <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:8}}>
+          <div style={{minWidth:0}}>
+            <h1>Water</h1>
+            <p>{pendingDue===0?"All plants watered today 🎉":`${pendingDue} plant${pendingDue!==1?"s":""} need${pendingDue===1?"s":""} water today`}</p>
+          </div>
+          {canUndo && (
+            <button className="header-undo-btn" onClick={onUndo}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M4 9h10a6 6 0 1 1 0 12h-3"/></svg>
+              Undo
+            </button>
+          )}
+        </div>
       </div>
       <div className="section" style={{paddingTop:10}}>
-        {/* Today's due plants */}
-        {allDone?(
-          <div style={{textAlign:"center",padding:"28px 20px 20px",color:"var(--text-muted)"}}>
-            <div style={{fontSize:44,marginBottom:8}}>🌿</div>
-            <div style={{fontSize:20,fontWeight:700,color:"var(--leaf)",marginBottom:6}}>All done for today!</div>
-            <div style={{fontSize:14}}>Your plants are happy and hydrated.</div>
-          </div>
-        ):renderByRoom(due,true)}
+        {/* Today's due plants — wrapped with a min-height matching the "all
+            done" celebration block, so Up Next doesn't jump down when the
+            last plant is watered and the content underneath it changes. */}
+        <div style={{minHeight:DUE_SECTION_MIN_H}}>
+          {allDone?(
+            <div className={doneEntering?"all-done":undefined} style={{textAlign:"center",padding:"28px 20px 20px",color:"var(--text-muted)"}}>
+              <div style={{fontSize:44,marginBottom:8}}>🌿</div>
+              <div style={{fontSize:20,fontWeight:700,color:"var(--leaf)",marginBottom:6}}>All done for today!</div>
+              <div style={{fontSize:14}}>Your plants are happy and hydrated.</div>
+            </div>
+          ):renderByRoom(due,true)}
+        </div>
 
         {/* Up Next — always shown */}
         {upNext.length>0&&(
-          <div style={{marginTop: allDone?0:20}}>
+          <div style={{marginTop:50}}>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-              <h2 style={{fontSize:16,fontWeight:700,color:"var(--text)",margin:0}}>Up Next</h2>
-              <div style={{fontSize:11,color:"var(--text-muted)"}}>— next 7 days</div>
+              <h2 style={{fontSize:19,fontWeight:800,color:"var(--text)",margin:0}}>Up Next</h2>
+              <div style={{fontSize:11,color:"var(--text-muted)"}}>next 7 days</div>
             </div>
             {upNext.map(g=>renderUpNextGroup(g))}
           </div>
@@ -2921,15 +4908,20 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
           <div style={{textAlign:"center",fontSize:12,color:"var(--text-muted)",paddingBottom:16}}>Nothing due in the next 7 days.</div>
         )}
       </div>
-      {showModal && <PlantModal plant={editPlant} rooms={rooms}
-        onSave={p=>{ setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); setShowModal(false); setEditPlant(null); }}
-        onDelete={()=>{ deletePhotos(editPlant.id); if(!PREVIEW_MODE&&user) { sbDeletePlantPhotos(user.id,editPlant.id); sbDeletePlant(user.id,editPlant.id); } setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); }}
+      {ghost && ghost.kind==="detail" && (
+        <PlantDetail ghost plant={ghost.plant} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
+          onClose={()=>{}} onEdit={()=>{}} />
+      )}
+      {showModal && <PlantModal enter={sheetSwap?"swap":"slide"} plant={editPlant} rooms={rooms}
+        onSave={p=>{ if(editPlant) setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); else setPlants(ps=>[...ps,{...p,id:uid()}]); setShowModal(false); setEditPlant(null); }}
+        onDelete={editPlant?(dest)=>{ movePlantTo(setPlants, editPlant.id, dest); setShowModal(false); setEditPlant(null); }:null}
         onClose={()=>{ setShowModal(false); setEditPlant(null); }}
+        onClone={()=>setEditPlant(null)}
       />}
       {detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
-        <PlantDetail plant={dp} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
+        <PlantDetail enter={sheetSwap?"swap":"slide"} plant={dp} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
           onClose={()=>setDetailPlant(null)}
-          onEdit={()=>{ setEditPlant(dp); setDetailPlant(null); setShowModal(true); }}
+          onEdit={()=>{ beginSwap("detail", dp); setEditPlant(dp); setDetailPlant(null); setShowModal(true); }}
         />
       );})()}
     </>
@@ -2937,15 +4929,41 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
 }
 
 // ─── Repot Screen ─────────────────────────────────────────────────────────────
-function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true, user }) {
+function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true, user, pushUndo, canUndo, onUndo }) {
   const now = new Date((todayDate||fmt(getToday())) + "T00:00:00");
   const [leaving,    setLeaving]    = useState({});
   const [detailPlant,setDetailPlant]= useState(null);
+  const [sheetSwap, setSheetSwap] = useState(false);
+  const [ghost, setGhost] = useState(null);   // {kind:"detail"|"modal", plant} held during a swap
+  const ghostTimer = useRef(null);
+  useEffect(() => () => clearTimeout(ghostTimer.current), []);
+  function beginSwap(kind, plant) {
+    setSheetSwap(true);
+    setGhost({ kind, plant });
+    clearTimeout(ghostTimer.current);
+    ghostTimer.current = setTimeout(() => setGhost(null), 210);
+  }
   const [editPlant,  setEditPlant]  = useState(null);
   const [showModal,  setShowModal]  = useState(false);
+  const sortedRooms = [...rooms].sort((a,b)=>(a.order??0)-(b.order??0));
   const due=[...plants].filter(p=>isPotDue(p,now)).sort((a,b)=>a.nextPotSize-b.nextPotSize||a.name.localeCompare(b.name));
+  const allDone = due.length===0;
+  // Counts what will remain once the in-flight rows finish leaving, so the
+  // header updates on tap rather than waiting for the animation.
+  const pendingDue = due.filter(p=>!leaving[p.id]).length;
+  // Fade the all-clear message in only when it appears as a result of the last
+  // check-off. Revisiting the screen with nothing due should just show it.
+  const [doneEntering, setDoneEntering] = useState(false);
+  const wasDone = useRef(allDone);
+  useLayoutEffect(() => {
+    let t;
+    if (allDone && !wasDone.current) { setDoneEntering(true); t = setTimeout(()=>setDoneEntering(false), 700); }
+    wasDone.current = allDone;
+    return () => clearTimeout(t);
+  }, [allDone]);
 
   function repot(id){
+    const prev = plants.find(p=>p.id===id);
     setLeaving(l=>({...l,[id]:true}));
     setTimeout(()=>{
       setPlants(ps=>ps.map(p=>{
@@ -2954,35 +4972,116 @@ function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
         const newNext    = Math.round((newCurrent+1)*2)/2;
         return {...p, pottedDate:fmt(now), originalPot:false, currentPotSize:newCurrent, nextPotSize:newNext};
       }));
+      if (prev) pushUndo && pushUndo("repot", id, {
+        pottedDate: prev.pottedDate, originalPot: prev.originalPot,
+        currentPotSize: prev.currentPotSize, nextPotSize: prev.nextPotSize,
+      });
       setLeaving(l=>{const n={...l};delete n[id];return n;});
-    },350);
+    },440);
+  }
+
+  function repotDueDate(p) {
+    const dd = (p.potYears*365)+(p.potMonths*30);
+    if (!dd || dd<=0) return null;
+    const potted = new Date(String(p.pottedDate).slice(0,10) + "T12:00:00");
+    return new Date(potted.getTime() + dd*864e5);
+  }
+
+  function renderPlantGroup(plant) {
+    return (
+      <PlantCard key={plant.id} plant={plant} rooms={rooms} mode="repot" showCardPhotos={showCardPhotos}
+        leaving={!!leaving[plant.id]}
+        onClick={()=>{setSheetSwap(false);setDetailPlant(plant);}}
+        onCheck={()=>repot(plant.id)}
+      />
+    );
+  }
+
+  // Plants due in the current month + next 3 months (not yet due), grouped by month then room
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const upNext = [];
+  for (let m = 0; m <= 3; m++) {
+    const target = new Date(now.getFullYear(), now.getMonth()+m, 1);
+    const group = plants.filter(p => {
+      if (isPotDue(p,now)) return false; // already due — shown above
+      const dueDate = repotDueDate(p);
+      if (!dueDate) return false;
+      return dueDate.getFullYear()===target.getFullYear() && dueDate.getMonth()===target.getMonth();
+    });
+    if (group.length) upNext.push({ monthIndex: target.getMonth(), year: target.getFullYear(), plants: group });
+  }
+
+  function renderUpNextGroup({ monthIndex, year, plants: gPlants }) {
+    const flatPlants = [...gPlants].sort((a,b) => a.name.localeCompare(b.name)).map(renderPlantGroup);
+    return (
+      <div key={monthIndex+"-"+year} style={{marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+          <div className="upnext-lbl" style={{fontSize:13,fontWeight:700,color:"var(--leaf)",textTransform:"uppercase",letterSpacing:.5}}>
+            {MONTHS[monthIndex]}
+          </div>
+          <div style={{flex:1,height:1,background:"var(--text-muted)"}}/>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--text-muted)"}}>{gPlants.length} plant{gPlants.length!==1?"s":""}</div>
+        </div>
+        {flatPlants}
+      </div>
+    );
   }
 
   return(
     <>
       <div className="page-header brown">
-        <h1>Repot</h1>
-        <p>{due.length} plant{due.length!==1?"s":""} ready for a new home</p>
+        <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:8}}>
+          <div style={{minWidth:0}}>
+            <h1>Repot</h1>
+            <p>{pendingDue===0?"All plants repotted 🎉":`${pendingDue} plant${pendingDue!==1?"s":""} ready for a new home`}</p>
+          </div>
+          {canUndo && (
+            <button className="header-undo-btn" onClick={onUndo}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M4 9h10a6 6 0 1 1 0 12h-3"/></svg>
+              Undo
+            </button>
+          )}
+        </div>
       </div>
       <div className="section" style={{paddingTop:10}}>
-        {due.length===0&&<div className="empty"><span className="ico">🪴</span><p>No plants are due for repotting right now.</p></div>}
-        {due.map(plant=>(
-          <PlantCard key={plant.id} plant={plant} rooms={rooms} mode="repot" showCardPhotos={showCardPhotos}
-            leaving={!!leaving[plant.id]}
-            onClick={()=>setDetailPlant(plant)}
-            onCheck={()=>repot(plant.id)}
-          />
-        ))}
+        {/* Due list / empty state — min-height matches the empty-state block
+            so Up Next doesn't shift when the last plant is repotted. */}
+        <div style={{minHeight:DUE_SECTION_MIN_H}}>
+          {due.length===0&&(
+            <div className={doneEntering?"all-done":undefined} style={{textAlign:"center",padding:"28px 20px 20px",color:"var(--text-muted)"}}>
+              <div style={{fontSize:44,marginBottom:8}}>🪴</div>
+              <div style={{fontSize:20,fontWeight:700,color:"var(--leaf)",marginBottom:6}}>All done!</div>
+              <div style={{fontSize:14}}>No plants are due for repotting right now.</div>
+            </div>
+          )}
+          {due.map(renderPlantGroup)}
+        </div>
+
+        {/* Up Next — always shown */}
+        {upNext.length>0&&(
+          <div style={{marginTop:50}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+              <h2 style={{fontSize:19,fontWeight:800,color:"var(--text)",margin:0}}>Up Next</h2>
+              <div style={{fontSize:11,color:"var(--text-muted)"}}>next 3 months</div>
+            </div>
+            {upNext.map(g=>renderUpNextGroup(g))}
+          </div>
+        )}
       </div>
-      {showModal && <PlantModal plant={editPlant} rooms={rooms}
-        onSave={p=>{ setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); setShowModal(false); setEditPlant(null); }}
-        onDelete={()=>{ deletePhotos(editPlant.id); if(!PREVIEW_MODE&&user) { sbDeletePlantPhotos(user.id,editPlant.id); sbDeletePlant(user.id,editPlant.id); } setPlants(ps=>ps.filter(x=>x.id!==editPlant.id)); setShowModal(false); setEditPlant(null); }}
+      {ghost && ghost.kind==="detail" && (
+        <PlantDetail ghost plant={ghost.plant} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
+          onClose={()=>{}} onEdit={()=>{}} />
+      )}
+      {showModal && <PlantModal enter={sheetSwap?"swap":"slide"} plant={editPlant} rooms={rooms}
+        onSave={p=>{ if(editPlant) setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); else setPlants(ps=>[...ps,{...p,id:uid()}]); setShowModal(false); setEditPlant(null); }}
+        onDelete={editPlant?(dest)=>{ movePlantTo(setPlants, editPlant.id, dest); setShowModal(false); setEditPlant(null); }:null}
         onClose={()=>{ setShowModal(false); setEditPlant(null); }}
+        onClone={()=>setEditPlant(null)}
       />}
       {detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
-        <PlantDetail plant={dp} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
+        <PlantDetail enter={sheetSwap?"swap":"slide"} plant={dp} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
           onClose={()=>setDetailPlant(null)}
-          onEdit={()=>{ setEditPlant(dp); setDetailPlant(null); setShowModal(true); }}
+          onEdit={()=>{ beginSwap("detail", dp); setEditPlant(dp); setDetailPlant(null); setShowModal(true); }}
         />
       );})()}
     </>
@@ -2991,8 +5090,156 @@ function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
 
 
 // ─── Utilities Screen ─────────────────────────────────────────────────────────
-function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPhotos, onExport, onImport, user, onSignOut, onDeleteAccount }) {
+// ─── Graveyard / Recently Deleted ─────────────────────────────────────────────
+function GraveyardScreen({ rooms, plants, setPlants, showCardPhotos, user, onBack }) {
+  const [detailPlant, setDetailPlant] = useState(null);
+  const [collapsedRooms, setCollapsedRooms] = useState({});
+  const buried = (plants || []).filter(p => p.status === "graveyard");
+  const sortedRooms = [...rooms].sort((a,b)=>(a.order??0)-(b.order??0));
+
+  return (
+    <>
+      <div className="page-header slate">
+        <button className="sublist-back" onClick={onBack}>‹ Utilities</button>
+        <h1>Graveyard</h1>
+        <p>Here lies your dearly departed. Rest in peace 😢.</p>
+      </div>
+      <div className="section" style={{paddingTop:12}}>
+        {buried.length===0 && (
+          <div className="empty"><span className="ico">🪦</span><p>No plants here for now. Enjoy it while it lasts.</p></div>
+        )}
+        {sortedRooms.map(room => {
+          const rp = buried.filter(p => p.roomId === room.id)
+                           .sort((a,b)=>a.name.localeCompare(b.name));
+          if (!rp.length) return null;
+          const isCollapsed = !!collapsedRooms[room.id];
+          return (
+            <div key={room.id} className="room-group" style={{marginBottom:8}}>
+              <RoomHeader room={room} count={rp.length}
+                collapsed={isCollapsed}
+                onToggle={()=>setCollapsedRooms(prev=>({...prev,[room.id]:!prev[room.id]}))}
+              />
+              {!isCollapsed && rp.map(p => (
+                <PlantCard key={p.id} plant={p} rooms={rooms} mode="graveyard"
+                  showCardPhotos={showCardPhotos} onClick={()=>setDetailPlant(p)}/>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+      {detailPlant && (()=>{ const dp = plants.find(p=>p.id===detailPlant.id) || detailPlant; return (
+        <PlantDetail plant={dp} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
+          variant="graveyard"
+          onClose={()=>setDetailPlant(null)}
+          onRestore={(dest)=>{ restorePlant(setPlants, dp, dest); setDetailPlant(null); }}
+          onSendToDeleted={()=>{ movePlantTo(setPlants, dp.id, "deleted"); setDetailPlant(null); }}
+        />
+      );})()}
+    </>
+  );
+}
+
+function RecentlyDeletedScreen({ rooms, plants, setPlants, showCardPhotos, user, onBack }) {
+  const [detailPlant, setDetailPlant] = useState(null);
+  // Soonest to be purged first
+  const trashed = (plants || []).filter(p => p.status === "deleted")
+    .sort((a,b) => String(a.deletedDate||"").localeCompare(String(b.deletedDate||"")) || a.name.localeCompare(b.name));
+
+  return (
+    <>
+      <div className="page-header slate">
+        <button className="sublist-back" onClick={onBack}>‹ Utilities</button>
+        <h1>Recently Deleted</h1>
+        <p>Permanently deleted after {PURGE_DAYS} days</p>
+      </div>
+      <div className="section" style={{paddingTop:12}}>
+        {trashed.length===0 && (
+          <div className="empty"><span className="ico">🗑</span><p>Nothing here.</p></div>
+        )}
+        {trashed.map(p => (
+          <PlantCard key={p.id} plant={p} rooms={rooms} mode="deleted"
+            showCardPhotos={showCardPhotos} onClick={()=>setDetailPlant(p)}/>
+        ))}
+      </div>
+      {detailPlant && (()=>{ const dp = plants.find(p=>p.id===detailPlant.id) || detailPlant; return (
+        <PlantDetail plant={dp} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
+          variant="deleted"
+          onClose={()=>setDetailPlant(null)}
+          onRestore={(dest)=>{ restorePlant(setPlants, dp, dest); setDetailPlant(null); }}
+        />
+      );})()}
+    </>
+  );
+}
+
+function NotificationsScreen({ onBack,
+  waterEnabled, setWaterEnabled, waterTime, setWaterTime,
+  repotEnabled, setRepotEnabled, repotTime, setRepotTime,
+}) {
+  const rows = [
+    { key:"water", label:"Water", enabled:waterEnabled, setEnabled:setWaterEnabled, time:waterTime, setTime:setWaterTime,
+      labelClass:"section-hdr-water", bg:"var(--watering-bg,#1b4d3e18)", border:"var(--watering-border,#1b4d3e30)" },
+    { key:"repot", label:"Repot", enabled:repotEnabled, setEnabled:setRepotEnabled, time:repotTime, setTime:setRepotTime,
+      labelClass:"section-hdr-pot", bg:"var(--potting-bg,#6b422618)", border:"var(--potting-border,#6b422630)" },
+  ];
+  return (
+    <>
+      <div className="page-header slate">
+        <button className="sublist-back" onClick={onBack}>‹ Utilities</button>
+        <h1>Notifications</h1>
+      </div>
+      <div className="section" style={{paddingTop:14}}>
+        <div style={{fontSize:12,color:"var(--text-muted)",lineHeight:1.5,marginBottom:16,background:"var(--page-bg)",borderRadius:8,padding:"10px 12px"}}>
+          Get notified when your plants are ready for water and a new pot.
+        </div>
+        {rows.map(r => (
+          <div key={r.key} className="util-section" style={{marginBottom:12,background:r.bg,border:`1.5px solid ${r.border}`}}>
+            <div className="util-row" style={{background:"none"}}>
+              <div>
+                <div className={`util-label ${r.labelClass}`}>{r.label}</div>
+              </div>
+              <label className="toggle-switch">
+                <input type="checkbox" checked={r.enabled} onChange={e=>r.setEnabled(e.target.checked)}/>
+                <div className="toggle-track">
+                  <div className="toggle-thumb"/>
+                </div>
+              </label>
+            </div>
+            {r.enabled && (
+              <div className="util-row" style={{background:"none"}}>
+                <div className={`util-label ${r.labelClass}`} style={{fontWeight:600}}>Time</div>
+                <input type="time" className="notif-time-input" value={r.time} onChange={e=>r.setTime(e.target.value)}
+                  style={{padding:"7px 10px",borderRadius:7,border:"1.5px solid var(--border)",background:"var(--input-bg)",color:"var(--text)",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600}}/>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPhotos, onOpenExport, onImport, onOpenSchedule, user, onSignOut, onDeleteAccount, rooms, plants, setPlants, sub, setSub,
+  notifWaterEnabled, setNotifWaterEnabled, notifWaterTime, setNotifWaterTime,
+  notifRepotEnabled, setNotifRepotEnabled, notifRepotTime, setNotifRepotTime,
+}) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const graveCount = plants ? plants.filter(p=>p.status==="graveyard").length : 0;
+  const trashCount = plants ? plants.filter(p=>p.status==="deleted").length : 0;
+
+  if (sub === "graveyard")
+    return <GraveyardScreen rooms={rooms} plants={plants} setPlants={setPlants}
+             showCardPhotos={showCardPhotos} user={user} onBack={()=>setSub(null)}/>;
+  if (sub === "deleted")
+    return <RecentlyDeletedScreen rooms={rooms} plants={plants} setPlants={setPlants}
+             showCardPhotos={showCardPhotos} user={user} onBack={()=>setSub(null)}/>;
+  if (sub === "notifications")
+    return <NotificationsScreen onBack={()=>setSub(null)}
+             waterEnabled={notifWaterEnabled} setWaterEnabled={setNotifWaterEnabled}
+             waterTime={notifWaterTime} setWaterTime={setNotifWaterTime}
+             repotEnabled={notifRepotEnabled} setRepotEnabled={setNotifRepotEnabled}
+             repotTime={notifRepotTime} setRepotTime={setNotifRepotTime}/>;
+
   return (
     <>
       <div className="page-header slate">
@@ -3005,7 +5252,6 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
           <div className="util-row">
             <div>
               <div className="util-label">Dark Mode</div>
-              <div className="util-sublabel">Easy on the eyes at night</div>
             </div>
             <label className="toggle-switch">
               <input type="checkbox" checked={darkMode} onChange={e=>setDarkMode(e.target.checked)}/>
@@ -3017,7 +5263,6 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
           <div className="util-row">
             <div>
               <div className="util-label">Show Photos on Cards</div>
-              <div className="util-sublabel">Display plant photo thumbnails in lists</div>
             </div>
             <label className="toggle-switch">
               <input type="checkbox" checked={showCardPhotos} onChange={e=>setShowCardPhotos(e.target.checked)}/>
@@ -3027,19 +5272,47 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
             </label>
           </div>
         </div>
+        <div style={{fontSize:12,fontWeight:700,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:".7px",marginBottom:6,paddingLeft:2,marginTop:16}}>Plants</div>
+        <div className="util-section">
+          <div className="util-row tappable" onClick={()=>setSub("graveyard")}>
+            <div>
+              <div className="util-label">Graveyard</div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:13,fontWeight:700,color:"var(--text-muted)",lineHeight:1}}>{graveCount}</span>
+              <span className="util-chevron"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg></span>
+            </div>
+          </div>
+          <div className="util-row tappable" onClick={()=>setSub("deleted")}>
+            <div>
+              <div className="util-label">Recently Deleted</div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:13,fontWeight:700,color:"var(--text-muted)",lineHeight:1}}>{trashCount}</span>
+              <span className="util-chevron"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg></span>
+            </div>
+          </div>
+          <div className="util-row">
+            <div>
+              <div className="util-label">OOT Water Schedule</div>
+              <div className="util-sublabel">A plant caretaker watering guide while you're traveling</div>
+            </div>
+            <button className="util-btn secondary" onClick={onOpenSchedule}>Create</button>
+          </div>
+        </div>
         <div style={{fontSize:12,fontWeight:700,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:".7px",marginBottom:6,paddingLeft:2,marginTop:16}}>Data</div>
         <div className="util-section">
           <div className="util-row">
             <div>
-              <div className="util-label">Export Backup</div>
-              <div className="util-sublabel">Save your plants and rooms as a JSON file</div>
+              <div className="util-label">Export Plants</div>
+              <div className="util-sublabel">Export your plants as a spreadsheet or a full backup</div>
             </div>
-            <button className="util-btn" onClick={onExport}>Export</button>
+            <button className="util-btn secondary" onClick={onOpenExport}>Export</button>
           </div>
           <div className="util-row">
             <div>
-              <div className="util-label">Import Backup</div>
-              <div className="util-sublabel">Restore from a JSON or Excel file</div>
+              <div className="util-label">Import Plants</div>
+              <div className="util-sublabel">Add or update plants in bulk, or restore a backup</div>
             </div>
             <button className="util-btn secondary" onClick={onImport}>Import</button>
           </div>
@@ -3048,6 +5321,19 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
         {user && <>
           <div style={{fontSize:12,fontWeight:700,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:".7px",marginBottom:6,paddingLeft:2,marginTop:16}}>Account</div>
           <div className="util-section">
+            <div className="util-row tappable" onClick={()=>setSub("notifications")}>
+              <div>
+                <div className="util-label">Notifications</div>
+              </div>
+              <span className="util-chevron"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg></span>
+            </div>
+            <div className="util-row">
+              <div>
+                <div className="util-label">Feedback</div>
+              </div>
+              <a className="util-btn secondary" style={{textDecoration:"none",display:"inline-flex",alignItems:"center",justifyContent:"center"}}
+                href="mailto:matt@plantalog.com?subject=Plantalog%20Feedback">Send</a>
+            </div>
             <div className="util-row">
               <div>
                 <div className="util-label">Signed In</div>
