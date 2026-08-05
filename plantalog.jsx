@@ -1104,7 +1104,7 @@ async function generateWateringPdf({ plants, rooms, from, to }) {
       }
       y += 4;
     });
-    y += 6;
+    y += 22;
   });
 
   // Footer page numbers
@@ -1405,7 +1405,7 @@ const styles = `
   .page-header.brown{background:#c1603a;}
   .dark .page-header.brown{background:#8b3e22;}
   .page-header h1{font-size:32px;font-weight:700;letter-spacing:-.3px;line-height:1.1;}
-  .page-header p{font-size:13px;opacity:.72;margin-top:3px;}
+  .page-header p{font-size:13px;line-height:18px;opacity:.72;margin-top:3px;}
   @keyframes undoIn{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
   .header-undo-btn{animation:undoIn .22s ease-out both;display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.22);border:none;color:white;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;padding:8px 14px;min-height:36px;border-radius:20px;cursor:pointer;flex-shrink:0;transition:background .15s;}
   @media (hover:hover) and (pointer:fine) { .header-undo-btn:hover{background:rgba(255,255,255,.34);} }
@@ -1555,7 +1555,7 @@ const styles = `
   .modal-overlay.ghost > .modal{animation:sheetFadeOut .19s ease-in both;}
   .modal-overlay.swap:not(.closing){animation:none;}       /* backdrop is already dark, but must still fade on close */
   .modal-overlay.swap > .modal{animation:sheetFade .15s ease-out both;}
-  .modal-overlay > .modal{animation:sheetIn .34s cubic-bezier(.16,.84,.44,1) both;}
+  .modal-overlay > .modal{animation:sheetIn .34s cubic-bezier(.16,.84,.44,1) backwards;}
   .modal-overlay.closing > .modal{animation:sheetOut .19s cubic-bezier(.4,0,1,1) both;}
   /* Fade-through swap. Opacity only, never transform: a transformed ancestor
      becomes the containing block for position:fixed descendants, which would
