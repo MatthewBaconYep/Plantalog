@@ -1739,11 +1739,12 @@ const styles = `
   .dp-fields{display:flex;gap:8px;}
   .dp-field{flex:1;display:flex;flex-direction:column;gap:4px;}
   .dp-field label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);}
-  .dp-field input,.dp-field select{width:100%;padding:8px 8px;border:1.5px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;background:var(--input-bg);color:var(--text);}
+  .dp-field input,.dp-field select{box-sizing:border-box;width:100%;height:38px;padding:8px 8px;border:1.5px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;background:var(--input-bg);color:var(--text);}
+  .dp-field select{-webkit-appearance:none;appearance:none;padding-right:24px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23948b7e' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;background-size:14px 14px;}
   .dp-field.month{flex:1.5;}
   /* Scroll wheels (touch) */
   .dp-wheels{display:flex;gap:8px;position:relative;}
-  .dp-wheel{flex:1;height:150px;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;position:relative;z-index:2;}
+  .dp-wheel{flex:1;height:150px;overflow-y:scroll;overflow-x:hidden;touch-action:pan-y;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;position:relative;z-index:2;}
   .dp-wheel::-webkit-scrollbar{display:none;}
   .dp-wheel.month{flex:1.5;}
   .dp-wheel-item{height:38px;display:flex;align-items:center;justify-content:center;scroll-snap-align:center;font-size:17px;font-weight:600;color:var(--text-muted);transition:color .15s,transform .15s;}
