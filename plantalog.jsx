@@ -1918,6 +1918,7 @@ const styles = `
   .auth-wordmark{font-family:var(--font-display);font-weight:400;font-size:42px;line-height:1;color:var(--primary-ink);}
   .auth-mark{width:38px;height:58px;object-fit:contain;flex-shrink:0;}
   .auth-tagline{font-size:15px;line-height:1.5;color:rgba(242,240,216,.82);margin-top:12px;max-width:270px;margin-bottom:38px;}
+  .auth-tagline.one-line{max-width:none;}
   .auth-gap{height:26px;flex-shrink:0;}
   .auth-banner{border-radius:var(--r-sm);padding:10px 14px;margin-bottom:14px;font-size:13px;line-height:1.4;}
   .auth-banner.info{background:rgba(200,242,217,.16);color:#c8f2d9;border:1px solid rgba(200,242,217,.3);}
@@ -2514,7 +2515,7 @@ function LoginScreen({ onLogin }) {
               <div className="auth-wordmark">Plantalog</div>
               <img className="auth-mark" src="logo-mark.png" alt="" onError={e=>{e.target.style.display="none";}}/>
             </div>
-            {mode==="login" && <div className="auth-tagline">Tracking your green family, made simple.</div>}
+            {mode==="login" && <div className="auth-tagline one-line">Tracking your green family, made simple.</div>}
             {mode==="signup" && <div className="auth-tagline">One place for every plant you love.</div>}
             <div className="auth-gap"/>
           </>
