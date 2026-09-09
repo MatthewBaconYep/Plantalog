@@ -1733,7 +1733,7 @@ const styles = `
   .detail-hero-room span:last-child{font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#fbd9ad;}
   .hero-pill.filled{color:#f2fbf5;}
   /* ── Add/Edit Plant form (6a/6b) ─────────────────────────────────────────── */
-  .modal.pm-modal{padding:0!important;overflow:hidden;display:flex;flex-direction:column;height:100vh;height:100dvh;max-height:none;border-radius:35px;}
+  .modal.pm-modal{padding:0!important;overflow:hidden;display:flex;flex-direction:column;height:100vh;height:100dvh;max-height:none;border-radius:35px;box-shadow:0 -14px 40px rgba(28,25,20,.32);}
   .pm-header{background:var(--primary);color:var(--primary-ink);padding:12px 16px 13px;flex-shrink:0;display:flex;align-items:center;gap:12px;}
   .pm-icon-btn{border:none;width:32px;height:32px;border-radius:var(--r-pill);background:rgba(242,240,216,.16);color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .pm-title{font-family:var(--font-display);font-weight:400;font-size:21px;line-height:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -1831,6 +1831,10 @@ const styles = `
   .pm-bottom-btn{flex:1;border:none;font-family:var(--font-ui);font-size:13px;font-weight:800;padding:10px 0;border-radius:var(--r-pill);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;}
   .pm-bottom-btn.clone{background:var(--sand);color:var(--text);}
   .pm-bottom-btn.danger{background:var(--danger-tint);color:var(--danger);}
+  /* --sand/--danger-tint sit too close to --page-bg in light mode to read as
+     buttons (same issue already fixed for .btn-secondary/.btn-danger). */
+  .app:not(.dark) .pm-bottom-btn.clone{background:#cec5b5;}
+  .app:not(.dark) .pm-bottom-btn.danger{background:#f5b8b8;}
   /* Rooms tab (13b/13c) */
   .room-bar{display:flex;align-items:center;gap:10px;padding:7px 13px 8px;border-radius:var(--r-sm);box-shadow:var(--shadow-sm);margin-bottom:7px;}
   .room-bar.clickable{cursor:pointer;}
@@ -2073,7 +2077,11 @@ const styles = `
 
   @keyframes veilIn { from { background:rgba(0,0,0,0); } to { background:rgba(0,0,0,.48); } }
   @keyframes veilOut{ from { background:rgba(0,0,0,.48); } to { background:rgba(0,0,0,0); } }
-  .modal-overlay{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(0,0,0,.48);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:veilIn .26s var(--ease-enter) both;}
+  /* margin (not transform) to center: a transform here would make this the
+     containing block for any position:fixed descendant (e.g. the photo
+     viewer opened from the plant detail sheet), trapping it at 480px
+     instead of the true viewport. */
+  .modal-overlay{position:fixed;top:0;bottom:0;left:50%;margin-left:-240px;width:100%;max-width:480px;background:rgba(0,0,0,.48);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:veilIn .26s var(--ease-enter) both;}
   .modal-overlay.closing{animation:veilOut .22s var(--ease-exit) both;}
   @keyframes sheetFade{ from { opacity:0; } to { opacity:1; } }
   @keyframes sheetFadeOut{ from { opacity:1; } to { opacity:0; } }
@@ -2167,7 +2175,7 @@ const styles = `
 
 
   /* Detail */
-  .modal.detail-sheet{max-height:96vh;max-height:96dvh;border-radius:35px;}
+  .modal.detail-sheet{max-height:96vh;max-height:96dvh;border-radius:35px;box-shadow:0 26px 0 var(--page-bg), 0 -14px 40px rgba(28,25,20,.32);}
   .close-x-btn{position:absolute;top:8px;left:8px;background:rgba(255,255,255,.22);border:none;border-radius:50%;width:34px;height:34px;color:white;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;}
   .info-card .val{font-size:17px;font-weight:700;color:var(--leaf);}
   .info-card .key{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-top:1px;font-weight:500;}
@@ -2312,8 +2320,8 @@ const styles = `
   .photo-thumb-wrap:hover{transform:scale(1.04);box-shadow:0 2px 10px rgba(0,0,0,.22);}
   .photo-thumb{width:68px;height:68px;object-fit:cover;border-radius:var(--r-sm);display:block;pointer-events:none;user-select:none;-webkit-user-select:none;}
   /* 13d full-screen viewer */
-  .viewer{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:600;background:#141310;display:flex;flex-direction:column;}
-  .viewer-top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 4px;flex-shrink:0;}
+  .viewer{position:fixed;inset:0;z-index:600;background:#141310;display:flex;flex-direction:column;}
+  .viewer-top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 4px;flex-shrink:0;width:100%;max-width:480px;margin:0 auto;box-sizing:border-box;}
   .viewer-close{width:32px;height:32px;border:none;border-radius:var(--r-pill);background:rgba(240,233,220,.14);
     color:#f0e9dc;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
   .viewer-top-spacer{width:32px;height:32px;flex-shrink:0;}
@@ -2322,10 +2330,11 @@ const styles = `
   .viewer-date{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:var(--r-pill);
     background:rgba(240,233,220,.14);color:#f0e9dc;font-family:var(--font-ui);font-size:12px;font-weight:800;
     padding:6px 14px;cursor:pointer;flex-shrink:0;}
+  .viewer-date.placeholder{color:rgba(240,233,220,.6);}
   .viewer-main-badge{position:absolute;left:10px;bottom:10px;background:rgba(15,68,56,.92);color:#f2f0d8;
     font-family:var(--font-ui);font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
     padding:5px 11px;border-radius:var(--r-pill);pointer-events:none;}
-  .viewer-bottom{flex-shrink:0;display:flex;flex-direction:column;gap:11px;padding:16px 16px 8px;}
+  .viewer-bottom{flex-shrink:0;display:flex;flex-direction:column;gap:11px;padding:16px 16px 8px;width:100%;max-width:480px;margin:0 auto;box-sizing:border-box;}
   .viewer-name{font-family:var(--font-display);font-weight:400;font-size:21px;line-height:1;color:#f0e9dc;}
   .viewer-strip{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:5px;margin:-5px;}
   .viewer-strip::-webkit-scrollbar{display:none;}
@@ -4809,6 +4818,32 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
     return () => window.removeEventListener("resize", measure);
   }, []);
 
+  // Belt-and-suspenders for the same "native control steals the pointer"
+  // problem the buttons===0 check above targets: if a stray pointer is
+  // still marked down when the mouse button comes up ANYWHERE on the page
+  // (not just over the stage), drop it. Pointer capture is supposed to
+  // route the real pointerup to the stage regardless of where the cursor
+  // ends up, but that guarantee is exactly what a native <select> popup
+  // can break, which is why the earlier per-element handlers alone weren't
+  // enough.
+  useEffect(() => {
+    function forceRelease() {
+      if (pointers.current.size === 0) return;
+      pointers.current.clear();
+      gesture.current = null;
+      setSwipeDx(0);
+      setPanning(false);
+    }
+    window.addEventListener("pointerup", forceRelease);
+    window.addEventListener("pointercancel", forceRelease);
+    window.addEventListener("mouseup", forceRelease);
+    return () => {
+      window.removeEventListener("pointerup", forceRelease);
+      window.removeEventListener("pointercancel", forceRelease);
+      window.removeEventListener("mouseup", forceRelease);
+    };
+  }, []);
+
   // Keep the image from being dragged past its own edges
   function clamp(x, y, scale) {
     const b = baseDims.current;
@@ -4957,7 +4992,7 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
       </div>
 
       <div className="viewer-mid" onClick={e => e.stopPropagation()}>
-        <button className={`viewer-date${dateStr ? "" : " empty"}`}
+        <button className={`viewer-date${dateStr ? "" : " placeholder"}`}
           onClick={e => { e.stopPropagation(); setPickDate(true); }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>
           {dateStr || "Add date"}
