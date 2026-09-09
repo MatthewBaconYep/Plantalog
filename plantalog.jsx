@@ -1455,7 +1455,7 @@ const styles = `
   /* 17.1: Organic sets body{line-height:1.55} and every comp inherits it.
      Without this the app computes normal (~1.15) and every block that
      doesn't declare its own line-height renders ~25% short. */
-  body{font-family:var(--font-ui);font-weight:600;line-height:1.55;background:var(--cream);color:var(--text);transition:background .3s,color .3s;margin:0;padding:0;}
+  body{font-family:var(--font-ui);font-weight:600;line-height:1.55;color:var(--text);transition:color .3s;margin:0;padding:0;}
   .app{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;background:var(--cream);}
 
   /* Nav */
@@ -2103,8 +2103,8 @@ const styles = `
   /* Scales the headline in as the mark; waits for the last row to collapse. */
   .celebration.all-done .celebration-head{animation:allDoneMark .3s var(--ease-arrive) .12s backwards;}
   .xfade{position:relative;}
-  .xfade-out{position:absolute;top:0;left:0;right:0;z-index:1;pointer-events:none;animation:xfadeOut .16s var(--ease-exit) both;will-change:opacity;}
-  .xfade-in{animation:xfadeIn .2s var(--ease-enter) .06s backwards;will-change:opacity;}
+  .xfade-out{position:absolute;top:0;left:0;right:0;z-index:1;pointer-events:none;animation:xfadeOut .16s var(--ease-exit) both;}
+  .xfade-in{animation:xfadeIn .2s var(--ease-enter) .06s backwards;}
   @media (prefers-reduced-motion: reduce) {
     .modal-overlay, .modal-overlay > .modal,
     .modal-overlay.closing, .modal-overlay.closing > .modal { animation:none !important; }
@@ -2167,7 +2167,7 @@ const styles = `
 
 
   /* Detail */
-  .modal.detail-sheet{height:100vh;height:100dvh;max-height:none;border-radius:35px;}
+  .modal.detail-sheet{max-height:96vh;max-height:96dvh;border-radius:35px;}
   .close-x-btn{position:absolute;top:8px;left:8px;background:rgba(255,255,255,.22);border:none;border-radius:50%;width:34px;height:34px;color:white;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;}
   .info-card .val{font-size:17px;font-weight:700;color:var(--leaf);}
   .info-card .key{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-top:1px;font-weight:500;}
