@@ -1456,10 +1456,10 @@ const styles = `
      Without this the app computes normal (~1.15) and every block that
      doesn't declare its own line-height renders ~25% short. */
   body{font-family:var(--font-ui);font-weight:600;line-height:1.55;background:var(--cream);color:var(--text);transition:background .3s,color .3s;margin:0;padding:0;}
-  .app{max-width:390px;margin:0 auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;background:var(--cream);}
+  .app{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;background:var(--cream);}
 
   /* Nav */
-  .nav-wrap{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:390px;box-sizing:border-box;padding:10px 14px 20px;z-index:100;pointer-events:none;}
+  .nav-wrap{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;box-sizing:border-box;padding:10px 14px 20px;z-index:100;pointer-events:none;}
   .nav{pointer-events:auto;background:var(--primary);display:flex;border-radius:var(--r-pill);padding:9px 6px;box-shadow:var(--shadow-md);}
   .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;color:rgba(242,240,216,.78);cursor:pointer;border:none;background:none;font-family:var(--font-ui);font-size:9px;letter-spacing:.3px;text-transform:uppercase;font-weight:800;transition:color .2s;position:relative;}
   @keyframes tabPick{0%{transform:none;}45%{transform:translateY(-3px) scale(1.12);}100%{transform:none;}}
@@ -1655,7 +1655,7 @@ const styles = `
   .score-bar{display:flex;height:7px;gap:2px;}
   .score-bar > div{border-radius:var(--r-pill);}
 
-  .score-scrim{position:fixed;inset:0;background:rgba(31,29,26,.5);z-index:59;}
+  .score-scrim{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(31,29,26,.5);z-index:59;}
   .score-tip{position:absolute;left:50%;top:calc(100% + 14px);transform:translateX(-50%);z-index:60;
     width:min(300px,calc(100vw - 60px));background:var(--surface);border-radius:var(--r-lg);
     box-shadow:var(--shadow-lg);padding:15px 16px 14px;animation:scoreTipIn .18s var(--ease-enter);}
@@ -1698,6 +1698,10 @@ const styles = `
   .celebration.all-done{animation:allDoneIn .26s var(--ease-enter) .2s both;}
   .celebration-head{font-family:var(--font-display);font-weight:400;font-size:26px;line-height:1.1;margin-top:2px;}
   .celebration-pill{display:inline-flex;align-items:center;gap:7px;margin-top:15px;font-size:12px;font-weight:800;padding:7px 15px;border-radius:var(--r-pill);}
+  /* --leaf on --leaf-pale is fine in light mode, but dark mode's --leaf is
+     nearly the same tone as its --leaf-pale, so the water pill's text was
+     unreadable. Same fix already used for .imp-summary above. */
+  .dark .celebration-pill.water{color:#8ee0ad!important;}
   @keyframes drip{0%{transform:translateY(0);opacity:.9;}70%{opacity:.6;}100%{transform:translateY(14px);opacity:0;}}
   .drip{position:absolute;width:6px;height:8px;border-radius:0 0 99px 99px;background:#c3e3f2;animation:drip 2s ease-in-out infinite;}
   .drip.d1{top:18px;left:34px;width:7px;height:9px;background:#9ccfe4;}
@@ -1765,8 +1769,8 @@ const styles = `
     display:flex;align-items:center;justify-content:center;flex-shrink:0;
     box-shadow:0 0 0 2.5px #e6f2f8, 0 0 0 4.5px #17627f;}
   .dark .tip-q{box-shadow:0 0 0 2.5px #173f52, 0 0 0 4.5px #a5cfe3;background:#a5cfe3;color:#04212e;}
-  .tip-scrim{position:fixed;inset:0;background:rgba(31,29,26,.5);z-index:560;display:flex;
-    align-items:center;justify-content:center;padding:16px;}
+  .tip-scrim{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(31,29,26,.5);z-index:560;display:flex;
+    align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}
   .tip-card{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);
     padding:16px 17px 15px;width:100%;max-width:358px;}
   .tip-head{font-family:var(--font-display);font-weight:400;font-size:18px;line-height:1.15;color:#12556e;}
@@ -2069,7 +2073,7 @@ const styles = `
 
   @keyframes veilIn { from { background:rgba(0,0,0,0); } to { background:rgba(0,0,0,.48); } }
   @keyframes veilOut{ from { background:rgba(0,0,0,.48); } to { background:rgba(0,0,0,0); } }
-  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:veilIn .26s var(--ease-enter) both;}
+  .modal-overlay{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(0,0,0,.48);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:veilIn .26s var(--ease-enter) both;}
   .modal-overlay.closing{animation:veilOut .22s var(--ease-exit) both;}
   @keyframes sheetFade{ from { opacity:0; } to { opacity:1; } }
   @keyframes sheetFadeOut{ from { opacity:1; } to { opacity:0; } }
@@ -2099,8 +2103,8 @@ const styles = `
   /* Scales the headline in as the mark; waits for the last row to collapse. */
   .celebration.all-done .celebration-head{animation:allDoneMark .3s var(--ease-arrive) .12s backwards;}
   .xfade{position:relative;}
-  .xfade-out{position:absolute;top:0;left:0;right:0;z-index:1;pointer-events:none;animation:xfadeOut .16s var(--ease-exit) both;}
-  .xfade-in{animation:xfadeIn .2s var(--ease-enter) .06s backwards;}
+  .xfade-out{position:absolute;top:0;left:0;right:0;z-index:1;pointer-events:none;animation:xfadeOut .16s var(--ease-exit) both;will-change:opacity;}
+  .xfade-in{animation:xfadeIn .2s var(--ease-enter) .06s backwards;will-change:opacity;}
   @media (prefers-reduced-motion: reduce) {
     .modal-overlay, .modal-overlay > .modal,
     .modal-overlay.closing, .modal-overlay.closing > .modal { animation:none !important; }
@@ -2121,7 +2125,7 @@ const styles = `
     .score-tip, .primer-card { animation:none !important; }
     .detail-sheet { transition:none !important; }
   }
-  .modal{background:var(--page-bg);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:390px;max-height:88vh;max-height:88dvh;overflow-y:auto;padding:12px 12px 20px;box-shadow:0 26px 0 var(--page-bg);}
+  .modal{background:var(--page-bg);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:480px;max-height:88vh;max-height:88dvh;overflow-y:auto;padding:12px 12px 20px;box-shadow:0 26px 0 var(--page-bg);}
   .modal.data-sheet{box-shadow:0 -14px 40px rgba(28,25,20,.32);}
   .data-sheet{background:#f2e6d2;border-radius:var(--r-xl) var(--r-xl) 0 0;padding:15px 16px 20px;
     box-sizing:border-box;display:flex;flex-direction:column;gap:10px;
@@ -2189,7 +2193,7 @@ const styles = `
   .cal-field-btn{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:var(--font-ui);font-size:15px;background:var(--input-bg);color:var(--text);font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:6px;text-align:left;}
   .cal-field-btn.placeholder{color:var(--text-muted);font-weight:500;}
   .cal-field-btn svg{flex-shrink:0;opacity:.55;}
-  .cal-popup-overlay{position:fixed;inset:0;background:rgba(28,25,20,.52);z-index:520;display:flex;align-items:center;justify-content:center;padding:22px;}
+  .cal-popup-overlay{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(28,25,20,.52);z-index:520;display:flex;align-items:center;justify-content:center;padding:22px;box-sizing:border-box;}
   .cal-popup{background:#f2e6d2;border-radius:var(--r-lg);padding:16px 14px;width:100%;box-shadow:0 18px 50px rgba(28,25,20,.42);}
   .cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
   .cal-nav-btn{background:var(--surface);border:none;color:var(--text);cursor:pointer;width:30px;height:30px;border-radius:var(--r-pill);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);flex-shrink:0;}
@@ -2249,7 +2253,7 @@ const styles = `
   .dark .sched-preview{background:#211d19;border-color:#3a352d;}
   .sched-preview svg{width:100%;height:100%;}
   /* Confirm dialog */
-  .cfm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;display:flex;align-items:center;justify-content:center;padding:22px;}
+  .cfm-overlay{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(0,0,0,.55);z-index:500;display:flex;align-items:center;justify-content:center;padding:22px;box-sizing:border-box;}
   .cfm-card{background:var(--card-bg);border-radius:var(--r-md);padding:18px;width:100%;max-width:340px;box-shadow:0 12px 44px rgba(0,0,0,.42);}
   .cfm-title{font-size:17px;font-weight:800;color:var(--text);margin-bottom:6px;}
   .cfm-msg{font-size:13px;color:var(--text-muted);line-height:1.45;margin-bottom:15px;}
@@ -2270,7 +2274,7 @@ const styles = `
   .dark .purge-label{color:#ff8080;}
   .died-pill{padding:3px 11px;border-radius:var(--r-pill);font-size:12px;font-weight:700;}
   /* Date picker */
-  .dp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .dp-overlay{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(0,0,0,.55);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;}
   .dp-card{background:var(--card-bg);border-radius:var(--r-md);padding:16px;width:100%;max-width:330px;box-shadow:0 10px 40px rgba(0,0,0,.4);}
   .dp-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px;}
   .dp-fields{display:flex;gap:8px;}
@@ -2308,7 +2312,7 @@ const styles = `
   .photo-thumb-wrap:hover{transform:scale(1.04);box-shadow:0 2px 10px rgba(0,0,0,.22);}
   .photo-thumb{width:68px;height:68px;object-fit:cover;border-radius:var(--r-sm);display:block;pointer-events:none;user-select:none;-webkit-user-select:none;}
   /* 13d full-screen viewer */
-  .viewer{position:fixed;inset:0;z-index:600;background:#141310;display:flex;flex-direction:column;}
+  .viewer{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:600;background:#141310;display:flex;flex-direction:column;}
   .viewer-top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 4px;flex-shrink:0;}
   .viewer-close{width:32px;height:32px;border:none;border-radius:var(--r-pill);background:rgba(240,233,220,.14);
     color:#f0e9dc;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
@@ -2323,7 +2327,7 @@ const styles = `
     padding:5px 11px;border-radius:var(--r-pill);pointer-events:none;}
   .viewer-bottom{flex-shrink:0;display:flex;flex-direction:column;gap:11px;padding:16px 16px 8px;}
   .viewer-name{font-family:var(--font-display);font-weight:400;font-size:21px;line-height:1;color:#f0e9dc;}
-  .viewer-strip{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;}
+  .viewer-strip{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:5px;margin:-5px;}
   .viewer-strip::-webkit-scrollbar{display:none;}
   .viewer-strip-thumb{width:52px;height:52px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0;
     opacity:.55;cursor:pointer;transition:opacity .15s;}
@@ -3004,9 +3008,6 @@ function App() {
     saveData("pt_darkmode", darkMode);
     if (!PREVIEW_MODE && user) sbSaveSettings(user.id, { dark_mode: darkMode, show_photos: showCardPhotos });
   }, [darkMode, loaded]);
-  useEffect(() => {
-    document.body.style.background = darkMode ? "#000" : "";
-  }, [darkMode]);
   useEffect(() => {
     if (!loaded) return;
     saveData("pt_showcardphotos", showCardPhotos);
@@ -4397,7 +4398,6 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
               <div className="firstrun-note">Want to import your plants in bulk? Head over to Utilities to download the XLS import template!</div>
             </>
           ) : <div className="empty"><span className="ico">🌱</span><p>No plants match this filter.</p></div>)}
-          {plants.length>0 && !sFilter && <div className="list-footnote">Rooms with no colour, and plants with no room, sort to the bottom.</div>}
         </div>
       ) : (
         <div className="section">
@@ -4862,6 +4862,11 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
 
   function onPointerMove(e) {
     if (!pointers.current.has(e.pointerId)) return;
+    // A native control (e.g. the month <select>) can steal the pointer
+    // without ever sending this element a pointerup/pointercancel, which
+    // left the image sliding with the cursor until the next click. If the
+    // mouse button is no longer down, treat it as a release now.
+    if (e.pointerType === "mouse" && e.buttons === 0) { onPointerUp(e); return; }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const g = gesture.current;
     if (!g) return;
@@ -4967,6 +4972,7 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
+          onLostPointerCapture={onPointerUp}
           onWheel={onWheel}
           onContextMenu={e => e.preventDefault()}>
           <img ref={imgRef} src={photos[index]} alt="" onLoad={measure} draggable="false"
@@ -5985,7 +5991,7 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
             <div className={`celebration${doneEntering?" all-done":""}`}>
               <span className="drip d1"/><span className="drip d2"/><span className="drip d3"/>
               <div className="celebration-head" style={{color:"#0a7a43"}}>All done for today!</div>
-              <div className="celebration-pill" style={{background:"var(--leaf-pale)",color:"var(--leaf)"}}>
+              <div className="celebration-pill water" style={{background:"var(--leaf-pale)",color:"var(--leaf)"}}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 {plants.filter(p=>!p.status && p.lastWatered===todayDate).length} watered today
               </div>
