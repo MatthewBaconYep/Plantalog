@@ -1733,7 +1733,7 @@ const styles = `
   .detail-hero-room span:last-child{font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#fbd9ad;}
   .hero-pill.filled{color:#f2fbf5;}
   /* ── Add/Edit Plant form (6a/6b) ─────────────────────────────────────────── */
-  .modal.pm-modal{padding:0!important;overflow:hidden;display:flex;flex-direction:column;height:100vh;height:100dvh;max-height:none;border-radius:35px;box-shadow:0 -14px 40px rgba(28,25,20,.32);}
+  .modal.pm-modal{padding:0!important;overflow:hidden;display:flex;flex-direction:column;max-height:96vh;max-height:96dvh;border-radius:35px 35px 0 0;box-shadow:0 -14px 40px rgba(28,25,20,.32);}
   .pm-header{background:var(--primary);color:var(--primary-ink);padding:12px 16px 13px;flex-shrink:0;display:flex;align-items:center;gap:12px;}
   .pm-icon-btn{border:none;width:32px;height:32px;border-radius:var(--r-pill);background:rgba(242,240,216,.16);color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .pm-title{font-family:var(--font-display);font-weight:400;font-size:21px;line-height:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -2282,7 +2282,9 @@ const styles = `
   .dark .purge-label{color:#ff8080;}
   .died-pill{padding:3px 11px;border-radius:var(--r-pill);font-size:12px;font-weight:700;}
   /* Date picker */
-  .dp-overlay{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(0,0,0,.55);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;}
+  /* Only ever used inside the (now full-bleed) photo viewer, so this dims
+     the whole screen too rather than just the 480px app column. */
+  .dp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;}
   .dp-card{background:var(--card-bg);border-radius:var(--r-md);padding:16px;width:100%;max-width:330px;box-shadow:0 10px 40px rgba(0,0,0,.4);}
   .dp-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px;}
   .dp-fields{display:flex;gap:8px;}
@@ -2338,8 +2340,12 @@ const styles = `
   .viewer-name{font-family:var(--font-display);font-weight:400;font-size:21px;line-height:1;color:#f0e9dc;}
   .viewer-strip{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:5px;margin:-5px;}
   .viewer-strip::-webkit-scrollbar{display:none;}
+  /* transform:translateZ(0) forces each thumb onto its own compositing
+     layer - without it, the ring's box-shadow (which extends past the
+     thumb's own box) can leave a ghost behind in Chromium/WebKit when the
+     .current class moves to a different thumb inside this scrolling row. */
   .viewer-strip-thumb{width:52px;height:52px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0;
-    opacity:.55;cursor:pointer;transition:opacity .15s;}
+    opacity:.55;cursor:pointer;transition:opacity .15s;transform:translateZ(0);}
   .viewer-strip-thumb.current{opacity:1;box-shadow:0 0 0 2.5px #141310, 0 0 0 4.5px #f2a13b;}
   .viewer-actions{display:flex;gap:7px;}
   .viewer-setmain{flex:1;background:transparent;border:1.5px solid rgba(240,233,220,.28);color:#f0e9dc;
@@ -4478,7 +4484,7 @@ function CalendarPopup({ value, onSelect, onClose, viewHint, label }) {
   }
 
   return (
-    <div className="cal-popup-overlay" onClick={onClose}>
+    <div className="cal-popup-overlay" onClick={e => { e.stopPropagation(); onClose(); }}>
       <div className="cal-popup" onClick={e=>e.stopPropagation()}>
         <div className="cal-nav">
           <button className="cal-nav-btn" onClick={()=>nav(-1)} aria-label="Previous month">
@@ -4625,7 +4631,7 @@ function useSheetDismiss(onClose) {
 
 function ConfirmDialog({ title, message, actions, cancelLabel = "Cancel", onClose, center=false }) {
   return (
-    <div className="cfm-overlay" onClick={onClose}>
+    <div className="cfm-overlay" onClick={e => { e.stopPropagation(); onClose(); }}>
       <div className="cfm-card" onClick={e => e.stopPropagation()}>
         <div className="cfm-title" style={center?{textAlign:"center",marginBottom:message?6:16}:undefined}>{title}</div>
         {message && <div className="cfm-msg" style={center?{textAlign:"center"}:undefined}>{message}</div>}
@@ -4684,7 +4690,7 @@ function PhotoDatePicker({ value, onSave, onClose }) {
   }
 
   return (
-    <div className="dp-overlay" onClick={onClose}>
+    <div className="dp-overlay" onClick={e => { e.stopPropagation(); onClose(); }}>
       <div className="dp-card" onClick={e => e.stopPropagation()}>
         <div className="dp-title">Photo Date</div>
         {isTouch ? (
