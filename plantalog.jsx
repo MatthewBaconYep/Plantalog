@@ -1474,7 +1474,11 @@ const styles = `
   .nav-btn.active svg{animation:tabPick .26s var(--ease-arrive);}
   .nav-btn.active{color:var(--primary-ink);}
   .nav-btn svg{width:20px;height:20px;stroke-width:2.75;}
-  .nav-badge{position:absolute;top:4px;right:calc(50% - 21px);background:#e0483a;color:#fffdf8;
+  /* 6.7 positions this against the icon, not the button: left edge clearing
+     the 20px icon's right edge by 1px (so 50% + 10 + 1) and the top sitting
+     2px above it. The old offsets were tuned to the button's padding, which
+     no longer exists now that the columns match 13b. */
+  .nav-badge{position:absolute;top:-2px;left:calc(50% + 11px);background:#e0483a;color:#fffdf8;
     border-radius:999px;height:16px;min-width:16px;padding:0 4px;box-sizing:border-box;
     font-family:var(--font-ui);font-size:9px;font-weight:800;line-height:16px;text-align:center;
     display:flex;align-items:center;justify-content:center;}
@@ -1779,7 +1783,8 @@ const styles = `
   .pm-save-btn{border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:13px;font-weight:800;padding:8px 20px;border-radius:var(--r-pill);cursor:pointer;flex-shrink:0;}
   .pm-body{flex:1;overflow-y:auto;padding:11px 14px 16px;display:flex;flex-direction:column;gap:7px;}
   .pm-got-card{padding:9px 12px 10px!important;}
-  .pm-name-card{display:flex;flex-direction:column;gap:3px;}
+  /* 6b centres both cards in this row vertically, not just the Got one. */
+  .pm-name-card{display:flex;flex-direction:column;justify-content:center;gap:3px;}
   .pm-got-card{display:flex;flex-direction:column;justify-content:center;gap:3px;}
   .notes-card{height:84px;flex:0 0 84px;overflow:hidden;}
   .pm-card{background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow-sm);padding:9px 14px 10px;}
@@ -1794,6 +1799,8 @@ const styles = `
   .pm-name-rule.at-cap{background:#e0483a;}
   .pm-got-caption{font-size:10px;font-weight:700;color:var(--bark-light);margin-top:2px;}
   .pm-date-chip.cal-field-btn{font-size:13px;font-weight:800;color:var(--text);border:none;background:none;padding:0;gap:5px;justify-content:flex-start;}
+  /* CalendarField ships a 15px icon; every date control in 6b draws it at 12. */
+  .pm-date-chip svg,.pm-date-pill svg{width:12px;height:12px;}
 
   .pm-room-scroll{display:flex;gap:6px;overflow-x:auto;padding:6px 14px 7px;scrollbar-width:none;}
   .pm-room-scroll::-webkit-scrollbar{display:none;}
@@ -1835,7 +1842,11 @@ const styles = `
   .pm-panel.water .pm-row-between{color:var(--water-ink);}
   .pm-stepper{display:flex;align-items:center;gap:11px;}
   .pm-step{border:none;width:30px;height:30px;border-radius:var(--r-pill);font-size:19px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
-  .pm-stepper-val{font-family:var(--font-display);font-weight:400;font-size:22px;min-width:44px;text-align:center;}
+  /* Wide enough for the longest value any of the three steppers can show, so
+     the minus buttons stay put instead of shifting when the text grows. At
+     22px Caprasimo the worst cases are 12.5y (59.7), 10.5" (54.9) and 365d
+     (53.9); 44 was narrower than 2.5y (46.6), which is what moved it. */
+  .pm-stepper-val{font-family:var(--font-display);font-weight:400;font-size:22px;min-width:62px;text-align:center;}
   /* .cal-field-btn is a full-width form control; as a pill it has to stop
      being one, or it stretches across the row with the icon pushed to the far
      edge instead of sitting next to the date (6b). */
@@ -4196,7 +4207,7 @@ function Nav({ screen, setScreen, plants, todayDate, onUtilsClick }) {
         Home
       </button>
       <button className={`nav-btn water${screen==="water"?" active water":""}`} onClick={()=>{ setScreen("water"); navCaptureScroll(); }}>
-        {due>0 && <span className="nav-badge">{due}</span>}
+        {due>0 && <span className="nav-badge">{due>99?"99+":due}</span>}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2C6 9 4 13.5 4 16a8 8 0 0016 0c0-2.5-2-7-8-14z"/></svg>
         Water
       </button>
