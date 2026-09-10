@@ -1505,6 +1505,15 @@ const styles = `
      only layout. These were viewport-keyed and silently stopped applying
      on desktop, which is where the fourth stat column came from. */
   .phone-hide { display: none !important; }
+  /* Water cards have room for Home's Every tile beside the add-days button on
+     a desktop viewport, but not on a phone, which keeps the inline "every Nd"
+     under the name instead. Keyed on the viewport, not the app column, since
+     the column is a fixed width at every size. */
+  .desktop-only{display:none;}
+  @media (min-width:700px){
+    .desktop-only{display:flex;}
+    .desktop-hide{display:none;}
+  }
   .nav { padding-bottom: 4px; }
   .nav-btn { padding-top: 5px; padding-bottom: 5px; }
 
@@ -2109,8 +2118,14 @@ const styles = `
   @keyframes xfadeIn{from{opacity:0;}to{opacity:1;}}
   /* Collapses to the element's real height, so the list closes the gap smoothly
      for the whole duration instead of sitting still and then snapping shut. */
-  .collapse-slot{overflow:hidden;margin-bottom:4px;
+  /* overflow is clipped only while actually collapsing. Left on permanently it
+     also clipped the add-days tooltip, which opens upward out of the first
+     rows of a group and was being cut off at the group header above it.
+     CollapseSlot only pins a height while leaving, so at rest there is nothing
+     to contain. */
+  .collapse-slot{margin-bottom:4px;
     transition:height .34s var(--ease-collapse) .1s,margin-bottom .34s var(--ease-collapse) .1s;}
+  .collapse-slot.leaving{overflow:hidden;}
   .room-hdr-wrap{transition:opacity .24s var(--ease-exit),transform .24s var(--ease-exit);}
   .upnext-day{transition:opacity .22s ease-in;}
   .upnext-day.leaving{opacity:0;}
@@ -4180,7 +4195,7 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
                 {daysLeft<0 ? `${-daysLeft} day${-daysLeft===1?"":"s"} late` : "Due today"}
               </span>
             )}
-            <span className="card-sub-text">every {plant.waterFreqDays}d{daysLeft>0?` · in ${daysLeft}d`:""}</span>
+            <span className="card-sub-text"><span className="desktop-hide">every {plant.waterFreqDays}d</span>{daysLeft>0?<span className="desktop-hide"> · </span>:null}{daysLeft>0?`in ${daysLeft}d`:""}</span>
           </div>
         )}
         {mode==="repot" && room && (
@@ -4253,6 +4268,12 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
           </div>
         </>}
 
+        {mode==="water" && (
+          <div className="stat-tile desktop-only" title="Watering frequency">
+            <div className="st-lbl">Every</div>
+            <div className="st-val">{plant.waterFreqDays}d</div>
+          </div>
+        )}
       </div>
 
       {/* Repot pot-size badge sits with the actions, not in the stat row (7c) */}
@@ -4841,6 +4862,10 @@ function Wheel({ items, values, value, onChange, className = "" }) {
 function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
                          plantName, mainIndex, onSetMain, onDelete }) {
   const isMain = (mainIndex == null ? 0 : mainIndex) === index;
+  // Dark mode lives on .app, and the portal below lands outside it, so the
+  // theme's custom properties and .dark descendant rules have to be re-rooted
+  // here or the date picker renders light while the app is dark.
+  const viewerDark = useIsDark();
   const MAX_Z = 5, DBL_Z = 2.5;
   const [z, setZ]           = useState(1);
   const [t, setT]           = useState({ x: 0, y: 0 });
@@ -5059,12 +5084,21 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
 
   const dateStr = prettyPhotoDate(dateAt(index));
 
+  // Portalled to <body> rather than left where it is rendered, which is inside
+  // the detail sheet. As a DOM descendant of the sheet it inherited two
+  // problems: any transform on the sheet (the drag applies one) becomes the
+  // containing block for this position:fixed element, collapsing it into the
+  // sheet's 480px column - visible as a flash of the photo at app width before
+  // it snaps to full size - and its pointer events reached the sheet's
+  // swipe-to-dismiss handlers. A portal keeps React state and context intact
+  // and only changes where the nodes land.
+  //
   // Clicking any empty surround closes. Testing target===currentTarget rather
   // than moved.current: the rows below already stop propagation, so this only
   // ever sees a genuine backdrop click, and moved.current was stale from the
   // last swipe, which silently blocked closing this way.
-  return (
-    <div className="viewer" onClick={e => { if (e.target === e.currentTarget && !zoomed) onClose(); }}>
+  return ReactDOM.createPortal((
+    <div className={`viewer${viewerDark ? " dark" : ""}`} onClick={e => { if (e.target === e.currentTarget && !zoomed) onClose(); }}>
       {/* 13d: top row, 32px close at 14% ink, then a matching spacer so the
           close reads optically left of centre. */}
       <div className="viewer-top" onClick={e => e.stopPropagation()}>
@@ -5141,7 +5175,7 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
         </div>
       )}
     </div>
-  );
+  ), document.body);
 }
 
 // §9 swipe down to close. The detail arrives as a sheet, so it leaves like
