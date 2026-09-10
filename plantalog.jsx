@@ -1733,7 +1733,9 @@ const styles = `
   .detail-hero-room span:last-child{font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#fbd9ad;}
   .hero-pill.filled{color:#f2fbf5;}
   /* ── Add/Edit Plant form (6a/6b) ─────────────────────────────────────────── */
-  .modal.pm-modal{padding:0!important;overflow:hidden;display:flex;flex-direction:column;max-height:96vh;max-height:96dvh;border-radius:35px 35px 0 0;box-shadow:0 -14px 40px rgba(28,25,20,.32);}
+  /* Two layers so the top edge reads dark right at the card but still falls
+     off softly instead of ending in a visible band. */
+  .modal.pm-modal{padding:0!important;overflow:hidden;display:flex;flex-direction:column;max-height:96vh;max-height:96dvh;border-radius:35px 35px 0 0;box-shadow:0 -10px 26px rgba(0,0,0,.40), 0 -28px 68px rgba(0,0,0,.34);}
   .pm-header{background:var(--primary);color:var(--primary-ink);padding:12px 16px 13px;flex-shrink:0;display:flex;align-items:center;gap:12px;}
   .pm-icon-btn{border:none;width:32px;height:32px;border-radius:var(--r-pill);background:rgba(242,240,216,.16);color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .pm-title{font-family:var(--font-display);font-weight:400;font-size:21px;line-height:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -2029,20 +2031,28 @@ const styles = `
   .freq-inc-btn:hover{background:var(--water);color:white;}
   .dark .freq-inc-btn{background:rgba(255,255,255,.12);color:var(--water-ink);}
   .dark .freq-inc-btn:hover{background:var(--water-ink);color:#0c1a1f;}
-  .freq-tooltip{position:absolute;bottom:calc(100% + 8px);right:0;background:var(--soil);border-radius:var(--r-sm);padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,.3);z-index:50;min-width:240px;}
-  .dark .freq-tooltip{background:#3a3a3f;}
-  .dark .freq-tooltip::after{background:#3a3a3f;}
-  .freq-tooltip::after{content:'';position:absolute;bottom:-5px;right:10px;width:10px;height:10px;background:var(--soil);transform:rotate(45deg);border-radius:var(--r-xs);}
-  .freq-tooltip-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:white;margin-bottom:8px;}
-  .freq-tooltip .check-btn{color:white!important;}
-  @media (hover:hover) and (pointer:fine) {
-    .freq-tooltip .check-btn:hover{background:rgba(255,255,255,.2)!important;}
-  }
-  .freq-tooltip-row{display:flex;align-items:center;gap:7px;}
-  .freq-opt{background:rgba(255,255,255,.12);border:none;color:white;border-radius:var(--r-xs);padding:7px 12px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font-ui);transition:background .15s;white-space:nowrap;}
-  .freq-opt:hover,.freq-opt.active{background:var(--leaf-light);color:var(--soil);}
-  .freq-custom{width:52px;padding:7px 6px;border-radius:var(--r-xs);border:none;background:rgba(255,255,255,.12);color:white;font-family:var(--font-ui);font-size:14px;font-weight:700;text-align:center;}
-  .freq-custom::placeholder{color:rgba(255,255,255,.35);}
+  /* Add days popup, screen 16a: light card, three preset pills, then a
+     stepper to nudge the value and a round commit button. */
+  .freq-tooltip{position:absolute;bottom:calc(100% + 10px);right:2px;width:252px;background:var(--card-bg);border-radius:16px;padding:12px 13px 13px;box-shadow:var(--shadow-lg);z-index:50;}
+  .freq-tooltip::after{content:'';position:absolute;bottom:-4px;right:60px;width:11px;height:11px;background:var(--card-bg);transform:rotate(45deg);border-radius:6px;}
+  .freq-tooltip-title{font-size:10px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--water-header-ink-on-light,#17627f);margin-bottom:8px;}
+  .dark .freq-tooltip-title{color:#a5cfe3;}
+  .freq-presets{display:flex;gap:7px;}
+  .freq-opt{flex:1;background:#e6f2f8;border:none;color:#12556e;border-radius:var(--r-pill);padding:9px 0;font-size:13.5px;font-weight:800;cursor:pointer;font-family:var(--font-ui);transition:background .15s,color .15s;}
+  .freq-opt.active{background:#17627f;color:#fff;}
+  .dark .freq-opt{background:#173f52;color:#a5cfe3;}
+  .dark .freq-opt.active{background:#a5cfe3;color:#04212e;}
+  .freq-step-row{margin-top:9px;display:flex;align-items:center;gap:8px;}
+  .freq-stepper{flex:1;background:#e6f2f8;border-radius:var(--r-pill);padding:3px;display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .dark .freq-stepper{background:#173f52;}
+  .freq-step-btn{border:none;width:31px;height:31px;border-radius:var(--r-pill);cursor:pointer;font-size:19px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--card-bg);color:#12556e;}
+  .freq-step-btn.plus{background:#17627f;color:#fff;}
+  .dark .freq-step-btn{background:#0d2b38;color:#a5cfe3;}
+  .dark .freq-step-btn.plus{background:#a5cfe3;color:#04212e;}
+  .freq-step-val{font-family:var(--font-display);font-weight:400;font-size:16px;line-height:1;color:#12556e;}
+  .dark .freq-step-val{color:#a5cfe3;}
+  .freq-commit{border:none;background:#17627f;color:#fff;width:37px;height:37px;border-radius:var(--r-pill);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .dark .freq-commit{background:#a5cfe3;color:#04212e;}
   .freq-custom:focus{outline:none;background:rgba(255,255,255,.22);}
 
   /* Water cards */
@@ -2110,9 +2120,21 @@ const styles = `
   @keyframes allDoneMark{from{opacity:0;transform:scale(.86);}to{opacity:1;transform:scale(1);}}
   /* Scales the headline in as the mark; waits for the last row to collapse. */
   .celebration.all-done .celebration-head{animation:allDoneMark .3s var(--ease-arrive) .12s backwards;}
-  .xfade{position:relative;}
+  /* Clips the outgoing layer, which is offset upward by the old scroll
+     position (top:-swapScrollY) so it stays where it visually was. Without
+     this it paints above the crossfade box and over the header, flashing
+     the page background there for the length of the fade. Modals inside are
+     position:fixed with no transformed ancestor, so they are not clipped. */
+  .xfade{position:relative;overflow:hidden;}
   .xfade-out{position:absolute;top:0;left:0;right:0;z-index:1;pointer-events:none;animation:xfadeOut .16s var(--ease-exit) both;}
-  .xfade-in{animation:xfadeIn .2s var(--ease-enter) .06s backwards;}
+  /* The incoming screen is NOT faded in. It used to be, with a .06s delay and
+     a backwards fill, which pins it at opacity 0 for that whole delay - and
+     because the outgoing layer is offset upward by the old scroll position it
+     does not cover the top of the content area, so the page background showed
+     through under the header for the length of the delay. That was the
+     transition flicker. Leaving the incoming opaque underneath and only fading
+     the outgoing out on top of it is still a crossfade, and makes a gap
+     impossible. It also stops the two layers double-fading into a muddy mix. */
   @media (prefers-reduced-motion: reduce) {
     .modal-overlay, .modal-overlay > .modal,
     .modal-overlay.closing, .modal-overlay.closing > .modal { animation:none !important; }
@@ -2175,7 +2197,7 @@ const styles = `
 
 
   /* Detail */
-  .modal.detail-sheet{max-height:96vh;max-height:96dvh;border-radius:35px;box-shadow:0 26px 0 var(--page-bg), 0 -14px 40px rgba(28,25,20,.32);}
+  .modal.detail-sheet{max-height:96vh;max-height:96dvh;border-radius:35px;box-shadow:0 26px 0 var(--page-bg), 0 -10px 26px rgba(0,0,0,.40), 0 -28px 68px rgba(0,0,0,.34);}
   .close-x-btn{position:absolute;top:8px;left:8px;background:rgba(255,255,255,.22);border:none;border-radius:50%;width:34px;height:34px;color:white;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;}
   .info-card .val{font-size:17px;font-weight:700;color:var(--leaf);}
   .info-card .key{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-top:1px;font-weight:500;}
@@ -4163,7 +4185,9 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
         )}
         {mode==="repot" && room && (
           <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2}}>
-            <span className="card-room-pill">{room.name}</span>
+            <span className="card-room-pill" style={room.color
+              ? {background:room.color, color:roomTextColor(room.color)}
+              : {background:"var(--sand)", color:"var(--text)"}}>{room.name}</span>
             <span className="card-sub-text">potted {plantAgeDecimal(plant.pottedDate)} ago</span>
           </div>
         )}
@@ -4426,12 +4450,6 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
       return (
       sTab==="plants" ? (
         <div className="section">
-          {sFilter && (
-            <div style={{fontSize:11,color:"var(--text-muted)",margin:"0 2px 8px",fontWeight:600}}>
-              Showing: {HEALTH[sFilter].label} plants
-              <button onClick={selectAll} style={{marginLeft:8,background:"none",border:"none",cursor:"pointer",color:"var(--leaf)",fontSize:11,fontWeight:700}}>× Clear</button>
-            </div>
-          )}
           {sortedRooms.map(room=>{
             const rPlants = sFiltered.filter(p=>p.roomId===room.id).sort((a,b)=>a.name.localeCompare(b.name));
             if (!rPlants.length) return null;
@@ -5041,10 +5059,12 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
 
   const dateStr = prettyPhotoDate(dateAt(index));
 
+  // Clicking any empty surround closes. Testing target===currentTarget rather
+  // than moved.current: the rows below already stop propagation, so this only
+  // ever sees a genuine backdrop click, and moved.current was stale from the
+  // last swipe, which silently blocked closing this way.
   return (
-    <div className="viewer" onClick={() => { if (!zoomed && !moved.current) onClose(); }}
-      onPointerDown={e => e.stopPropagation()} onPointerMove={e => e.stopPropagation()}
-      onPointerUp={e => e.stopPropagation()} onPointerCancel={e => e.stopPropagation()}>
+    <div className="viewer" onClick={e => { if (e.target === e.currentTarget && !zoomed) onClose(); }}>
       {/* 13d: top row, 32px close at 14% ink, then a matching spacer so the
           close reads optically left of centre. */}
       <div className="viewer-top" onClick={e => e.stopPropagation()}>
@@ -5054,7 +5074,7 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
         <span className="viewer-top-spacer"/>
       </div>
 
-      <div className="viewer-mid" onClick={e => e.stopPropagation()}>
+      <div className="viewer-mid" onClick={e => { e.stopPropagation(); if (e.target === e.currentTarget && !zoomed) onClose(); }}>
         <button className={`viewer-date${dateStr ? "" : " placeholder"}`}
           onClick={e => { e.stopPropagation(); setPickDate(true); }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>
@@ -5153,6 +5173,12 @@ function useSheetDrag(onCommit, enabled = true) {
   function onPointerMove(e) {
     const c = st.current;
     if (!c.active) return;
+    // A drag can lose its pointerup: a native <select> popup swallows it, and
+    // so does any element that moves out from under the cursor mid-drag (this
+    // sheet's own transform re-parents fixed descendants, which can do exactly
+    // that). Without this the drag stays armed and the sheet keeps tracking
+    // the cursor with no button held.
+    if (e.pointerType === "mouse" && e.buttons === 0) { onPointerUp(); return; }
     const raw = e.clientY - c.startY;
     // Upward past the open position is rubber-banded so it resists, not sticks.
     const next = raw >= 0 ? raw : -Math.sqrt(-raw) * 3;
@@ -5170,8 +5196,11 @@ function useSheetDrag(onCommit, enabled = true) {
     setDragging(false);
     const h = sheetRef.current ? sheetRef.current.offsetHeight : 1;
     // Velocity matters more than distance: a fast flick from near the top
-    // should close, and a slow drag past a quarter should also close.
-    const commit = c.dy > h * 0.25 || c.v > 0.5;
+    // should close, and a slow drag past a quarter should also close. The
+    // flick still needs to have travelled a real distance though - velocity
+    // is px/ms, so a 3px twitch over 2ms reads as 1.5 and would otherwise
+    // dismiss the sheet on what the user experienced as a plain tap.
+    const commit = c.dy > h * 0.25 || (c.v > 0.5 && c.dy > 48);
     if (commit) {
       if (reduced) { setDy(0); onCommit(); return; }
       const remaining = Math.max(0, h - c.dy);
@@ -5194,11 +5223,14 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
   const [confirm, setConfirm] = useState(null);   // "restore" | "delete"
   const [detailClosing, dismissDetail] = useSheetDismiss(onClose);
   const heroPhoto = getPrimaryPhoto(plant);
-  const drag = useSheetDrag(dismissDetail, !ghost);
   const room    = rooms.find(r=>r.id===plant.roomId);
   const h       = HEALTH[plant.health];
   const fileRef = useRef();
   const [lightboxIdx, setLightboxIdx] = useState(null);
+  // The photo viewer sits on top of this sheet but is still a DOM descendant
+  // of it, so its taps and swipes reach the sheet's drag handlers. Nothing in
+  // the viewer should ever be able to dismiss the card underneath it.
+  const drag = useSheetDrag(dismissDetail, !ghost && lightboxIdx === null);
   const [openMenuIdx, setOpenMenuIdx] = useState(null);
 
   const daysSince = daysBetween(plant.lastWatered, fmt(getToday()));
@@ -5674,7 +5706,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
             <div className="tip-scrim" onClick={()=>setTipOpen(false)}>
               <div className="tip-card" onClick={e=>e.stopPropagation()}>
                 <div className="tip-head">Not sure how often to water?</div>
-                <p className="tip-body">Start at <strong>7 days</strong>. When it comes due, check the soil first: if the top inch or two is dry, water it. If it’s still moist, add a few days and check again. Repeat and you’ll land on the right frequency for this plant.</p>
+                <p className="tip-body">Start at <strong>7 days</strong>. When it comes due, check the soil first: if the top inch or two is dry, water it. If it’s still moist, add a few days and check again. Repeat and you’ll land on the right frequency for your plant.</p>
                 <button className="tip-btn" onClick={()=>setTipOpen(false)}>Got it</button>
               </div>
             </div>
@@ -5909,7 +5941,7 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
   }
 
   function saveFreq(plantId) {
-    const add = freqPick ?? (freqCustom ? parseInt(freqCustom,10) : null);
+    const add = freqPick;
     if (!add || add <= 0) return;
     const prev = plants.find(p=>p.id===plantId);
     setOpenFreq(null); setFreqPick(null); setFreqCustom("");
@@ -5924,7 +5956,7 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
   function openTooltip(e, plantId) {
     e.stopPropagation();
     if (openFreq===plantId) { setOpenFreq(null); setFreqPick(null); setFreqCustom(""); }
-    else { setOpenFreq(plantId); setFreqPick(null); setFreqCustom(""); }
+    else { setOpenFreq(plantId); setFreqPick(7); setFreqCustom(""); }   // 7d preselected, per 16a
   }
 
   function renderByRoom(list, showActions) {
@@ -5944,21 +5976,26 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
               {/* Freq tooltip */}
               {showActions && openFreq===plant.id && (
                 <div className="freq-tooltip" onClick={e=>e.stopPropagation()}>
-                  <div className="freq-tooltip-title">Freq Increase</div>
-                  <div className="freq-tooltip-row">
+                  <div className="freq-tooltip-title">Add days</div>
+                  <div className="freq-presets">
                     {[3,7,10].map(d=>(
                       <button key={d} className={`freq-opt${freqPick===d?" active":""}`}
-                        onClick={()=>{ setFreqPick(d); setFreqCustom(""); }}>
-                        +{d}d
+                        onClick={()=>setFreqPick(d)}>
+                        {d}d
                       </button>
                     ))}
-                    <input className="freq-custom" type="number" min="1" placeholder="+?d"
-                      value={freqCustom}
-                      onChange={e=>{ setFreqCustom(e.target.value.replace(/[^0-9]/g,"")); setFreqPick(null); }}
-                    />
-                    <button className="check-btn" style={{flexShrink:0,borderColor:"white",color:"white",borderWidth:"2.5px"}}
+                  </div>
+                  <div className="freq-step-row">
+                    <div className="freq-stepper">
+                      <button className="freq-step-btn" aria-label="One day fewer"
+                        onClick={()=>setFreqPick(v=>Math.max(1,(v||1)-1))}>&minus;</button>
+                      <span className="freq-step-val">{freqPick||1} day{(freqPick||1)===1?"":"s"}</span>
+                      <button className="freq-step-btn plus" aria-label="One day more"
+                        onClick={()=>setFreqPick(v=>(v||0)+1)}>+</button>
+                    </div>
+                    <button className="freq-commit" aria-label="Add days"
                       onClick={()=>saveFreq(plant.id)}>
-                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </button>
                   </div>
                 </div>
@@ -6012,21 +6049,26 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
             <div key={plant.id} style={{position:"relative"}}>
               {openFreq===plant.id && (
                 <div className="freq-tooltip" onClick={e=>e.stopPropagation()}>
-                  <div className="freq-tooltip-title">Freq Increase</div>
-                  <div className="freq-tooltip-row">
+                  <div className="freq-tooltip-title">Add days</div>
+                  <div className="freq-presets">
                     {[3,7,10].map(d=>(
                       <button key={d} className={`freq-opt${freqPick===d?" active":""}`}
-                        onClick={()=>{ setFreqPick(d); setFreqCustom(""); }}>
-                        +{d}d
+                        onClick={()=>setFreqPick(d)}>
+                        {d}d
                       </button>
                     ))}
-                    <input className="freq-custom" type="number" min="1" placeholder="+?d"
-                      value={freqCustom}
-                      onChange={e=>{ setFreqCustom(e.target.value.replace(/[^0-9]/g,"")); setFreqPick(null); }}
-                    />
-                    <button className="check-btn" style={{flexShrink:0}}
+                  </div>
+                  <div className="freq-step-row">
+                    <div className="freq-stepper">
+                      <button className="freq-step-btn" aria-label="One day fewer"
+                        onClick={()=>setFreqPick(v=>Math.max(1,(v||1)-1))}>&minus;</button>
+                      <span className="freq-step-val">{freqPick||1} day{(freqPick||1)===1?"":"s"}</span>
+                      <button className="freq-step-btn plus" aria-label="One day more"
+                        onClick={()=>setFreqPick(v=>(v||0)+1)}>+</button>
+                    </div>
+                    <button className="freq-commit" aria-label="Add days"
                       onClick={()=>saveFreq(plant.id)}>
-                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </button>
                   </div>
                 </div>
