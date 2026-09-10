@@ -1730,14 +1730,13 @@ const styles = `
      warm grey. Mint on a mint tint keeps the tile one colour family. */
   .dark .celebration{background:#39342c;}
   .dark .celebration .celebration-head{color:#7fd6a0!important;}
-  .dark .celebration-pill.water{background:rgba(142,224,173,.14)!important;color:#8ee0ad!important;}
+  /* Blue capsule, mirroring light mode, where it is a --leaf-pale tint with
+     green text. Dark's --leaf-pale is a near-black navy that sat heavy on the
+     lifted surface, so this is the water ink at a low tint instead. */
+  .dark .celebration-pill.water{background:rgba(165,207,227,.16)!important;color:#a5cfe3!important;}
   .celebration.all-done{animation:allDoneIn .26s var(--ease-enter) .2s both;}
   .celebration-head{font-family:var(--font-display);font-weight:400;font-size:26px;line-height:1.1;margin-top:2px;}
   .celebration-pill{display:inline-flex;align-items:center;gap:7px;margin-top:15px;font-size:12px;font-weight:800;padding:7px 15px;border-radius:var(--r-pill);}
-  /* --leaf on --leaf-pale is fine in light mode, but dark mode's --leaf is
-     nearly the same tone as its --leaf-pale, so the water pill's text was
-     unreadable. Same fix already used for .imp-summary above. */
-  .dark .celebration-pill.water{color:#8ee0ad!important;}
   @keyframes drip{0%{transform:translateY(0);opacity:.9;}70%{opacity:.6;}100%{transform:translateY(14px);opacity:0;}}
   .drip{position:absolute;width:6px;height:8px;border-radius:0 0 99px 99px;background:#c3e3f2;animation:drip 2s ease-in-out infinite;}
   .drip.d1{top:18px;left:34px;width:7px;height:9px;background:#9ccfe4;}
