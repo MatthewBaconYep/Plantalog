@@ -1596,6 +1596,10 @@ const styles = `
     background:var(--primary);color:var(--primary-ink);padding:14px 16px 14px;display:flex;flex-direction:column;justify-content:flex-end;}
   .detail-hero.has-photo{height:216px;background-size:cover;background-position:center;padding:0;
     filter:saturate(.92) contrast(.97);}
+  /* With no photo the hero collapses to its content, and the absolutely
+     positioned close button (top:8px, 34px tall) then overlaps the room and
+     name. Reserve clearance for it above the text. */
+  .detail-hero:not(.has-photo){padding-top:52px;}
   .detail-hero-scrim{position:absolute;inset:0;background:linear-gradient(to top,rgba(15,68,56,.94) 0%,rgba(15,68,56,.3) 48%,rgba(15,68,56,0) 78%);}
   .detail-hero-content{position:relative;z-index:2;}
   .detail-hero.has-photo .detail-hero-content{position:absolute;left:20px;right:20px;bottom:14px;color:#fff;}
@@ -1813,8 +1817,11 @@ const styles = `
   .pm-stepper{display:flex;align-items:center;gap:11px;}
   .pm-step{border:none;width:30px;height:30px;border-radius:var(--r-pill);font-size:19px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
   .pm-stepper-val{font-family:var(--font-display);font-weight:400;font-size:22px;min-width:44px;text-align:center;}
-  .pm-date-pill.cal-field-btn{background:var(--surface);font-size:12px;font-weight:800;padding:7px 14px;border-radius:var(--r-pill);border:none;gap:7px;}
-  .pm-date-pill.cal-field-btn.water{color:var(--water-ink);}
+  /* .cal-field-btn is a full-width form control; as a pill it has to stop
+     being one, or it stretches across the row with the icon pushed to the far
+     edge instead of sitting next to the date (6b). */
+  .pm-date-pill.cal-field-btn{background:var(--surface);font-size:12px;font-weight:800;padding:7px 14px;border-radius:var(--r-pill);border:none;gap:7px;width:auto;justify-content:center;flex-shrink:0;}
+  .pm-date-pill.cal-field-btn.water{color:var(--water-ink);flex-direction:row-reverse;}
   .pm-date-pill.mini.cal-field-btn{background:none;padding:0;font-size:12px;color:var(--potting-head);}
 
   .pm-toggle-row{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;color:var(--potting-head);cursor:pointer;}
@@ -2100,13 +2107,21 @@ const styles = `
      containing block for any position:fixed descendant (e.g. the photo
      viewer opened from the plant detail sheet), trapping it at 480px
      instead of the true viewport. */
-  .modal-overlay{position:fixed;top:0;bottom:0;left:50%;margin-left:-240px;width:100%;max-width:480px;background:rgba(0,0,0,.48);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:veilIn .26s var(--ease-enter) both;}
-  .modal-overlay.closing{animation:veilOut .22s var(--ease-exit) both;}
+  /* The element spans the whole viewport so a click in the black margin beside
+     the app closes the sheet, but the dimming itself is painted by ::before,
+     which stays inside the app column - the margins are meant to hold still at
+     black no matter what the app is doing. Keep this on margin rather than a
+     transform: a transform here becomes the containing block for any
+     position:fixed descendant and traps it at 480px. */
+  .modal-overlay{position:fixed;inset:0;background:transparent;z-index:200;display:flex;align-items:flex-end;justify-content:center;}
+  .modal-overlay::before{content:'';position:absolute;top:0;bottom:0;left:50%;margin-left:-240px;width:100%;max-width:480px;background:rgba(0,0,0,.48);animation:veilIn .26s var(--ease-enter) both;pointer-events:none;}
+  .modal-overlay.closing::before{animation:veilOut .22s var(--ease-exit) both;}
   @keyframes sheetFade{ from { opacity:0; } to { opacity:1; } }
   @keyframes sheetFadeOut{ from { opacity:1; } to { opacity:0; } }
-  .modal-overlay.ghost{background:transparent;animation:none;pointer-events:none;z-index:201;}
+  .modal-overlay.ghost{background:transparent;pointer-events:none;z-index:201;}
+  .modal-overlay.ghost::before{animation:none;background:transparent;}
   .modal-overlay.ghost > .modal{animation:sheetFadeOut .18s var(--ease-exit) both;}
-  .modal-overlay.swap:not(.closing){animation:none;}       /* backdrop is already dark, but must still fade on close */
+  .modal-overlay.swap:not(.closing)::before{animation:none;}  /* backdrop is already dark, but must still fade on close */
   .modal-overlay.swap > .modal{animation:sheetFade .15s var(--ease-enter) both;}
   .modal-overlay > .modal{animation:sheetIn .34s var(--ease-enter) backwards;}
   .modal-overlay.closing > .modal{animation:sheetOut .26s var(--ease-exit) both;}
@@ -2151,8 +2166,8 @@ const styles = `
      the outgoing out on top of it is still a crossfade, and makes a gap
      impossible. It also stops the two layers double-fading into a muddy mix. */
   @media (prefers-reduced-motion: reduce) {
-    .modal-overlay, .modal-overlay > .modal,
-    .modal-overlay.closing, .modal-overlay.closing > .modal { animation:none !important; }
+    .modal-overlay::before, .modal-overlay > .modal,
+    .modal-overlay.closing::before, .modal-overlay.closing > .modal { animation:none !important; }
     .xfade-out { display:none !important; }
     .header-undo-btn { animation:none !important; }
     .celebration.all-done, .celebration.all-done .celebration-head { animation:none !important; }
@@ -2250,7 +2265,13 @@ const styles = `
   .cal-weekdays span{text-align:center;font-size:10px;font-weight:800;color:#8a8071;text-transform:uppercase;}
   .dark .cal-popup{background:var(--surface);}
   .dark .cal-weekdays span{color:var(--text-muted);}
-  .dark .cal-day.other-month{background:var(--sand);color:var(--bark-light);}
+  /* Light mode stacks these popup < other-month < current-month, lightest last,
+     so the current month reads as raised tiles. Dark had it inverted: the popup
+     is --surface and .cal-day defaults to --surface too, so the current month
+     disappeared into the card, while other-month sat on the lighter --sand and
+     was the only thing that looked like a tile. Restore the same ordering. */
+  .dark .cal-day{background:var(--input-bg);}
+  .dark .cal-day.other-month{background:#2f2b26;box-shadow:none;color:var(--text-muted);}
   .dark .rd-days-left{background:var(--sand);color:var(--text-muted);}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
   /* Every cell is a filled tile (13h), not a bare number — current-month
@@ -2400,7 +2421,10 @@ const styles = `
     .photo-menu-action{padding:13px 18px;}
     .photo-menu-action svg{width:20px;height:20px;}
   }
-  .photo-add{width:68px;height:68px;border:2px dashed var(--sand);border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);font-size:20px;}
+  /* --sand sits almost on top of --page-bg in light mode, so the dashed slot
+     was invisible on the very screen where it is the only way to add a first
+     photo. --border-strong is the token meant to actually read as an edge. */
+  .photo-add{width:68px;height:68px;border:2px dashed var(--border-strong);border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);font-size:20px;}
   .photo-add:hover{border-color:var(--leaf-light);color:var(--leaf);}
 
   /* Manage Rooms */
@@ -3836,8 +3860,11 @@ function App() {
               ))}
             </div>
 
-            {/* Tab content — fixed min-height so card doesn't shrink between tabs */}
-            <div style={{minHeight:220}}>
+            {/* Tab content — fixed min-height so card doesn't shrink between
+                tabs. 325 is the measured height of the taller (XLS) tab; at 220
+                only JSON was pinned and the card jumped 105px on every switch.
+                JSON just carries the extra space. */}
+            <div style={{minHeight:325}}>
 
             {/* ── Excel tab ── */}
             {importTab==="xls" && !xlsPreview && (
@@ -4613,12 +4640,19 @@ function CalendarPopup({ value, onSelect, onClose, viewHint, label }) {
   );
 }
 
-function CalendarField({ value, onChange, placeholder="Select date", style, viewHint, className, label }) {
+function CalendarField({ value, onChange, placeholder="Select date", style, viewHint, className, label, short=false }) {
   const [open, setOpen] = useState(false);
+  // 6b shows the pill as an abbreviated "Jul 27" rather than a full date.
+  const shownDate = (() => {
+    if (!value) return placeholder;
+    if (!short) return formatDateUS(value);
+    const d = new Date(String(value).slice(0,10) + "T12:00:00");
+    return isNaN(d) ? formatDateUS(value) : `${MONTH_NAMES[d.getMonth()].slice(0,3)} ${d.getDate()}`;
+  })();
   return (
     <>
       <button type="button" className={`cal-field-btn${value?"":" placeholder"}${className?" "+className:""}`} style={style} onClick={()=>setOpen(true)}>
-        {value ? formatDateUS(value) : placeholder}
+        {shownDate}
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       </button>
       {open && (
@@ -5796,7 +5830,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
             </div>
             <div className="pm-row-between">
               <span>Last watered</span>
-              <CalendarField value={form.lastWatered} onChange={d=>set("lastWatered",d)} className="pm-date-pill water" label="Last watered"/>
+              <CalendarField value={form.lastWatered} onChange={d=>set("lastWatered",d)} className="pm-date-pill water" label="Last watered" short/>
             </div>
           </div>
 
