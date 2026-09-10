@@ -1423,7 +1423,9 @@ const styles = `
     --border:#3a352d; --border-strong:#544e43;
     --primary:#15644a;
 
-    --cream:#1f1d1a; --page-bg:#1f1d1a; --card-bg:#2b2823; --input-bg:#332f29;
+    /* --card-bg was only ~12 points off --page-bg, so cards barely separated
+       from the page in dark. Lifted. */
+    --cream:#1f1d1a; --page-bg:#1f1d1a; --card-bg:#35302a; --input-bg:#3b362f;
     --leaf:#15644a;  --leaf-light:#1c7a5c; --leaf-pale:#143543;
     --sand:#3c3830;  --bark:#a99e8c; --bark-light:#8a8071;
 
@@ -1441,7 +1443,9 @@ const styles = `
   .dark .icon-btn{color:var(--text);opacity:.7;}
   .dark .btn-secondary{background:var(--input-bg);color:var(--text);border:1.5px solid var(--border);}
   .dark body, .dark{background:#1f1d1a;}
-  .dark .tab-bar{background:var(--card-bg);}
+  /* The tab bar is transparent in light and should be in dark too. It was
+     pinned to --card-bg, which used to be close enough to the page to pass
+     unnoticed; lifting --card-bg turned it into a visible lighter strip. */
 
   .dark .dash-card .lbl{color:var(--text);}
   .dark .tab-btn{color:var(--text);}
@@ -1465,7 +1469,7 @@ const styles = `
   /* Nav */
   .nav-wrap{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;box-sizing:border-box;padding:10px 14px 20px;z-index:100;pointer-events:none;}
   .nav{pointer-events:auto;background:var(--primary);display:flex;border-radius:var(--r-pill);padding:9px 6px;box-shadow:var(--shadow-md);}
-  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;color:rgba(242,240,216,.78);cursor:pointer;border:none;background:none;font-family:var(--font-ui);font-size:9px;letter-spacing:.3px;text-transform:uppercase;font-weight:800;transition:color .2s;position:relative;}
+  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0;line-height:1.2;color:rgba(242,240,216,.78);cursor:pointer;border:none;background:none;font-family:var(--font-ui);font-size:9px;letter-spacing:.3px;text-transform:uppercase;font-weight:800;transition:color .2s;position:relative;}
   @keyframes tabPick{0%{transform:none;}45%{transform:translateY(-3px) scale(1.12);}100%{transform:none;}}
   .nav-btn.active svg{animation:tabPick .26s var(--ease-arrive);}
   .nav-btn.active{color:var(--primary-ink);}
@@ -1518,8 +1522,11 @@ const styles = `
     .desktop-only{display:flex;}
     .desktop-hide{display:none;}
   }
-  .nav { padding-bottom: 4px; }
-  .nav-btn { padding-top: 5px; padding-bottom: 5px; }
+  /* Removed: .nav{padding-bottom:4px} and .nav-btn{padding:5px 0}. Measured
+     against 13b, those put the icon 14px below the nav's top edge where the
+     design has 9px, and made the pill 57px tall against the design's 52px with
+     asymmetric 9/4 padding. The design's columns carry no padding of their own,
+     so the pill's own symmetric 9px is what centres them. */
 
   /* ── Standalone only — home screen app ── */
   @media (display-mode: standalone) {
@@ -1714,8 +1721,12 @@ const styles = `
     box-shadow:var(--shadow-sm);padding:26px 20px 24px;text-align:center;}
   /* In light this is white on beige and reads as a raised tile. In dark,
      --surface and --ground are only a few points apart, so it flattened into
-     the page. Lift it. */
+     the page. Lift it - and bring the accents with it: the headline was a dark
+     #0a7a43 and the pill a navy --leaf-pale, both of which fought the lifted
+     warm grey. Mint on a mint tint keeps the tile one colour family. */
   .dark .celebration{background:#39342c;}
+  .dark .celebration .celebration-head{color:#7fd6a0!important;}
+  .dark .celebration-pill.water{background:rgba(142,224,173,.14)!important;color:#8ee0ad!important;}
   .celebration.all-done{animation:allDoneIn .26s var(--ease-enter) .2s both;}
   .celebration-head{font-family:var(--font-display);font-weight:400;font-size:26px;line-height:1.1;margin-top:2px;}
   .celebration-pill{display:inline-flex;align-items:center;gap:7px;margin-top:15px;font-size:12px;font-weight:800;padding:7px 15px;border-radius:var(--r-pill);}
