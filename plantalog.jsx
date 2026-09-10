@@ -1386,6 +1386,9 @@ const styles = `
     /* Domain colour (§2) */
     --water:#17627f;      --water-tint:#e6f2f8;  --water-ink:#12556e;
     --potting:#fbe6d6;    --potting-ink:#5c2a08; --potting-head:#8c3f07;
+    /* --potting is nearly --page-bg in light mode, so a panel filled with it
+       reads as no panel at all. Deeper peach just for those. */
+    --notif-potting-bg:#f7d9c2;
     --danger:#a32e22;     --danger-tint:#fbe0dc;
     --warn:#8a4c06;       --warn-tint:#ffe6c0;
 
@@ -1427,6 +1430,7 @@ const styles = `
     --water:#134b64;      --water-tint:#173f52;  --water-ink:#a5cfe3;
     --water-solid:#5aa8cc; --water-solid-ink:#04212e;
     --potting:#5c2e10;    --potting-ink:#fbdcc4; --potting-head:#f7c9a3;
+    --notif-potting-bg:#5c2e10;
     --danger:#ffb3a8;     --danger-tint:#4a1f1a;
 
     /* Dark mode separates with surface colour, not shadow (§7) */
@@ -1979,7 +1983,17 @@ const styles = `
   .notif-panel.water .notif-row:not(:last-child)::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:1px;background:rgba(23,98,127,.14);}
   .notif-panel.potting .notif-row:not(:last-child){position:relative;}
   .notif-panel.potting .notif-row:not(:last-child)::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:1px;background:rgba(163,69,10,.14);}
+  /* Two capsules side by side rather than two full-width rows, which left a
+     long gap between each label and its control. */
+  .notif-grid{display:flex;gap:11px;align-items:flex-start;margin-bottom:11px;}
+  .notif-grid > .notif-panel{flex:1;min-width:0;}
+  .notif-head-row{padding:10px 12px;gap:8px;}
+  .notif-head-row .util-label{font-size:13px;line-height:1.25;min-width:0;}
+  .notif-time-row{padding:9px 12px;gap:8px;}
   .notif-time-pill{background:#fffdf8;padding:7px 15px;border-radius:var(--r-pill);font-size:13px;font-weight:800;}
+  /* The pill background is a hardcoded near-white, so in dark mode the light
+     domain ink sat on white and was unreadable. */
+  .dark .notif-time-pill{background:rgba(0,0,0,.34);}
   .notif-time-pill input[type="time"]{border:none;background:none;font:inherit;color:inherit;padding:0;width:auto;min-width:0;}
   .notif-time-pill input[type="time"]::-webkit-calendar-picker-indicator{display:none;}
   .notif-time-pill input[type="time"]:disabled{opacity:1;-webkit-text-fill-color:currentColor;}
@@ -2123,6 +2137,12 @@ const styles = `
   .modal-overlay.ghost > .modal{animation:sheetFadeOut .18s var(--ease-exit) both;}
   .modal-overlay.swap:not(.closing)::before{animation:none;}  /* backdrop is already dark, but must still fade on close */
   .modal-overlay.swap > .modal{animation:sheetFade .15s var(--ease-enter) both;}
+  /* The dim is painted by ::before, which is absolutely positioned and would
+     otherwise paint over the overlay's statically positioned content and tint
+     it. Lift every direct child above it - not just .modal, since overlays
+     also carry the notification primer and the room editor. The pseudo-element
+     is not matched by the child selector, so it stays underneath. */
+  .modal-overlay > *{position:relative;z-index:1;}
   .modal-overlay > .modal{animation:sheetIn .34s var(--ease-enter) backwards;}
   .modal-overlay.closing > .modal{animation:sheetOut .26s var(--ease-exit) both;}
   /* Fade-through swap. Opacity only, never transform: a transformed ancestor
@@ -2270,8 +2290,8 @@ const styles = `
      is --surface and .cal-day defaults to --surface too, so the current month
      disappeared into the card, while other-month sat on the lighter --sand and
      was the only thing that looked like a tile. Restore the same ordering. */
-  .dark .cal-day{background:var(--input-bg);}
-  .dark .cal-day.other-month{background:#2f2b26;box-shadow:none;color:var(--text-muted);}
+  .dark .cal-day{background:#45403a;}
+  .dark .cal-day.other-month{background:#232019;box-shadow:none;color:var(--text-muted);}
   .dark .rd-days-left{background:var(--sand);color:var(--text-muted);}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
   /* Every cell is a filled tile (13h), not a bare number — current-month
@@ -2464,6 +2484,10 @@ const styles = `
      border-bottom would run edge to edge regardless of the row's own
      padding, so this uses a positioned pseudo-element instead. */
   .util-row{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;}
+  /* Rows in the Utils list sit at a uniform height whether or not they carry a
+     count badge, which is what was making the badge-less ones read short.
+     Scoped to .util-section so the notification capsules stay compact. */
+  .util-section .util-row{min-height:48px;}
   .util-row:not(:last-child)::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:1px;background:var(--border);}
   .util-row:last-child{border-bottom:none;}
   .util-label{font-size:14px;font-weight:700;color:var(--text);}
@@ -6574,7 +6598,7 @@ function NotificationsScreen({ onBack,
     { key:"water", label:"Water Reminder", enabled:waterEnabled, setEnabled:setWaterEnabled, time:waterTime, setTime:setWaterTime,
       bg:"var(--water-tint)", ink:"var(--water-ink)", on:"var(--water)", divider:"rgba(23,98,127,.14)" },
     { key:"repot", label:"Repot Reminder", enabled:repotEnabled, setEnabled:setRepotEnabled, time:repotTime, setTime:setRepotTime,
-      bg:"var(--potting)", ink:"var(--potting-head)", on:"var(--accent)", divider:"rgba(163,69,10,.14)" },
+      bg:"var(--notif-potting-bg)", ink:"var(--potting-head)", on:"var(--accent)", divider:"rgba(163,69,10,.14)" },
   ];
   return (
     <>
@@ -6588,9 +6612,10 @@ function NotificationsScreen({ onBack,
         </div>
       </div>
       <div className="section" style={{paddingTop:12}}>
+        <div className="notif-grid">
         {rows.map(r => (
-          <div key={r.key} className="notif-panel" style={{background:r.bg,marginBottom:11}}>
-            <div className="util-row" style={{padding:"11px 14px"}}>
+          <div key={r.key} className={`notif-panel ${r.key==="repot"?"potting":"water"}`} style={{background:r.bg}}>
+            <div className="util-row notif-head-row">
               <div className="util-label" style={{color:r.ink}}>{r.label}</div>
               <label className="toggle-switch">
                 <input type="checkbox" checked={r.enabled} onChange={e=>r.setEnabled(e.target.checked)}/>
@@ -6599,17 +6624,18 @@ function NotificationsScreen({ onBack,
                 </div>
               </label>
             </div>
-            <div style={{height:1,background:r.divider,margin:"0 14px"}}/>
+            <div style={{height:1,background:r.divider,margin:"0 12px"}}/>
             {/* Time always shows, dimmed rather than hidden when off (9c) —
                 the schedule is still there, just not acting on it yet. */}
-            <div className="util-row" style={{padding:"11px 14px",opacity:r.enabled?1:.45}}>
-              <div className="util-label" style={{color:r.ink,fontSize:13}}>Time</div>
+            <div className="util-row notif-time-row" style={{opacity:r.enabled?1:.45}}>
+              <div className="util-label" style={{color:r.ink,fontSize:12.5}}>Time</div>
               <div className="notif-time-pill" style={{color:r.ink}}>
                 <input type="time" value={r.time} onChange={e=>r.setTime(e.target.value)} disabled={!r.enabled}/>
               </div>
             </div>
           </div>
         ))}
+        </div>
         <div className="notif-footnote">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4.5M12 8h.01"/></svg>
           <span>Reminders are sent once per day and only when something is actually due.</span>
