@@ -5730,6 +5730,14 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
   const [form,setForm] = useState(plant?{...plant}:blank);
   const [tipOpen,setTipOpen] = useState(false);   // 14d watering tip
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  // Repot cadence is edited as a single number of years in half-year steps,
+  // but stored as years + months so the due calculation is unchanged.
+  const potEvery = (Number(form.potYears)||0) + (Number(form.potMonths)||0)/12;
+  function setPotEvery(v){
+    const snapped = Math.max(0, Math.round(v*2)/2);
+    const years = Math.floor(snapped);
+    setForm(f=>({...f, potYears:years, potMonths:Math.round((snapped-years)*12)}));
+  }
   const sortedRooms=[...rooms].sort((a,b)=>(a.order??0)-(b.order??0));
   const fileRef=useRef();
   const [editingNotes,setEditingNotes]=useState(false);
@@ -5902,19 +5910,17 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
                 {stepBtn("inc",()=>setForm(f=>{const v=(Number(f.currentPotSize)||0)+0.5;return {...f,currentPotSize:v,nextPotSize:Math.round((v+1)*2)/2};}),"var(--accent)")}
               </div>
             </div>
+            {/* One stepper in years moving in half-year steps, rather than a
+                years and a months stepper side by side. Storage stays
+                potYears + potMonths, so isPotDue and any value already saved
+                with an odd number of months keep working; a step just snaps to
+                the nearest half year from wherever it is. */}
             <div className="pm-stepper-row">
               <span>Repot every</span>
-              <div style={{display:"flex",gap:10}}>
-                <div className="pm-stepper">
-                  {stepBtn("dec",()=>set("potYears",Math.max(0,(Number(form.potYears)||0)-1)),"var(--accent)")}
-                  <span className="pm-stepper-val">{form.potYears}y</span>
-                  {stepBtn("inc",()=>set("potYears",(Number(form.potYears)||0)+1),"var(--accent)")}
-                </div>
-                <div className="pm-stepper">
-                  {stepBtn("dec",()=>set("potMonths",Math.max(0,(Number(form.potMonths)||0)-1)),"var(--accent)")}
-                  <span className="pm-stepper-val">{form.potMonths}m</span>
-                  {stepBtn("inc",()=>set("potMonths",Math.min(11,(Number(form.potMonths)||0)+1)),"var(--accent)")}
-                </div>
+              <div className="pm-stepper">
+                {stepBtn("dec",()=>setPotEvery(potEvery-0.5),"var(--accent)")}
+                <span className="pm-stepper-val">{potEvery?repotEveryLabel(form):"0y"}</span>
+                {stepBtn("inc",()=>setPotEvery(potEvery+0.5),"var(--accent)")}
               </div>
             </div>
             <div style={{display:"flex",gap:6}}>
@@ -5924,11 +5930,12 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
               </div>
               <div className="pm-mini-card">
                 <div className="pm-mini-lbl">Next pot size</div>
-                {/* Right-aligned so the inch mark sits against the number
-                    instead of after the input's leftover width (6b renders it
-                    as one string, 7"). */}
+                {/* 6b renders this as one left-aligned string (7"). The input is
+                    sized to its own content so the inch mark sits against the
+                    digits rather than after the input's leftover width, while
+                    the pair still starts at the cell's left edge. */}
                 <div className="pm-mini-val" style={{display:"flex",alignItems:"baseline",gap:1}}>
-                  <input type="number" min="1" step="0.5" style={{minWidth:0,width:34,background:"none",border:"none",padding:0,textAlign:"right",fontFamily:"var(--font-ui)",fontSize:12,fontWeight:800,lineHeight:1.2,color:"var(--potting-head)"}}
+                  <input type="number" min="1" step="0.5" style={{minWidth:0,width:`calc(${String(form.nextPotSize ?? "").length||1}ch + 3px)`,background:"none",border:"none",padding:0,textAlign:"left",fontFamily:"var(--font-ui)",fontSize:12,fontWeight:800,lineHeight:1.2,color:"var(--potting-head)"}}
                     value={form.nextPotSize} onChange={e=>set("nextPotSize",parseFloat(e.target.value)||0)} onBlur={cleanNumberOnBlur}/>
                   <span style={{fontSize:12,fontWeight:800,color:"var(--potting-head)"}}>&quot;</span>
                 </div>
