@@ -1927,13 +1927,9 @@ const styles = `
   .page-header.charcoal{background:var(--charcoal);color:var(--charcoal-ink);}
   /* dark already drops --charcoal to #33302a; this just documents it stays
      tied to that token rather than needing its own dark rule. */
-  /* 14.2: the row is align-items:center in 8c/util-9c, not flex-end. */
-  .page-header:has(.rd-back){flex-direction:row;align-items:center;gap:12px;}
   .page-header.charcoal::before{background:var(--charcoal);}
   .page-header.charcoal p{color:var(--charcoal-sub);opacity:1;margin-top:3px;font-weight:600;}
-  .page-header.charcoal:has(.rd-back) p{font-size:12.5px;}
 
-  .rd-back{border:none;width:30px;height:30px;border-radius:var(--r-pill);background:rgba(240,233,220,.16);color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .rd-row{background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow-sm);display:flex;align-items:center;gap:11px;padding:8px 12px 8px 8px;margin-bottom:6px;cursor:pointer;}
   .rd-photo{width:46px;height:46px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0;opacity:.72;}
   .rd-photo-blank{background:var(--sand);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:400;font-size:19px;}
@@ -6438,7 +6434,7 @@ function monthYear(d) {
   return `${MONTH_NAMES[dt.getMonth()].slice(0,3)} ${dt.getFullYear()}`;
 }
 
-function GraveyardScreen({ rooms, plants, setPlants, showCardPhotos, user, onBack }) {
+function GraveyardScreen({ rooms, plants, setPlants, showCardPhotos, user }) {
   const [detailPlant, setDetailPlant] = useState(null);
   const buried = (plants || []).filter(p => p.status === "graveyard");
   const roomById = Object.fromEntries(rooms.map(r=>[r.id,r]));
@@ -6464,13 +6460,8 @@ function GraveyardScreen({ rooms, plants, setPlants, showCardPhotos, user, onBac
   return (
     <>
       <div className="page-header graveyard">
-        <button className="rd-back" onClick={onBack} aria-label="Back to Utilities">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.9" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <div style={{flex:1}}>
-          <h1>Graveyard</h1>
-          <p>Here lies your dearly departed. Rest in peace 😢.</p>
-        </div>
+        <h1>Graveyard</h1>
+        <p>Here lies your dearly departed. Rest in peace 😢.</p>
       </div>
       <div className="section" style={{paddingTop:12}}>
         {buried.length===0 && (
@@ -6526,7 +6517,7 @@ function GraveyardScreen({ rooms, plants, setPlants, showCardPhotos, user, onBac
   );
 }
 
-function RecentlyDeletedScreen({ rooms, plants, setPlants, showCardPhotos, user, onBack }) {
+function RecentlyDeletedScreen({ rooms, plants, setPlants, showCardPhotos, user }) {
   const [detailPlant, setDetailPlant] = useState(null);
   // Soonest to be purged first
   const trashed = (plants || []).filter(p => p.status === "deleted")
@@ -6536,13 +6527,8 @@ function RecentlyDeletedScreen({ rooms, plants, setPlants, showCardPhotos, user,
   return (
     <>
       <div className="page-header charcoal">
-        <button className="rd-back" onClick={onBack}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.9" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <div style={{flex:1}}>
-          <h1>Recently Deleted</h1>
-          <p>{trashed.length} plant{trashed.length!==1?"s":""} &middot; Permanently deleted after {PURGE_DAYS} days</p>
-        </div>
+        <h1>Recently Deleted</h1>
+        <p>{trashed.length} plant{trashed.length!==1?"s":""} &middot; Permanently deleted after {PURGE_DAYS} days</p>
       </div>
       <div className="section" style={{paddingTop:12}}>
         {trashed.length===0 && (
@@ -6588,7 +6574,7 @@ function RecentlyDeletedScreen({ rooms, plants, setPlants, showCardPhotos, user,
   );
 }
 
-function NotificationsScreen({ onBack,
+function NotificationsScreen({
   waterEnabled, setWaterEnabled, waterTime, setWaterTime,
   repotEnabled, setRepotEnabled, repotTime, setRepotTime,
 }) {
@@ -6603,13 +6589,8 @@ function NotificationsScreen({ onBack,
   return (
     <>
       <div className="page-header charcoal">
-        <button className="rd-back" onClick={onBack}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.9" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <div style={{flex:1}}>
-          <h1 style={{fontSize:26}}>Notifications</h1>
-          <p>One nudge a day, at a time you pick</p>
-        </div>
+        <h1>Notifications</h1>
+        <p>One nudge a day, at a time you pick</p>
       </div>
       <div className="section" style={{paddingTop:12}}>
         <div className="notif-grid">
@@ -6653,14 +6634,16 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
   const graveCount = plants ? plants.filter(p=>p.status==="graveyard").length : 0;
   const trashCount = plants ? plants.filter(p=>p.status==="deleted").length : 0;
 
+  // No in-header back button on these: the Utils nav button resets sub to null,
+  // which is the way back.
   if (sub === "graveyard")
     return <GraveyardScreen rooms={rooms} plants={plants} setPlants={setPlants}
-             showCardPhotos={showCardPhotos} user={user} onBack={()=>setSub(null)}/>;
+             showCardPhotos={showCardPhotos} user={user}/>;
   if (sub === "deleted")
     return <RecentlyDeletedScreen rooms={rooms} plants={plants} setPlants={setPlants}
-             showCardPhotos={showCardPhotos} user={user} onBack={()=>setSub(null)}/>;
+             showCardPhotos={showCardPhotos} user={user}/>;
   if (sub === "notifications")
-    return <NotificationsScreen onBack={()=>setSub(null)}
+    return <NotificationsScreen
              waterEnabled={notifWaterEnabled} setWaterEnabled={setNotifWaterEnabled}
              waterTime={notifWaterTime} setWaterTime={setNotifWaterTime}
              repotEnabled={notifRepotEnabled} setRepotEnabled={setNotifRepotEnabled}
