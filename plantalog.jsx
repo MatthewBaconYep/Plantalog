@@ -4736,8 +4736,14 @@ function CrossFade({ value, children, ms = 160, offsetFromScroll = false, onSwap
 
   return (
     <div className="xfade">
-      {st.prev !== null && <div className="xfade-out" key={"p"+st.prev} aria-hidden="true" style={{top:-st.top}}>{children(st.prev)}</div>}
-      <div className="xfade-in" key={"c"+st.cur}>{children(st.cur)}</div>
+      {/* Keyed by the value alone, not by which slot it is in. With "p"/"c"
+          prefixes a screen moving from the incoming slot to the outgoing one
+          changed key, so React unmounted and remounted it and it lost its
+          state: leaving Home while on the Rooms tab re-rendered the outgoing
+          layer as the full Plants list, a big content swap mid-transition.
+          prev and cur are never equal, so the keys cannot collide. */}
+      {st.prev !== null && <div className="xfade-out" key={st.prev} aria-hidden="true" style={{top:-st.top}}>{children(st.prev)}</div>}
+      <div className="xfade-in" key={st.cur}>{children(st.cur)}</div>
     </div>
   );
 }
