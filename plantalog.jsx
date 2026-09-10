@@ -5042,7 +5042,9 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
   const dateStr = prettyPhotoDate(dateAt(index));
 
   return (
-    <div className="viewer" onClick={() => { if (!zoomed && !moved.current) onClose(); }}>
+    <div className="viewer" onClick={() => { if (!zoomed && !moved.current) onClose(); }}
+      onPointerDown={e => e.stopPropagation()} onPointerMove={e => e.stopPropagation()}
+      onPointerUp={e => e.stopPropagation()} onPointerCancel={e => e.stopPropagation()}>
       {/* 13d: top row, 32px close at 14% ink, then a matching spacer so the
           close reads optically left of centre. */}
       <div className="viewer-top" onClick={e => e.stopPropagation()}>
