@@ -3656,6 +3656,68 @@ function App() {
         {syncStatus==="saved"  && <div style={{position:"fixed",top:8,right:12,fontSize:11,color:"rgba(74,222,128,0.8)",zIndex:999,fontFamily:"var(--font-ui)"}}>✓ Saved</div>}
         {syncStatus==="error"  && <div style={{position:"fixed",top:8,right:12,fontSize:11,color:"rgba(252,129,129,0.9)",zIndex:999,fontFamily:"var(--font-ui)"}}>⚠ Sync error</div>}
 
+        {/* Rendered outside CrossFade, keyed directly on `screen` (not the
+            crossfaded shownScreen), so it switches instantly instead of
+            cross-dissolving. Each screen's header used to be its own solid
+            colour (green/teal/brown/charcoal), and opacity-blending two of
+            those together during a tab switch produced a muddy flash - this
+            is only avoidable by not animating the header's opacity at all. */}
+        {(() => {
+          const now = todayDate ? new Date(todayDate + "T00:00:00") : getToday();
+          const waterDue = livePlants ? livePlants.filter(p => isWaterDue(p, now)).length : 0;
+          const repotDue = livePlants ? livePlants.filter(p => isPotDue(p, now)).length : 0;
+          if (screen === "home") return (
+            <div className="page-header green">
+              <div className="hdr-lockup">
+                <h1>Plantalog</h1>
+                <img className="hdr-mark" src="logo-mark.png" alt="" onError={e=>{e.target.style.display="none";}}/>
+              </div>
+            </div>
+          );
+          if (screen === "water") return (
+            <div className="page-header teal">
+              <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:8}}>
+                <div style={{minWidth:0}}>
+                  <h1>Water</h1>
+                  <p>{waterDue===0?"All plants watered today":`${waterDue} plant${waterDue!==1?"s are":" is"} thirsty today`}</p>
+                </div>
+                {canUndo && (
+                  <button className="header-undo-btn" onClick={performUndo}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M4 9h10a6 6 0 1 1 0 12h-3"/></svg>
+                    Undo
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+          if (screen === "repot") return (
+            <div className="page-header brown">
+              <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:8}}>
+                <div style={{minWidth:0}}>
+                  <h1>Repot</h1>
+                  <p>{repotDue===0?"Nothing to repot right now":`${repotDue} plant${repotDue!==1?"s":""} ready for a new home`}</p>
+                </div>
+                {canUndo && (
+                  <button className="header-undo-btn" onClick={performUndo}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M4 9h10a6 6 0 1 1 0 12h-3"/></svg>
+                    Undo
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+          // Utils' own sub-screens (Graveyard, Recently Deleted, Notifications)
+          // render their own header inline, unchanged - this only covers the
+          // main Utilities view.
+          if (screen === "utils" && utilsSub == null) return (
+            <div className="page-header charcoal">
+              <h1>Utilities</h1>
+              <p>App settings and data management</p>
+            </div>
+          );
+          return null;
+        })()}
+
         <CrossFade value={screen} offsetFromScroll onSwapped={()=>window.scrollTo({top:0,behavior:"instant"})}>{shownScreen => (<>
         {shownScreen==="home"  && <HomeScreen  rooms={rooms} setRooms={setRooms} plants={livePlants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user}
           onDeleted={(name,undo)=>showToast(`${name} moved to Recently Deleted`, undo)}
@@ -3684,8 +3746,8 @@ function App() {
               </div>
             )}
           </> : null} />}
-        {shownScreen==="water" && <WaterScreen rooms={rooms} plants={livePlants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} pushUndo={pushUndo} canUndo={canUndo} onUndo={performUndo} />}
-        {shownScreen==="repot" && <RepotScreen rooms={rooms} plants={livePlants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} pushUndo={pushUndo} canUndo={canUndo} onUndo={performUndo} />}
+        {shownScreen==="water" && <WaterScreen rooms={rooms} plants={livePlants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} pushUndo={pushUndo} />}
+        {shownScreen==="repot" && <RepotScreen rooms={rooms} plants={livePlants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} pushUndo={pushUndo} />}
         {shownScreen==="utils" && <UtilitiesScreen darkMode={darkMode} setDarkMode={setDarkMode} showCardPhotos={showCardPhotos} setShowCardPhotos={setShowCardPhotos} onOpenExport={()=>setShowExport(true)} onImport={()=>setShowImport(true)} onOpenSchedule={()=>setShowSchedule(true)} user={user || (PREVIEW_MODE ? {email:"preview@plantalog.app"} : null)} onSignOut={handleSignOut} onDeleteAccount={handleDeleteAccount} rooms={rooms} plants={plants} setPlants={setPlants} sub={utilsSub} setSub={setUtilsSub}
           notifWaterEnabled={notifWaterEnabled} setNotifWaterEnabled={setNotifWaterEnabled} notifWaterTime={notifWaterTime} setNotifWaterTime={setNotifWaterTime}
           notifRepotEnabled={notifRepotEnabled} setNotifRepotEnabled={setNotifRepotEnabled} notifRepotTime={notifRepotTime} setNotifRepotTime={setNotifRepotTime} />}
@@ -4279,13 +4341,6 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
 
   return (
     <>
-      <div className={`page-header green${homeWake?" wake-header":""}`}>
-        <div className="hdr-lockup">
-          <h1>Plantalog</h1>
-          <img className="hdr-mark" src="logo-mark.png" alt="" onError={e=>{e.target.style.display="none";}}/>
-        </div>
-      </div>
-
       {/* §6.7: strips sit above the list and never block logging */}
       {strips && <div style={{padding:"10px 14px 0"}}>{strips}</div>}
 
@@ -5807,7 +5862,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
 }
 
 // ─── Water Screen ─────────────────────────────────────────────────────────────
-function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true, user, pushUndo, canUndo, onUndo }) {
+function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true, user, pushUndo }) {
   const now = new Date(todayDate + "T00:00:00");
   const [leaving,    setLeaving]    = useState({});
   const [openFreq,   setOpenFreq]   = useState(null);
@@ -5830,9 +5885,6 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
   const sortedRooms = [...rooms].sort((a,b)=>(a.order??0)-(b.order??0));
   const due     = plants.filter(p=>isWaterDue(p,now));
   const allDone = due.length===0;
-  // Counts what will remain once the in-flight rows finish leaving, so the
-  // header updates on tap rather than waiting for the animation.
-  const pendingDue = due.filter(p=>!leaving[p.id]).length;
   // Fade the all-clear message in only when it appears as a result of the last
   // check-off. Revisiting the screen with nothing due should just show it.
   const [doneEntering, setDoneEntering] = useState(false);
@@ -6009,20 +6061,6 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
     <>
       {/* Close tooltip on outside click */}
       {openFreq!==null && <div style={{position:"fixed",inset:0,zIndex:40}} onClick={()=>{setOpenFreq(null);setFreqPick(null);setFreqCustom("");}}/>}
-      <div className="page-header teal">
-        <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:8}}>
-          <div style={{minWidth:0}}>
-            <h1>Water</h1>
-            <p>{pendingDue===0?"All plants watered today":`${pendingDue} plant${pendingDue!==1?"s are":" is"} thirsty today`}</p>
-          </div>
-          {canUndo && (
-            <button className="header-undo-btn" onClick={onUndo}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M4 9h10a6 6 0 1 1 0 12h-3"/></svg>
-              Undo
-            </button>
-          )}
-        </div>
-      </div>
       <div className="section" style={{paddingTop:10}}>
         {/* Today's due plants — wrapped with a min-height matching the "all
             done" celebration block, so Up Next doesn't jump down when the
@@ -6081,7 +6119,7 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
 }
 
 // ─── Repot Screen ─────────────────────────────────────────────────────────────
-function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true, user, pushUndo, canUndo, onUndo }) {
+function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true, user, pushUndo }) {
   const now = new Date((todayDate||fmt(getToday())) + "T00:00:00");
   const [leaving,    setLeaving]    = useState({});
   const [detailPlant,setDetailPlant]= useState(null);
@@ -6100,9 +6138,6 @@ function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
   const sortedRooms = [...rooms].sort((a,b)=>(a.order??0)-(b.order??0));
   const due=[...plants].filter(p=>isPotDue(p,now)).sort((a,b)=>a.nextPotSize-b.nextPotSize||a.name.localeCompare(b.name));
   const allDone = due.length===0;
-  // Counts what will remain once the in-flight rows finish leaving, so the
-  // header updates on tap rather than waiting for the animation.
-  const pendingDue = due.filter(p=>!leaving[p.id]).length;
   // Fade the all-clear message in only when it appears as a result of the last
   // check-off. Revisiting the screen with nothing due should just show it.
   const [doneEntering, setDoneEntering] = useState(false);
@@ -6196,20 +6231,6 @@ function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
 
   return(
     <>
-      <div className="page-header brown">
-        <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:8}}>
-          <div style={{minWidth:0}}>
-            <h1>Repot</h1>
-            <p>{pendingDue===0?"Nothing to repot right now":`${pendingDue} plant${pendingDue!==1?"s":""} ready for a new home`}</p>
-          </div>
-          {canUndo && (
-            <button className="header-undo-btn" onClick={onUndo}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M4 9h10a6 6 0 1 1 0 12h-3"/></svg>
-              Undo
-            </button>
-          )}
-        </div>
-      </div>
       <div className="section" style={{paddingTop:10}}>
         {/* Due list / empty state — min-height matches the empty-state block
             so Up Next doesn't shift when the last plant is repotted. */}
@@ -6509,10 +6530,6 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
 
   return (
     <>
-      <div className="page-header charcoal">
-        <h1>Utilities</h1>
-        <p>App settings and data management</p>
-      </div>
       <div className="section" style={{paddingTop:14}}>
         <div style={{fontSize:10,fontWeight:800,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:11,paddingLeft:4}}>Appearance</div>
         <div className="util-section">
