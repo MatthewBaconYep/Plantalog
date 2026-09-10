@@ -1712,6 +1712,10 @@ const styles = `
   /* Water/Repot celebration + empty states (7b/7d) */
   .celebration{position:relative;overflow:hidden;background:var(--surface);border-radius:var(--r-lg);
     box-shadow:var(--shadow-sm);padding:26px 20px 24px;text-align:center;}
+  /* In light this is white on beige and reads as a raised tile. In dark,
+     --surface and --ground are only a few points apart, so it flattened into
+     the page. Lift it. */
+  .dark .celebration{background:#39342c;}
   .celebration.all-done{animation:allDoneIn .26s var(--ease-enter) .2s both;}
   .celebration-head{font-family:var(--font-display);font-weight:400;font-size:26px;line-height:1.1;margin-top:2px;}
   .celebration-pill{display:inline-flex;align-items:center;gap:7px;margin-top:15px;font-size:12px;font-weight:800;padding:7px 15px;border-radius:var(--r-pill);}
@@ -1833,8 +1837,18 @@ const styles = `
   .pm-toggle.on{background:var(--accent);justify-content:flex-end;}
   .pm-toggle-knob{width:15px;height:15px;border-radius:50%;background:#fff;display:block;}
 
+  /* Measured against 6b: card 37px, label 9.5px, a 2px gap, value 14.5px. The
+     build inherited body line-height 1.55 on both lines and had no gap at all,
+     which is what made the value sit tight under the label. */
   .pm-mini-card{flex:1;background:var(--surface);border-radius:var(--r-md);padding:5px 11px 6px;}
-  .pm-mini-lbl{font-size:8px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--bark-light);}
+  .pm-mini-lbl{font-size:8px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--bark-light);line-height:1.2;margin-bottom:2px;}
+  .pm-mini-card .pm-mini-val,
+  .pm-mini-card .pm-date-pill.mini.cal-field-btn{line-height:1.2;}
+  /* The number spinner reserves space at the right edge of the input, which is
+     what pushed the inch mark away from the value even when right-aligned. */
+  .pm-mini-val input[type=number]{-webkit-appearance:none;appearance:none;margin:0;}
+  .pm-mini-val input[type=number]::-webkit-inner-spin-button,
+  .pm-mini-val input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
 
   .pm-photo-strip{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px;}
   .pm-photo-strip-thumb{position:relative;width:48px;height:48px;flex-shrink:0;}
@@ -5893,8 +5907,11 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
               </div>
               <div className="pm-mini-card">
                 <div className="pm-mini-lbl">Next pot size</div>
-                <div style={{display:"flex",alignItems:"baseline",gap:1}}>
-                  <input type="number" min="1" step="0.5" style={{minWidth:0,width:32,background:"none",border:"none",padding:0,textAlign:"left",fontFamily:"var(--font-ui)",fontSize:12,fontWeight:800,color:"var(--potting-head)"}}
+                {/* Right-aligned so the inch mark sits against the number
+                    instead of after the input's leftover width (6b renders it
+                    as one string, 7"). */}
+                <div className="pm-mini-val" style={{display:"flex",alignItems:"baseline",gap:1}}>
+                  <input type="number" min="1" step="0.5" style={{minWidth:0,width:34,background:"none",border:"none",padding:0,textAlign:"right",fontFamily:"var(--font-ui)",fontSize:12,fontWeight:800,lineHeight:1.2,color:"var(--potting-head)"}}
                     value={form.nextPotSize} onChange={e=>set("nextPotSize",parseFloat(e.target.value)||0)} onBlur={cleanNumberOnBlur}/>
                   <span style={{fontSize:12,fontWeight:800,color:"var(--potting-head)"}}>&quot;</span>
                 </div>
