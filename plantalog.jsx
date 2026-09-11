@@ -2581,6 +2581,67 @@ const styles = `
   .util-btn{background:var(--btn-bg);color:var(--btn-ink);border:1.5px solid var(--btn-border);border-radius:var(--r-pill);padding:7px 17px;font-family:var(--font-ui);font-size:12.5px;font-weight:800;cursor:pointer;min-width:0;text-align:center;}
   .util-btn.secondary{background:var(--btn-bg);color:var(--btn-ink);border:1.5px solid var(--btn-border);}
 
+
+  /* ── Touch pass ─────────────────────────────────────────────────────────
+     The design's controls and type were drawn at mockup scale: on a real
+     phone many taps sat under Apple's 44pt minimum and a lot of text under
+     11pt. Everything here overrides the rules above on purpose; it is kept
+     in one block so it can be read (and tuned) as a whole.
+
+     1. Tap areas. Each small control gets an invisible ::after that grows
+        its hit box to at least 44x44 around its centre; what you see does
+        not change. (close-x-btn and the photo-strip remove button are
+        already absolutely positioned, so they skip position:relative.) */
+  .tab-btn, .tab-add-btn, .check-btn, .freq-inc-btn, .hero-accent-btn, .cal-nav-btn,
+  .cal-field-btn, .cal-day, .pm-step, .pm-icon-btn, .pm-save-btn, .room-bar-edit, .room-drag,
+  .room-edit-cancel, .room-swatch, .seg-tab, .tip-q, .util-btn, .notes-add-btn{position:relative;}
+  .tab-btn::after, .tab-add-btn::after, .check-btn::after, .freq-inc-btn::after, .hero-accent-btn::after,
+  .cal-nav-btn::after, .cal-field-btn::after, .cal-day::after, .pm-step::after, .pm-icon-btn::after,
+  .pm-save-btn::after, .room-bar-edit::after, .room-drag::after, .room-edit-cancel::after,
+  .room-swatch::after, .seg-tab::after, .tip-q::after, .util-btn::after, .notes-add-btn::after,
+  .close-x-btn::after, .pm-photo-strip-thumb button::after{
+    content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);
+    transform:translate(-50%,-50%);}
+  /* Text inputs cannot carry ::after; padding outside the text, handed back
+     with a matching negative margin, grows the tap box without moving it. */
+  .pm-name-input{padding-top:7px;padding-bottom:7px;margin-top:-7px;margin-bottom:-7px;}
+  .notif-time-pill input[type="time"]{padding-top:10px;padding-bottom:10px;margin-top:-10px;margin-bottom:-10px;}
+
+  /* 2. Controls that read as tiny get visibly larger too. */
+  .tab-btn{padding:10px 16px;min-height:36px;}
+  .tab-btn.active{padding:10px 20px;}
+  .tab-add-btn{width:40px;height:40px;}
+  .check-btn, .freq-inc-btn{width:40px;height:40px;}
+  .close-x-btn{width:36px;height:36px;}
+  .hero-accent-btn{height:36px;}
+  .cal-day{height:40px;}
+  .cal-nav-btn{width:36px;height:36px;}
+  .pm-step{width:36px;height:36px;}
+  .pm-icon-btn{width:36px;height:36px;}
+  .room-bar-edit{width:32px;height:32px;}
+  .room-swatch{width:32px;height:32px;}
+  .seg-tab{min-height:38px;}
+  .room-bar{min-height:44px;box-sizing:border-box;}
+  .pm-bottom-btn, .score-tip-gotit, .sheet-close-btn, .dashed-cta{min-height:44px;box-sizing:border-box;}
+  /* Photo viewer and its date picker, and the confirm dialog's buttons. */
+  .btn, .cfm-btn, .viewer-setmain, .viewer-delete{min-height:44px;box-sizing:border-box;}
+  .dp-field input, .dp-field select{height:44px;}
+  .viewer-close{width:36px;height:36px;}
+  .viewer-close, .viewer-date{position:relative;}
+  .viewer-close::after, .viewer-date::after{content:"";position:absolute;left:50%;top:50%;
+    width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%);}
+
+  /* 3. Type. Nothing under 11px, except small tracked capitals labels,
+     which read larger than their size and stop at 10px. */
+  .score-tile-lbl, .stat-tile .st-lbl, .pot-size-badge-lbl, .grave-lived-lbl{font-size:10px;}
+  .detail-panel-lbl, .pm-lbl, .sched-date-card .pm-lbl, .cal-nav-context, .grave-stat-lbl,
+  .auth-field-lbl, .info-card .key{font-size:10px;}
+  .good-health-lbl{font-size:11px;}
+  .card-status-pill, .card-room-pill, .nav-badge, .pm-got-caption, .detail-hero-room span:last-child,
+  .rd-days-left, .purge-label, .dp-field label, .freq-tooltip-title, .cal-weekdays span,
+  .pm-photo-strip-thumb button{font-size:11px;}
+  .room-count, .room-header.colored .room-count, .room-chip-preview span:last-child{font-size:12px;}
+  .list-footnote{font-size:12px;}
 `;
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
@@ -4392,10 +4453,10 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
         {showRoomPill && mode!=="repot" && room && (
           <div style={{display:"flex",gap:4,alignItems:"center",marginTop:2,flexWrap:"wrap"}}>
             {room.color
-              ? <span style={{background:room.color,color:roomTextColor(room.color),padding:"1px 8px",borderRadius:20,fontSize:10,fontWeight:700,whiteSpace:"nowrap",display:"inline-block"}}>{room.name}</span>
-              : <span style={{fontSize:10,fontWeight:700,color:"var(--text-muted)"}}>{room.name}</span>
+              ? <span style={{background:room.color,color:roomTextColor(room.color),padding:"1px 8px",borderRadius:20,fontSize:11,fontWeight:700,whiteSpace:"nowrap",display:"inline-block"}}>{room.name}</span>
+              : <span style={{fontSize:11,fontWeight:700,color:"var(--text-muted)"}}>{room.name}</span>
             }
-            {mode==="repot" && plant.originalPot && <span style={{background:"transparent",color:"var(--accent)",border:"1.5px solid var(--accent)",padding:"1px 8px",borderRadius:20,fontSize:10,fontWeight:700,whiteSpace:"nowrap",display:"inline-block",letterSpacing:".3px"}}>ORIGINAL</span>}
+            {mode==="repot" && plant.originalPot && <span style={{background:"transparent",color:"var(--accent)",border:"1.5px solid var(--accent)",padding:"1px 8px",borderRadius:20,fontSize:11,fontWeight:700,whiteSpace:"nowrap",display:"inline-block",letterSpacing:".3px"}}>ORIGINAL</span>}
           </div>
         )}
         {mode==="deleted" && (
@@ -4404,7 +4465,7 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
           </div>
         )}
         {mode==="graveyard" && plant.diedDate && (
-          <div style={{fontSize:10,fontWeight:700,color:"var(--text-muted)",marginTop:3}}>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--text-muted)",marginTop:3}}>
             Died {formatDiedDate(plant.diedDate)}
           </div>
         )}
@@ -5643,7 +5704,7 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
             </div>
             <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
             {plant.photos.length===0 && <div style={{fontSize:12.5,lineHeight:1.45,fontWeight:600,color:"var(--text-muted)",marginTop:7}}>No photos yet. The first one becomes the card thumbnail.</div>}
-            {plant.photos.length>1 && <div style={{fontSize:10,color:"var(--text-muted)",marginTop:5}}>Undated first, then oldest to newest · tap a photo to view or change its date</div>}
+            {plant.photos.length>1 && <div style={{fontSize:11,color:"var(--text-muted)",marginTop:5}}>Undated first, then oldest to newest · tap a photo to view or change its date</div>}
           </div>
 
           {/* Notes */}
@@ -6830,7 +6891,7 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
   return (
     <>
       <div className="section" style={{paddingTop:14}}>
-        <div style={{fontSize:10,fontWeight:800,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:11,paddingLeft:4}}>Appearance</div>
+        <div style={{fontSize:11,fontWeight:800,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:11,paddingLeft:4}}>Appearance</div>
         <div className="util-section">
           <div className="util-row">
             <div>
@@ -6855,7 +6916,7 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
             </label>
           </div>
         </div>
-        <div style={{fontSize:10,fontWeight:800,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:11,paddingLeft:4}}>Plants</div>
+        <div style={{fontSize:11,fontWeight:800,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:11,paddingLeft:4}}>Plants</div>
         <div className="util-section">
           <div className="util-row tappable" onClick={()=>setSub("graveyard")}>
             <div>
@@ -6883,7 +6944,7 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
             <button className="util-btn secondary" onClick={onOpenSchedule}>Create</button>
           </div>
         </div>
-        <div style={{fontSize:10,fontWeight:800,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:11,paddingLeft:4}}>Data</div>
+        <div style={{fontSize:11,fontWeight:800,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:11,paddingLeft:4}}>Data</div>
         <div className="util-section">
           <div className="util-row">
             <div>
@@ -6902,7 +6963,7 @@ function UtilitiesScreen({ darkMode, setDarkMode, showCardPhotos, setShowCardPho
         </div>
 
         {user && <>
-          <div style={{fontSize:10,fontWeight:800,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:11,paddingLeft:4}}>Account</div>
+          <div style={{fontSize:11,fontWeight:800,color:"var(--text-muted)",textTransform:"uppercase",letterSpacing:"1.2px",marginBottom:11,paddingLeft:4}}>Account</div>
           <div className="util-section">
             <div className="util-row tappable" onClick={()=>setSub("notifications")}>
               <div>
