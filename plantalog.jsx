@@ -1499,6 +1499,9 @@ const styles = `
   .page-header{height:max(102px, calc(env(safe-area-inset-top,0px) + 71px));box-sizing:border-box;padding:max(12px, env(safe-area-inset-top,0px)) 18px 15px;color:var(--primary-ink);background:var(--primary);display:flex;flex-direction:column;justify-content:flex-end;}
   .page-header .hdr-lockup{display:flex;align-items:flex-end;gap:12px;height:46px;margin-top:auto;}
   .page-header .hdr-mark{width:30px;height:46px;object-fit:contain;flex-shrink:0;}
+  .page-header .hdr-lockup.sm{gap:10px;height:40px;min-width:0;}
+  .page-header .hdr-lockup.sm h1{font-size:30px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+  .page-header .hdr-lockup.sm .hdr-mark{width:26px;height:40px;}
   .page-header.green,
   .page-header.slate{background:var(--primary);}
   .page-header.teal{background:var(--water);color:var(--water-header-ink);}
@@ -3954,7 +3957,7 @@ function App() {
             <div className="page-header teal">
               <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:8}}>
                 <div style={{minWidth:0}}>
-                  <h1>Water</h1>
+                  <HdrTitle>Water</HdrTitle>
                 </div>
                 {canUndo && (
                   <button className="header-undo-btn" onClick={performUndo}>
@@ -3969,7 +3972,7 @@ function App() {
             <div className="page-header brown">
               <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:8}}>
                 <div style={{minWidth:0}}>
-                  <h1>Repot</h1>
+                  <HdrTitle>Repot</HdrTitle>
                 </div>
                 {canUndo && (
                   <button className="header-undo-btn" onClick={performUndo}>
@@ -3985,7 +3988,7 @@ function App() {
           // main Utilities view.
           if (screen === "utils" && utilsSub == null) return (
             <div className="page-header charcoal">
-              <h1>Utilities</h1>
+              <HdrTitle>Utilities</HdrTitle>
             </div>
           );
           return null;
@@ -4346,6 +4349,17 @@ function App() {
         )}
       </div>
     </>
+  );
+}
+
+// Screen title with the logo mark beside it, the smaller version of Home's
+// lockup (30px title, 26x40 mark) for every other page header.
+function HdrTitle({ children }) {
+  return (
+    <div className="hdr-lockup sm">
+      <h1>{children}</h1>
+      <img className="hdr-mark" src="logo-mark.png" alt="" onError={e=>{e.target.style.display="none";}}/>
+    </div>
   );
 }
 
@@ -6725,7 +6739,7 @@ function GraveyardScreen({ rooms, plants, setPlants, showCardPhotos, user }) {
   return (
     <>
       <div className="page-header graveyard">
-        <h1>Graveyard</h1>
+        <HdrTitle>Graveyard</HdrTitle>
       </div>
       <div className="section" style={{paddingTop:12}}>
         <p className="page-sub">Here lies your dearly departed. Rest in peace 😢.</p>
@@ -6792,7 +6806,7 @@ function RecentlyDeletedScreen({ rooms, plants, setPlants, showCardPhotos, user 
   return (
     <>
       <div className="page-header charcoal">
-        <h1>Recently Deleted</h1>
+        <HdrTitle>Recently Deleted</HdrTitle>
       </div>
       <div className="section" style={{paddingTop:12}}>
         <p className="page-sub">{trashed.length} plant{trashed.length!==1?"s":""} &middot; Permanently deleted after {PURGE_DAYS} days</p>
@@ -6854,7 +6868,7 @@ function NotificationsScreen({
   return (
     <>
       <div className="page-header charcoal">
-        <h1>Notifications</h1>
+        <HdrTitle>Notifications</HdrTitle>
       </div>
       <div className="section" style={{paddingTop:12}}>
         <div className="notif-grid">
