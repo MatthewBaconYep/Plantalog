@@ -1843,6 +1843,10 @@ const styles = `
      edge instead of sitting next to the date (6b). */
   .pm-date-pill.cal-field-btn{background:var(--surface);font-size:12px;font-weight:800;padding:7px 14px;border-radius:var(--r-pill);border:none;gap:7px;width:auto;justify-content:center;flex-shrink:0;}
   .pm-date-pill.cal-field-btn.water{color:var(--water-ink);flex-direction:row-reverse;}
+  /* In light the pill is lighter than its blue panel. In dark it defaulted to
+     --surface (#2b2823) on a #173f52 panel, two darks with little between
+     them. A light tint of the water ink keeps the light-mode relationship. */
+  .dark .pm-date-pill.cal-field-btn.water{background:rgba(165,207,227,.24);color:#cfe6f1;}
   .pm-date-pill.cal-field-btn.potting{color:var(--potting-head);flex-direction:row-reverse;}
 
   .pm-toggle-row{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;color:var(--potting-head);cursor:pointer;}
