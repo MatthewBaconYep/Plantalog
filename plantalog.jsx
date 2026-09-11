@@ -3936,9 +3936,8 @@ function App() {
             those together during a tab switch produced a muddy flash - this
             is only avoidable by not animating the header's opacity at all. */}
         {(() => {
-          const now = todayDate ? new Date(todayDate + "T00:00:00") : getToday();
-          const waterDue = livePlants ? livePlants.filter(p => isWaterDue(p, now)).length : 0;
-          const repotDue = livePlants ? livePlants.filter(p => isPotDue(p, now)).length : 0;
+          // Water, Repot and Utilities carry just their title (no subtitle), so
+          // every main header's title sits on the same line as Home's.
           if (screen === "home") return (
             <div className="page-header green">
               <div className="hdr-lockup">
@@ -3952,7 +3951,6 @@ function App() {
               <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:8}}>
                 <div style={{minWidth:0}}>
                   <h1>Water</h1>
-                  <p>{waterDue===0?"All plants watered today":`${waterDue} plant${waterDue!==1?"s are":" is"} thirsty today`}</p>
                 </div>
                 {canUndo && (
                   <button className="header-undo-btn" onClick={performUndo}>
@@ -3968,7 +3966,6 @@ function App() {
               <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:8}}>
                 <div style={{minWidth:0}}>
                   <h1>Repot</h1>
-                  <p>{repotDue===0?"Nothing to repot right now":`${repotDue} plant${repotDue!==1?"s":""} ready for a new home`}</p>
                 </div>
                 {canUndo && (
                   <button className="header-undo-btn" onClick={performUndo}>
@@ -3985,7 +3982,6 @@ function App() {
           if (screen === "utils" && utilsSub == null) return (
             <div className="page-header charcoal">
               <h1>Utilities</h1>
-              <p>App settings and data management</p>
             </div>
           );
           return null;
