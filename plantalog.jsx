@@ -5962,7 +5962,6 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
               form.notes
                 ? <div style={{position:"relative",cursor:"pointer"}} onClick={()=>{setNotesDraft(form.notes);setEditingNotes(true);}}>
                     <div className="notes-preview">{form.notes.length>120?form.notes.slice(0,120)+"…":form.notes}</div>
-                    <div style={{fontSize:11,color:"var(--text-muted)",marginTop:3}}>Tap to edit</div>
                   </div>
                 : <button className="notes-add-btn" onClick={()=>{setNotesDraft("");setEditingNotes(true);}}>+ Add a note…</button>
             )}
