@@ -1470,22 +1470,23 @@ const styles = `
 
   /* Nav */
   .nav-wrap{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--col);box-sizing:border-box;padding:10px 14px 20px;z-index:100;pointer-events:none;}
-  /* 13b: icons at a 2.75 stroke (was 1.8, which read thin). Labels inherit the
-     design system's body line-height 1.55 as the design's do (a 1.2 override
-     made the pill 51px against the design's 54-55). */
-  .nav{pointer-events:auto;background:var(--primary);display:flex;border-radius:var(--r-pill);padding:9px 6px;box-shadow:var(--shadow-md);}
-  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0;line-height:1.55;color:rgba(242,240,216,.78);cursor:pointer;border:none;background:none;font-family:var(--font-ui);font-size:9px;letter-spacing:normal;font-weight:800;transition:color .2s;position:relative;}
+  /* Sized to the iOS tab bar rather than 13b, at the user's call (with
+     Crumbl's as the reference): 13b's 9px labels, 20px icons and 36px-tall
+     columns read as a mockup on a real phone and sat under Apple's 44pt
+     target and 11pt text minimums. Now a ~60px pill, 24px icons, 11px
+     labels, and a tinted capsule for the selected tab that is also its tap
+     area (~86x50). Stroke 2.3 at 24px keeps 13b's 2.75-at-20px weight. */
+  .nav{pointer-events:auto;background:var(--primary);display:flex;gap:2px;border-radius:var(--r-pill);padding:5px;box-shadow:var(--shadow-md);}
+  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0 5px;border-radius:var(--r-pill);line-height:1.2;color:rgba(242,240,216,.78);cursor:pointer;border:none;background:none;font-family:var(--font-ui);font-size:11px;letter-spacing:normal;font-weight:700;transition:color .2s, background-color .2s;position:relative;-webkit-tap-highlight-color:transparent;}
   @keyframes tabPick{0%{transform:none;}45%{transform:translateY(-3px) scale(1.12);}100%{transform:none;}}
   .nav-btn.active svg{animation:tabPick .26s var(--ease-arrive);}
-  .nav-btn.active{color:var(--primary-ink);}
-  .nav-btn svg{width:20px;height:20px;stroke-width:2.75;}
-  /* 6.7 positions this against the icon, not the button: left edge clearing
-     the 20px icon's right edge by 1px (so 50% + 10 + 1) and the top sitting
-     2px above it. The old offsets were tuned to the button's padding, which
-     no longer exists now that the columns match 13b. */
-  .nav-badge{position:absolute;top:-2px;left:calc(50% + 11px);background:#e0483a;color:#fffdf8;
-    border-radius:999px;height:16px;min-width:16px;padding:0 4px;box-sizing:border-box;
-    font-family:var(--font-ui);font-size:9px;font-weight:800;line-height:16px;text-align:center;
+  .nav-btn.active{color:var(--primary-ink);background:rgba(242,240,216,.14);}
+  .nav-btn svg{width:24px;height:24px;stroke-width:2.3;}
+  /* Against the icon: top 2px above it (icon starts at the 6px padding),
+     left edge 1px clear of its right edge (50% + 12 + 1). */
+  .nav-badge{position:absolute;top:3px;left:calc(50% + 13px);background:#e0483a;color:#fffdf8;
+    border-radius:999px;height:17px;min-width:17px;padding:0 4px;box-sizing:border-box;
+    font-family:var(--font-ui);font-size:10px;font-weight:800;line-height:17px;text-align:center;
     display:flex;align-items:center;justify-content:center;}
 
   /* Header. 102px in the design, which includes a mock status bar: 12px of
@@ -1550,10 +1551,10 @@ const styles = `
      asymmetric 9/4 padding. The design's columns carry no padding of their own,
      so the pill's own symmetric 9px is what centres them. */
 
-  /* ── Standalone only — home screen app ── */
-  @media (display-mode: standalone) {
-    .nav { padding-bottom: max(20px, env(safe-area-inset-bottom, 20px)); }
-  }
+  /* A standalone-only .nav{padding-bottom:max(20px, safe-area)} lived here.
+     It padded the pill itself (not its wrapper) and would have pushed the
+     tab capsules off-centre; the wrapper's 20px already clears the home
+     indicator. */
 
   .page-header h1{font-family:var(--font-display);font-weight:400;font-size:30px;letter-spacing:0;line-height:1;}
   .page-header .hdr-lockup h1{font-size:33px;}
@@ -4302,20 +4303,20 @@ function Nav({ screen, setScreen, plants, todayDate, onUtilsClick }) {
     <div className="nav-wrap">
     <nav className="nav">
       <button className={`nav-btn home${screen==="home" ?" active":""}`} onClick={()=>{ setScreen("home"); navCaptureScroll(); }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
         Home
       </button>
       <button className={`nav-btn water${screen==="water"?" active water":""}`} onClick={()=>{ setScreen("water"); navCaptureScroll(); }}>
         {due>0 && <span className="nav-badge">{due>99?"99+":due}</span>}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75"><path d="M12 2C6 9 4 13.5 4 16a8 8 0 0016 0c0-2.5-2-7-8-14z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><path d="M12 2C6 9 4 13.5 4 16a8 8 0 0016 0c0-2.5-2-7-8-14z"/></svg>
         Water
       </button>
       <button className={`nav-btn repot${screen==="repot"?" active repot":""}`} onClick={()=>{ setScreen("repot"); navCaptureScroll(); }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75"><path d="M12 2v10M8 6l4-4 4 4M5 14h14l-2 7H7l-2-7z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><path d="M12 2v10M8 6l4-4 4 4M5 14h14l-2 7H7l-2-7z"/></svg>
         Repot
       </button>
       <button className={`nav-btn utils${screen==="utils"?" active utils":""}`} onClick={()=>{ setScreen("utils"); onUtilsClick && onUtilsClick(); navCaptureScroll(); }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         Utils
       </button>
     </nav>
