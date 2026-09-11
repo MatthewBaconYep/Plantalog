@@ -1471,7 +1471,7 @@ const styles = `
   /* Nav */
   .nav-wrap{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--col);box-sizing:border-box;padding:10px 14px 20px;z-index:100;pointer-events:none;}
   .nav{pointer-events:auto;background:var(--primary);display:flex;border-radius:var(--r-pill);padding:9px 6px;box-shadow:var(--shadow-md);}
-  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0;line-height:1.2;color:rgba(242,240,216,.78);cursor:pointer;border:none;background:none;font-family:var(--font-ui);font-size:9px;letter-spacing:.3px;text-transform:uppercase;font-weight:800;transition:color .2s;position:relative;}
+  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0;line-height:1.2;color:rgba(242,240,216,.78);cursor:pointer;border:none;background:none;font-family:var(--font-ui);font-size:9px;letter-spacing:normal;font-weight:800;transition:color .2s;position:relative;}
   @keyframes tabPick{0%{transform:none;}45%{transform:translateY(-3px) scale(1.12);}100%{transform:none;}}
   .nav-btn.active svg{animation:tabPick .26s var(--ease-arrive);}
   .nav-btn.active{color:var(--primary-ink);}
@@ -1485,8 +1485,11 @@ const styles = `
     font-family:var(--font-ui);font-size:9px;font-weight:800;line-height:16px;text-align:center;
     display:flex;align-items:center;justify-content:center;}
 
-  /* Header */
-  .page-header{height:calc(102px + env(safe-area-inset-top,0px));box-sizing:border-box;padding:calc(12px + env(safe-area-inset-top,0px)) 18px 15px;color:var(--primary-ink);background:var(--primary);display:flex;flex-direction:column;justify-content:flex-end;}
+  /* Header. 102px tall in the design, status bar included (its mock bar is
+     27px of that). Adding the real status bar on top made it 161px on an
+     iPhone 15 Pro (59px inset). Now it is 102px, or just tall enough for the
+     46px lockup and 15px foot to start below the real status bar. */
+  .page-header{height:max(102px, calc(env(safe-area-inset-top,0px) + 61px));box-sizing:border-box;padding:max(12px, env(safe-area-inset-top,0px)) 18px 15px;color:var(--primary-ink);background:var(--primary);display:flex;flex-direction:column;justify-content:flex-end;}
   .page-header .hdr-lockup{display:flex;align-items:flex-end;gap:12px;height:46px;margin-top:auto;}
   .page-header .hdr-mark{width:30px;height:46px;object-fit:contain;flex-shrink:0;}
   .page-header.green,
@@ -3797,6 +3800,22 @@ function App() {
     });
     closeImport();
   }
+
+  // Phones: paint the page behind the status bar (and any overscroll) in the
+  // current header's colour. Safari tints the status bar from the page
+  // background, which is black so the desktop margins stay black, and the
+  // strip above every header read as a black bar. Runs after each render so
+  // it follows screen changes and the theme; theme-color is kept in step.
+  useLayoutEffect(() => {
+    if (!window.matchMedia || !matchMedia("(pointer: coarse)").matches) return;
+    const hdr = document.querySelector(".page-header, .auth-screen");
+    const bg = hdr ? getComputedStyle(hdr).backgroundColor : "";
+    if (!bg || document.body.style.backgroundColor === bg) return;
+    document.documentElement.style.backgroundColor = bg;
+    document.body.style.backgroundColor = bg;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", bg);
+  });
 
   // Show a blank screen while Supabase initializes
   if (!authLoaded) return (
