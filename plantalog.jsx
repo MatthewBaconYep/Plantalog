@@ -1556,6 +1556,10 @@ const styles = `
      tab capsules off-centre; the wrapper's 20px already clears the home
      indicator. */
 
+  /* The line a header used to carry as its subtitle, now just below it so
+     every header is title-only and the titles align (Graveyard, Recently
+     Deleted). */
+  .page-sub{font-size:13px;font-weight:600;line-height:1.45;color:var(--text-muted);margin:0 4px 12px;}
   .page-header h1{font-family:var(--font-display);font-weight:400;font-size:30px;letter-spacing:0;line-height:1;}
   .page-header .hdr-lockup h1{font-size:33px;}
   .page-header p{font-size:13px;font-weight:600;margin-top:4px;}
@@ -5134,6 +5138,29 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
   const stageRef  = useRef(null);
   const imgRef    = useRef(null);
   const baseDims  = useRef(null);           // rendered size at scale 1
+  // The box a photo may fill: the middle band minus its padding and the
+  // date button above the photo. Without it the image rendered at its
+  // stored size (800px+) inside a phone-width stage that cropped it to
+  // ~46%, so every photo looked zoomed in.
+  const midRef    = useRef(null);
+  const [fit, setFit] = useState(null);
+  useLayoutEffect(() => {
+    const mid = midRef.current;
+    if (!mid) return;
+    const calc = () => {
+      const cs = getComputedStyle(mid);
+      const date = mid.querySelector(".viewer-date");
+      const gap = parseFloat(cs.rowGap) || 0;
+      const w = mid.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const h = mid.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+              - (date ? date.offsetHeight + gap : 0);
+      setFit(f => (f && f.w === Math.floor(w) && f.h === Math.floor(h)) ? f : { w: Math.max(0, Math.floor(w)), h: Math.max(0, Math.floor(h)) });
+    };
+    calc();
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(calc) : null;
+    if (ro) ro.observe(mid);
+    return () => ro && ro.disconnect();
+  }, []);
   const pointers  = useRef(new Map());
   const gesture   = useRef(null);
   const lastTap   = useRef(0);
@@ -5170,6 +5197,8 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
     if (!img) return;
     baseDims.current = { w: img.offsetWidth, h: img.offsetHeight };
   }
+  // Pan limits come from the fitted size, so re-measure when the fit box moves.
+  useEffect(() => { measure(); }, [fit]);
   useEffect(() => {
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
@@ -5362,7 +5391,7 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
         <span className="viewer-top-spacer"/>
       </div>
 
-      <div className="viewer-mid" onClick={e => { e.stopPropagation(); if (e.target === e.currentTarget && !zoomed) onClose(); }}>
+      <div className="viewer-mid" ref={midRef} onClick={e => { e.stopPropagation(); if (e.target === e.currentTarget && !zoomed) onClose(); }}>
         <button className={`viewer-date${dateStr ? "" : " placeholder"}`}
           onClick={e => { e.stopPropagation(); setPickDate(true); }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>
@@ -5383,6 +5412,7 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
           onContextMenu={e => e.preventDefault()}>
           <img ref={imgRef} src={photos[index]} alt="" onLoad={measure} draggable="false"
             style={{
+              maxWidth: fit ? fit.w : undefined, maxHeight: fit ? fit.h : undefined,
               transform: `translate3d(${t.x + swipeDx}px, ${t.y}px, 0) scale(${z})`,
               transition: smooth || swipeDx === 0 ? "transform .2s var(--ease-collapse)" : "none",
             }}/>
@@ -6696,9 +6726,9 @@ function GraveyardScreen({ rooms, plants, setPlants, showCardPhotos, user }) {
     <>
       <div className="page-header graveyard">
         <h1>Graveyard</h1>
-        <p>Here lies your dearly departed. Rest in peace 😢.</p>
       </div>
       <div className="section" style={{paddingTop:12}}>
+        <p className="page-sub">Here lies your dearly departed. Rest in peace 😢.</p>
         {buried.length===0 && (
           <div className="empty"><span className="ico">🪦</span><p>No plants here for now. Enjoy it while it lasts.</p></div>
         )}
@@ -6763,9 +6793,9 @@ function RecentlyDeletedScreen({ rooms, plants, setPlants, showCardPhotos, user 
     <>
       <div className="page-header charcoal">
         <h1>Recently Deleted</h1>
-        <p>{trashed.length} plant{trashed.length!==1?"s":""} &middot; Permanently deleted after {PURGE_DAYS} days</p>
       </div>
       <div className="section" style={{paddingTop:12}}>
+        <p className="page-sub">{trashed.length} plant{trashed.length!==1?"s":""} &middot; Permanently deleted after {PURGE_DAYS} days</p>
         {trashed.length===0 && (
           <div className="empty"><span className="ico">🗑</span><p>Nothing here.</p></div>
         )}
@@ -6825,7 +6855,6 @@ function NotificationsScreen({
     <>
       <div className="page-header charcoal">
         <h1>Notifications</h1>
-        <p>One nudge a day, at a time you pick</p>
       </div>
       <div className="section" style={{paddingTop:12}}>
         <div className="notif-grid">
