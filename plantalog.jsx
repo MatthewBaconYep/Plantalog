@@ -1372,9 +1372,10 @@ const styles = `
     /* Domain colour (§2) */
     --water:#17627f;      --water-tint:#e6f2f8;  --water-ink:#12556e;
     --potting:#fbe6d6;    --potting-ink:#5c2a08; --potting-head:#8c3f07;
-    /* --potting is nearly --page-bg in light mode, so a panel filled with it
-       reads as no panel at all. Deeper peach just for those. */
-    --notif-potting-bg:#f7d9c2;
+    /* --potting is nearly --page-bg in light mode (#fbe6d6 on #f5ead8), so a
+       panel filled with it reads as no panel at all. Deeper peach for the pot
+       panels in View, Edit and Notifications; chips and pills keep --potting. */
+    --potting-panel:#f7d9c2;
     --danger:#a32e22;     --danger-tint:#fbe0dc;
     --warn:#8a4c06;       --warn-tint:#ffe6c0;
 
@@ -1418,7 +1419,7 @@ const styles = `
     --water:#134b64;      --water-tint:#173f52;  --water-ink:#a5cfe3;
     --water-solid:#5aa8cc; --water-solid-ink:#04212e;
     --potting:#5c2e10;    --potting-ink:#fbdcc4; --potting-head:#f7c9a3;
-    --notif-potting-bg:#5c2e10;
+    --potting-panel:#5c2e10;
     --danger:#ffb3a8;     --danger-tint:#4a1f1a;
 
     /* Dark mode separates with surface colour, not shadow (§7) */
@@ -1735,7 +1736,7 @@ const styles = `
   /* View Plant panels (5b) */
   .detail-panel{border-radius:var(--r-lg);padding:13px 16px 14px;}
   .detail-panel.water{background:var(--water);color:var(--water-header-ink);}
-  .detail-panel.potting{background:var(--potting);color:var(--potting-ink);}
+  .detail-panel.potting{background:var(--potting-panel);color:var(--potting-ink);}
   .detail-panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;}
   .detail-panel-title{font-family:var(--font-display);font-weight:400;font-size:16px;}
   .detail-panel.potting .detail-panel-title{color:var(--potting-head);}
@@ -1818,7 +1819,7 @@ const styles = `
 
   .pm-panel{border-radius:var(--r-md);padding:9px 14px 11px;}
   .pm-panel.water{background:var(--water-tint);}
-  .pm-panel.potting{background:var(--potting);}
+  .pm-panel.potting{background:var(--potting-panel);}
   .pm-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
   .pm-panel-title{font-family:var(--font-display);font-weight:400;font-size:15px;}
   .pm-panel.water .pm-panel-title{color:var(--water-ink);}
@@ -6624,7 +6625,7 @@ function NotificationsScreen({
     { key:"water", label:"Water Reminder", enabled:waterEnabled, setEnabled:setWaterEnabled, time:waterTime, setTime:setWaterTime,
       bg:"var(--water-tint)", ink:"var(--water-ink)", on:"var(--water)", divider:"rgba(23,98,127,.14)" },
     { key:"repot", label:"Repot Reminder", enabled:repotEnabled, setEnabled:setRepotEnabled, time:repotTime, setTime:setRepotTime,
-      bg:"var(--notif-potting-bg)", ink:"var(--potting-head)", on:"var(--accent)", divider:"rgba(163,69,10,.14)" },
+      bg:"var(--potting-panel)", ink:"var(--potting-head)", on:"var(--accent)", divider:"rgba(163,69,10,.14)" },
   ];
   return (
     <>
