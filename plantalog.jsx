@@ -1470,10 +1470,11 @@ const styles = `
 
   /* Nav */
   .nav-wrap{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--col);box-sizing:border-box;padding:10px 14px 20px;z-index:100;pointer-events:none;}
-  /* 13b: no shadow, icons at a 2.75 stroke (was 1.8, which read thin), and
-     labels at line-height normal so the pill is the design's 52px (1.2 gave 51). */
-  .nav{pointer-events:auto;background:var(--primary);display:flex;border-radius:var(--r-pill);padding:9px 6px;}
-  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0;line-height:normal;color:rgba(242,240,216,.78);cursor:pointer;border:none;background:none;font-family:var(--font-ui);font-size:9px;letter-spacing:normal;font-weight:800;transition:color .2s;position:relative;}
+  /* 13b: icons at a 2.75 stroke (was 1.8, which read thin). Labels inherit the
+     design system's body line-height 1.55 as the design's do (a 1.2 override
+     made the pill 51px against the design's 54-55). */
+  .nav{pointer-events:auto;background:var(--primary);display:flex;border-radius:var(--r-pill);padding:9px 6px;box-shadow:var(--shadow-md);}
+  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0;line-height:1.55;color:rgba(242,240,216,.78);cursor:pointer;border:none;background:none;font-family:var(--font-ui);font-size:9px;letter-spacing:normal;font-weight:800;transition:color .2s;position:relative;}
   @keyframes tabPick{0%{transform:none;}45%{transform:translateY(-3px) scale(1.12);}100%{transform:none;}}
   .nav-btn.active svg{animation:tabPick .26s var(--ease-arrive);}
   .nav-btn.active{color:var(--primary-ink);}
@@ -1487,11 +1488,14 @@ const styles = `
     font-family:var(--font-ui);font-size:9px;font-weight:800;line-height:16px;text-align:center;
     display:flex;align-items:center;justify-content:center;}
 
-  /* Header. 102px tall in the design, status bar included (its mock bar is
-     27px of that). Adding the real status bar on top made it 161px on an
-     iPhone 15 Pro (59px inset). Now it is 102px, or just tall enough for the
-     46px lockup and 15px foot to start below the real status bar. */
-  .page-header{height:max(102px, calc(env(safe-area-inset-top,0px) + 61px));box-sizing:border-box;padding:max(12px, env(safe-area-inset-top,0px)) 18px 15px;color:var(--primary-ink);background:var(--primary);display:flex;flex-direction:column;justify-content:flex-end;}
+  /* Header. 102px in the design, which includes a mock status bar: 12px of
+     padding plus a 12px row at the design system's 1.55 line-height, ~31px.
+     Below it is a ~71px content area. On a phone that draws under the real
+     status bar (59px on an iPhone 15 Pro) the header is that real bar plus
+     the same 71px, so every title sits where the design puts it relative to
+     the bar. 102 + 59 (161) doubled the bar; 120 put subtitled titles (Water,
+     Repot, Utilities) under the bar strip, which clipped them. */
+  .page-header{height:max(102px, calc(env(safe-area-inset-top,0px) + 71px));box-sizing:border-box;padding:max(12px, env(safe-area-inset-top,0px)) 18px 15px;color:var(--primary-ink);background:var(--primary);display:flex;flex-direction:column;justify-content:flex-end;}
   .page-header .hdr-lockup{display:flex;align-items:flex-end;gap:12px;height:46px;margin-top:auto;}
   .page-header .hdr-mark{width:30px;height:46px;object-fit:contain;flex-shrink:0;}
   .page-header.green,
@@ -1517,8 +1521,10 @@ const styles = `
   /* Water cards have room for Home's Every tile beside the add-days button on
      a desktop viewport, but not on a phone, which keeps the inline "every Nd"
      under the name instead. Keyed on the viewport, not the app column, since
-     the column is a fixed width at every size. */
-  .desktop-only{display:none;}
+     the column is a fixed width at every size. !important because the
+     Every tile's own .stat-tile{display:flex} comes later in the sheet and
+     was winning, so phones showed the tile and the inline text both. */
+  .desktop-only{display:none!important;}
   /* Laptop: the phone design, at the design's own 390px column, scaled up
      so type and targets read at laptop distance. At 480px unscaled every
      row's label and control drifted 72px further apart than 6b. Mouse and
@@ -1535,7 +1541,7 @@ const styles = `
     html, body, *{overscroll-behavior:none;}
   }
   @media (min-width:700px){
-    .desktop-only{display:flex;}
+    .desktop-only{display:flex!important;}
     .desktop-hide{display:none;}
   }
   /* Removed: .nav{padding-bottom:4px} and .nav-btn{padding:5px 0}. Measured
@@ -1558,7 +1564,7 @@ const styles = `
   @media (hover:hover) and (pointer:fine) { .header-undo-btn:hover{background:rgba(255,255,255,.34);} }
 
   /* Dashboard */
-  .dashboard{padding:12px 14px 8px;display:flex;flex-direction:column;gap:10px;}  /* 13a: 13px tiles to label = 10 + leading */
+  .dashboard{padding:12px 14px 8px;display:flex;flex-direction:column;gap:10px;}  /* 13a/13b declare gap:10px */
   .dashboard .score-tiles{margin-bottom:0;}
   .dash-card.selected{outline-color:var(--leaf);}
   .dash-card .lbl{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px;font-weight:600;text-align:center;}
@@ -1681,17 +1687,14 @@ const styles = `
     color:var(--text-muted);font-family:var(--font-ui);font-size:13px;font-weight:700;cursor:pointer;}
   /* ── Summary tiles + health score (13a) ─────────────────────────────────── */
   .score-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px;}
-  .score-tile{border-radius:var(--r-md);padding:8px 4px 7px;text-align:center;box-shadow:var(--shadow-sm);cursor:pointer;outline:2px solid transparent;outline-offset:-1px;transition:outline-color .15s;background:var(--surface);min-height:50px;box-sizing:border-box;}
+  .score-tile{border-radius:var(--r-md);padding:8px 4px 7px;text-align:center;box-shadow:var(--shadow-sm);cursor:pointer;outline:2px solid transparent;outline-offset:-1px;transition:outline-color .15s;background:var(--surface);min-height:52px;box-sizing:border-box;}
   .score-tile.all{background:var(--primary);}
   .score-tile-num{font-family:var(--font-display);font-weight:400;font-size:21px;line-height:1;color:var(--text);}
   .score-tile.all .score-tile-num{color:var(--primary-ink);}
-  .score-tile-lbl{font-size:8px;line-height:normal;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);margin-top:4px;}
-  /* 13a/13b measure 50px tiles with a 10px label line box, in WebKit and
-     Chromium alike. The label inherited a taller line-height (12px box) and a
-     52px min-height (from the addendum) papered over it. */
+  .score-tile-lbl{font-size:8px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);margin-top:4px;}
   .score-tile.all .score-tile-lbl{color:rgba(242,240,216,.78);}
 
-  .score-bar-wrap{padding:0 3px;position:relative;line-height:normal;}  /* 13a's row is 15px; the inherited body 1.55 made it 20 */
+  .score-bar-wrap{padding:0 3px;position:relative;}
   .good-health-lbl{font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--text-muted);}
   .good-health-pct{font-size:13px;font-weight:800;color:#0c6b3c;}
   .dark .good-health-pct{color:#86ecad;}
