@@ -1499,9 +1499,18 @@ const styles = `
   .page-header{height:max(102px, calc(env(safe-area-inset-top,0px) + 71px));box-sizing:border-box;padding:max(12px, env(safe-area-inset-top,0px)) 18px 15px;color:var(--primary-ink);background:var(--primary);display:flex;flex-direction:column;justify-content:flex-end;}
   .page-header .hdr-lockup{display:flex;align-items:flex-end;gap:12px;height:46px;margin-top:auto;}
   .page-header .hdr-mark{width:30px;height:46px;object-fit:contain;flex-shrink:0;}
-  .page-header .hdr-lockup.sm{gap:10px;height:40px;min-width:0;}
-  .page-header .hdr-lockup.sm h1{font-size:30px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
-  .page-header .hdr-lockup.sm .hdr-mark{width:26px;height:40px;}
+  /* Watermark (HdrTitle): a window at the header's lower-right corner, below
+     the real status bar, showing the mark cropped at its right and bottom.
+     The window clips it, so nothing overflows the header or the page. */
+  .page-header{position:relative;}
+  .page-header .hdr-watermark{position:absolute;right:0;bottom:0;height:calc(100% - env(safe-area-inset-top,0px) - 2px);
+    aspect-ratio:.7;overflow:hidden;pointer-events:none;}
+  .page-header .hdr-watermark img{position:absolute;right:-8px;bottom:-18px;height:calc(100% + 18px);width:auto;opacity:.16;}
+  .header-undo-btn{position:relative;}
+  /* The header's colour continued above it, so pulling the page down past
+     the top shows header, while the page background (html/body, set to the
+     app ground on phones) is what shows past the bottom. */
+  .page-header::after{content:"";position:absolute;left:0;right:0;bottom:100%;height:100vh;background:inherit;pointer-events:none;}
   .page-header.green,
   .page-header.slate{background:var(--primary);}
   .page-header.teal{background:var(--water);color:var(--water-header-ink);}
@@ -1562,6 +1571,11 @@ const styles = `
   /* The line a header used to carry as its subtitle, now just below it so
      every header is title-only and the titles align (Graveyard, Recently
      Deleted). */
+  /* Sync flags. On phones the routine ones (Syncing, Saved) are hidden: they
+     sat over the status bar's battery for a second after every save. The
+     error flag stays, below the status bar. */
+  .sync-flag{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));right:12px;font-size:11px;z-index:999;font-family:var(--font-ui);}
+  @media (pointer:coarse){ .sync-flag.quiet{display:none;} }
   .page-sub{font-size:13px;font-weight:600;line-height:1.45;color:var(--text-muted);margin:0 4px 12px;}
   .page-header h1{font-family:var(--font-display);font-weight:400;font-size:30px;letter-spacing:0;line-height:1;}
   .page-header .hdr-lockup h1{font-size:33px;}
@@ -2351,6 +2365,12 @@ const styles = `
   /* Zoom stage: clips the scaled image and owns all pointer gestures */
   .lightbox-stage{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;max-width:100%;max-height:100%;border-radius:var(--r-lg);}
   .viewer .lightbox-arrow{display:none;}
+  /* Filmstrip: slides one page (fit width + 20px) apart, the track follows
+     the finger; neighbours sit just off screen until a swipe brings them in. */
+  .viewer{overflow:hidden;}
+  .viewer-pager{position:relative;flex:1 1 auto;min-height:0;touch-action:none;}
+  .viewer-track{position:absolute;inset:0;will-change:transform;}
+  .viewer-slide{position:absolute;top:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
   .lightbox-stage img{display:block;-webkit-user-drag:none;transform-origin:center center;will-change:transform;}
   .lightbox-stage.zoomed{cursor:grab;}
   .lightbox-stage.panning{cursor:grabbing;}
@@ -3885,13 +3905,20 @@ function App() {
   // it follows screen changes and the theme; theme-color is kept in step.
   useLayoutEffect(() => {
     if (!window.matchMedia || !matchMedia("(pointer: coarse)").matches) return;
+    // What shows past the bottom of a rubber-band scroll is the page
+    // background: keep it the app's ground (light or dark), not the header
+    // colour, which revealed under the last card. The header carries its own
+    // colour upward (.page-header::after) for the top; theme-color follows it.
+    const app = document.querySelector(".app");
     const hdr = document.querySelector(".page-header, .auth-screen");
-    const bg = hdr ? getComputedStyle(hdr).backgroundColor : "";
-    if (!bg || document.body.style.backgroundColor === bg) return;
-    document.documentElement.style.backgroundColor = bg;
-    document.body.style.backgroundColor = bg;
+    const ground = app ? getComputedStyle(app).backgroundColor : "";
+    const top = hdr ? getComputedStyle(hdr).backgroundColor : "";
+    if (ground && document.body.style.backgroundColor !== ground) {
+      document.documentElement.style.backgroundColor = ground;
+      document.body.style.backgroundColor = ground;
+    }
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", bg);
+    if (meta && top && meta.getAttribute("content") !== top) meta.setAttribute("content", top);
   });
 
   // Show a blank screen while Supabase initializes
@@ -3932,9 +3959,9 @@ function App() {
       <style>{styles}</style>
       <div className={`app${darkMode?" dark":""}`}>
         {/* Sync status indicator */}
-        {syncStatus==="saving" && <div style={{position:"fixed",top:8,right:12,fontSize:11,color:"rgba(255,255,255,0.6)",zIndex:999,fontFamily:"var(--font-ui)"}}>Syncing…</div>}
-        {syncStatus==="saved"  && <div style={{position:"fixed",top:8,right:12,fontSize:11,color:"rgba(74,222,128,0.8)",zIndex:999,fontFamily:"var(--font-ui)"}}>✓ Saved</div>}
-        {syncStatus==="error"  && <div style={{position:"fixed",top:8,right:12,fontSize:11,color:"rgba(252,129,129,0.9)",zIndex:999,fontFamily:"var(--font-ui)"}}>⚠ Sync error</div>}
+        {syncStatus==="saving" && <div className="sync-flag quiet" style={{color:"rgba(255,255,255,0.6)"}}>Syncing…</div>}
+        {syncStatus==="saved"  && <div className="sync-flag quiet" style={{color:"rgba(74,222,128,0.8)"}}>✓ Saved</div>}
+        {syncStatus==="error"  && <div className="sync-flag" style={{color:"rgba(252,129,129,0.9)"}}>⚠ Sync error</div>}
 
         {/* Rendered outside CrossFade, keyed directly on `screen` (not the
             crossfaded shownScreen), so it switches instantly instead of
@@ -4352,14 +4379,17 @@ function App() {
   );
 }
 
-// Screen title with the logo mark beside it, the smaller version of Home's
-// lockup (30px title, 26x40 mark) for every other page header.
+// Screen title for every header except Home's, with the logo mark as a large
+// faded watermark in the header's lower-right corner (option C). The mark is
+// positioned against .page-header, so it can sit inside the title's wrapper.
 function HdrTitle({ children }) {
   return (
-    <div className="hdr-lockup sm">
+    <>
       <h1>{children}</h1>
-      <img className="hdr-mark" src="logo-mark.png" alt="" onError={e=>{e.target.style.display="none";}}/>
-    </div>
+      <span className="hdr-watermark" aria-hidden="true">
+        <img src="logo-mark.png" alt="" onError={e=>{e.target.style.display="none";}}/>
+      </span>
+    </>
   );
 }
 
@@ -5144,7 +5174,16 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
   const MAX_Z = 5, DBL_Z = 2.5;
   const [z, setZ]           = useState(1);
   const [t, setT]           = useState({ x: 0, y: 0 });
-  const [swipeDx, setSwipeDx] = useState(0);
+  // Swiping moves a filmstrip (previous, current, next photo side by side,
+  // one page apart) that follows the finger 1:1 and then glides to the next
+  // page or springs back. It replaced a single image sliding inside its own
+  // clipped frame, which snapped back and swapped photos instantly.
+  const [trackX, setTrackX]       = useState(0);
+  const [trackAnim, setTrackAnim] = useState(false);
+  const trackXRef = useRef(0); trackXRef.current = trackX;
+  const settleTimer = useRef(null);
+  const settlePending = useRef(0);
+  const SLIDE_MS = 280, PAGE_GAP = 20;
   const [panning, setPanning] = useState(false);
   const [smooth, setSmooth]   = useState(false);
   const [pickDate, setPickDate] = useState(false);
@@ -5197,22 +5236,54 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
   useEffect(() => {
     function onKey(e) {
       if (e.key === "Escape")     { if (zoomed) resetZoom(true); else onClose(); }
-      if (e.key === "ArrowLeft"  && !zoomed) setIndex(i => (i > 0 ? i - 1 : i));
-      if (e.key === "ArrowRight" && !zoomed) setIndex(i => (i < photos.length - 1 ? i + 1 : i));
+      if (e.key === "ArrowLeft")  goRef.current(-1);
+      if (e.key === "ArrowRight") goRef.current(1);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [zoomed, photos.length]);
 
   useScrollLock();
+  const goRef = useRef(() => {});
 
   function measure() {
     const img = imgRef.current;
     if (!img) return;
     baseDims.current = { w: img.offsetWidth, h: img.offsetHeight };
   }
-  // Pan limits come from the fitted size, so re-measure when the fit box moves.
+  // Pan limits come from the fitted size, so re-measure when the fit box moves
+  // or a neighbour (already loaded, so no onLoad) becomes the current photo.
   useEffect(() => { measure(); }, [fit]);
+  useLayoutEffect(() => { measure(); }, [index]);
+  useEffect(() => { goRef.current = go; });
+  const pageW = fit ? fit.w + PAGE_GAP : 0;
+
+  // Glide the strip to the previous (-1) or next (+1) page, or back (0), then
+  // make that photo current and zero the strip in the same render, so the
+  // slides (positioned relative to the current index) do not move on screen.
+  function settle(dir) {
+    clearTimeout(settleTimer.current);
+    settlePending.current = dir;
+    setTrackAnim(true);
+    setTrackX(dir === 0 ? 0 : -dir * pageW);
+    settleTimer.current = setTimeout(finishSettle, SLIDE_MS);
+  }
+  function finishSettle() {
+    clearTimeout(settleTimer.current);
+    settleTimer.current = null;
+    const dir = settlePending.current;
+    settlePending.current = 0;
+    setTrackAnim(false);
+    if (dir) setIndex(i => Math.max(0, Math.min(photos.length - 1, i + dir)));
+    setTrackX(0);
+  }
+  useEffect(() => () => clearTimeout(settleTimer.current), []);
+  function go(dir) {
+    if (zoomed) return;
+    if (dir < 0 && index === 0) return;
+    if (dir > 0 && index === photos.length - 1) return;
+    settle(dir);
+  }
   useEffect(() => {
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
@@ -5230,8 +5301,9 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
     function forceRelease() {
       if (pointers.current.size === 0) return;
       pointers.current.clear();
+      const wasSwipe = gesture.current && gesture.current.mode === "swipe";
       gesture.current = null;
-      setSwipeDx(0);
+      if (wasSwipe && trackXRef.current !== 0 && !settleTimer.current) { setTrackAnim(true); setTrackX(0); setTimeout(() => setTrackAnim(false), SLIDE_MS); }
       setPanning(false);
     }
     window.addEventListener("pointerup", forceRelease);
@@ -5280,6 +5352,8 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
   }
 
   function onPointerDown(e) {
+    if (settleTimer.current) finishSettle();
+    const onPhoto = !!(stageRef.current && stageRef.current.contains(e.target));
     e.currentTarget.setPointerCapture?.(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     moved.current = false;
@@ -5291,6 +5365,7 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
         mode: zRef.current > 1.01 ? "pan" : "swipe",
         startX: e.clientX, startY: e.clientY,
         startT: { ...tRef.current },
+        onPhoto, lastX: e.clientX, lastT: performance.now(), v: 0,
       };
     }
   }
@@ -5322,12 +5397,15 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
     }
     if (g.mode === "swipe") {
       const dx = e.clientX - g.startX, dy = e.clientY - g.startY;
-      if (Math.abs(dx) < 4 || Math.abs(dx) < Math.abs(dy)) return;
+      const now = performance.now(), k = uiZoom();
+      if (now > g.lastT) { g.v = (e.clientX - g.lastX) / k / (now - g.lastT); g.lastX = e.clientX; g.lastT = now; }
+      if (!moved.current && (Math.abs(dx) < 4 || Math.abs(dx) < Math.abs(dy))) return;
       moved.current = true;
       const atLeft  = index === 0 && dx > 0;
       const atRight = index === photos.length - 1 && dx < 0;
-      const cssDx = dx / uiZoom();
-      setSwipeDx(atLeft || atRight ? cssDx * 0.2 : cssDx);
+      const cssDx = dx / k;
+      setTrackAnim(false);
+      setTrackX(atLeft || atRight ? cssDx * 0.3 : cssDx);   // resist past the ends
     }
   }
 
@@ -5350,12 +5428,19 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
     pointers.current.delete(e.pointerId);
 
     if (g && g.mode === "swipe") {
-      const dx = e.clientX - g.startX;
-      setSwipeDx(0);
-      if (Math.abs(dx) > 50) {
-        if (dx < 0 && index < photos.length - 1) setIndex(i => i + 1);
-        else if (dx > 0 && index > 0)            setIndex(i => i - 1);
-      } else if (!moved.current) {
+      if (moved.current) {
+        // Past a fifth of a page, or a quick flick that travelled at least a
+        // little, goes to the neighbour; anything else springs back.
+        const dx = (e.clientX - g.startX) / uiZoom();
+        const dir = dx < 0 ? 1 : -1;
+        const far = Math.abs(dx) > pageW * 0.2;
+        const flick = Math.abs(g.v) > 0.35 && Math.sign(g.v) === Math.sign(dx) && Math.abs(dx) > 16;
+        const canGo = dir > 0 ? index < photos.length - 1 : index > 0;
+        settle(canGo && (far || flick) ? dir : 0);
+      } else if (!g.onPhoto) {
+        onClose();                       // a tap beside the photo closes, as before
+        return;
+      } else {
         handleTap(e.clientX, e.clientY);
       }
     }
@@ -5413,10 +5498,10 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
         </button>
 
         <button className={`lightbox-arrow${index === 0 || zoomed ? " hidden" : ""}`}
-          onClick={e => { e.stopPropagation(); setIndex(i => i - 1); }}>‹</button>
+          onClick={e => { e.stopPropagation(); go(-1); }}>‹</button>
 
-        <div ref={stageRef}
-          className={`lightbox-stage${zoomed ? " zoomed" : ""}${panning ? " panning" : ""}`}
+        <div className="viewer-pager"
+          style={fit ? { width: fit.w, height: fit.h } : undefined}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -5424,17 +5509,34 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
           onLostPointerCapture={onPointerUp}
           onWheel={onWheel}
           onContextMenu={e => e.preventDefault()}>
-          <img ref={imgRef} src={photos[index]} alt="" onLoad={measure} draggable="false"
-            style={{
-              maxWidth: fit ? fit.w : undefined, maxHeight: fit ? fit.h : undefined,
-              transform: `translate3d(${t.x + swipeDx}px, ${t.y}px, 0) scale(${z})`,
-              transition: smooth || swipeDx === 0 ? "transform .2s var(--ease-collapse)" : "none",
-            }}/>
-          {isMain && !zoomed && <span className="viewer-main-badge">Main</span>}
+          <div className="viewer-track" style={{
+              transform: `translate3d(${trackX}px, 0, 0)`,
+              transition: trackAnim ? `transform ${SLIDE_MS}ms cubic-bezier(.22,.8,.26,1)` : "none",
+            }}>
+            {[index - 1, index, index + 1].filter(i => i >= 0 && i < photos.length).map(i => {
+              const current = i === index;
+              const main = (mainIndex == null ? 0 : mainIndex) === i;
+              return (
+                <div key={i} className="viewer-slide" style={{ left: (i - index) * pageW }}>
+                  <div ref={current ? stageRef : undefined}
+                    className={`lightbox-stage${current && zoomed ? " zoomed" : ""}${current && panning ? " panning" : ""}`}>
+                    <img ref={current ? imgRef : undefined} src={photos[i]} alt=""
+                      onLoad={current ? measure : undefined} draggable="false"
+                      style={{
+                        maxWidth: fit ? fit.w : undefined, maxHeight: fit ? fit.h : undefined,
+                        transform: current ? `translate3d(${t.x}px, ${t.y}px, 0) scale(${z})` : undefined,
+                        transition: current && smooth ? "transform .2s var(--ease-collapse)" : "none",
+                      }}/>
+                    {main && !(current && zoomed) && <span className="viewer-main-badge">Main</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <button className={`lightbox-arrow${index === photos.length - 1 || zoomed ? " hidden" : ""}`}
-          onClick={e => { e.stopPropagation(); setIndex(i => i + 1); }}>›</button>
+          onClick={e => { e.stopPropagation(); go(1); }}>›</button>
 
       </div>
 
