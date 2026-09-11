@@ -1470,8 +1470,10 @@ const styles = `
 
   /* Nav */
   .nav-wrap{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--col);box-sizing:border-box;padding:10px 14px 20px;z-index:100;pointer-events:none;}
-  .nav{pointer-events:auto;background:var(--primary);display:flex;border-radius:var(--r-pill);padding:9px 6px;box-shadow:var(--shadow-md);}
-  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0;line-height:1.2;color:rgba(242,240,216,.78);cursor:pointer;border:none;background:none;font-family:var(--font-ui);font-size:9px;letter-spacing:normal;font-weight:800;transition:color .2s;position:relative;}
+  /* 13b: no shadow, icons at a 2.75 stroke (was 1.8, which read thin), and
+     labels at line-height normal so the pill is the design's 52px (1.2 gave 51). */
+  .nav{pointer-events:auto;background:var(--primary);display:flex;border-radius:var(--r-pill);padding:9px 6px;}
+  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0;line-height:normal;color:rgba(242,240,216,.78);cursor:pointer;border:none;background:none;font-family:var(--font-ui);font-size:9px;letter-spacing:normal;font-weight:800;transition:color .2s;position:relative;}
   @keyframes tabPick{0%{transform:none;}45%{transform:translateY(-3px) scale(1.12);}100%{transform:none;}}
   .nav-btn.active svg{animation:tabPick .26s var(--ease-arrive);}
   .nav-btn.active{color:var(--primary-ink);}
@@ -4297,20 +4299,20 @@ function Nav({ screen, setScreen, plants, todayDate, onUtilsClick }) {
     <div className="nav-wrap">
     <nav className="nav">
       <button className={`nav-btn home${screen==="home" ?" active":""}`} onClick={()=>{ setScreen("home"); navCaptureScroll(); }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
         Home
       </button>
       <button className={`nav-btn water${screen==="water"?" active water":""}`} onClick={()=>{ setScreen("water"); navCaptureScroll(); }}>
         {due>0 && <span className="nav-badge">{due>99?"99+":due}</span>}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2C6 9 4 13.5 4 16a8 8 0 0016 0c0-2.5-2-7-8-14z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75"><path d="M12 2C6 9 4 13.5 4 16a8 8 0 0016 0c0-2.5-2-7-8-14z"/></svg>
         Water
       </button>
       <button className={`nav-btn repot${screen==="repot"?" active repot":""}`} onClick={()=>{ setScreen("repot"); navCaptureScroll(); }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2v10M8 6l4-4 4 4M5 14h14l-2 7H7l-2-7z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75"><path d="M12 2v10M8 6l4-4 4 4M5 14h14l-2 7H7l-2-7z"/></svg>
         Repot
       </button>
       <button className={`nav-btn utils${screen==="utils"?" active utils":""}`} onClick={()=>{ setScreen("utils"); onUtilsClick && onUtilsClick(); navCaptureScroll(); }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         Utils
       </button>
     </nav>
