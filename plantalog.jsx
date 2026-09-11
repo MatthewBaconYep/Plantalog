@@ -2091,6 +2091,11 @@ const styles = `
   .imp-stack{display:grid;}
   .imp-stack > .imp-pane{grid-area:1 / 1;min-width:0;}
   .imp-stack > .imp-pane.off{visibility:hidden;}
+  /* JSON is the shorter tab, so its Cancel sat mid-card under the picker and
+     read as gone after XLS's bottom Cancel. Pinned to the bottom it lands
+     where XLS's is. */
+  .imp-pane.imp-json{display:flex;flex-direction:column;}
+  .imp-json-actions{margin-top:auto;padding-top:12px;}
   .stat-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;width:33px;text-align:center;}
   .stat-tile .st-lbl{font-size:8px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);}
   .stat-tile .st-val{font-size:14px;font-weight:800;margin-top:1px;color:#3d472b;}
@@ -2111,10 +2116,13 @@ const styles = `
      since there's no real mouse to move away. Without this guard, that
      highlight sticks until the page repaints (e.g. backgrounding the app). */
   @media (hover:hover) and (pointer:fine) {
-    .check-btn:hover{background:var(--water);color:white;border-color:var(--water);}
+    /* Every variant lifts its fill a step on hover, the way dark Water always
+       did. Light mode used to "hover" to its own resting colour, so nothing
+       changed; dark Repot only flipped the check to white. */
+    .check-btn:hover{background:#2379a0;color:white;border-color:#2379a0;}
     .dark .check-btn:hover{background:var(--water-ink);color:#0c1a1f;border-color:var(--water-ink);}
-    .check-btn.brown:hover{background:var(--accent);color:white;border-color:var(--accent);}
-    .dark .check-btn.brown:hover{background:var(--accent);color:white;border-color:var(--accent);}
+    .check-btn.brown:hover{background:#bd5714;color:white;border-color:#bd5714;}
+    .dark .check-btn.brown:hover{background:#e08a52;color:#1f0e03;border-color:#e08a52;}
   }
 
   /* Freq increase button */
@@ -4042,7 +4050,7 @@ function App() {
             )}
             </div>
 
-            <div className={`imp-pane${importTab==="json"?"":" off"}`} aria-hidden={importTab!=="json"}>
+            <div className={`imp-pane imp-json${importTab==="json"?"":" off"}`} aria-hidden={importTab!=="json"}>
             {/* ── JSON tab: file picker ── */}
             {!jsonPreview && (
               <>
@@ -4059,7 +4067,7 @@ function App() {
                   }}/>
                 </label>
                 {importTab==="json" && importError && <div className="imp-error">{importError}</div>}
-                <div style={{display:"flex",gap:8,marginTop:12}}>
+                <div className="imp-json-actions" style={{display:"flex",gap:8}}>
                   <button className="sheet-close-btn" onClick={()=>dismissSheet("import", closeImport)} style={{flex:"none",padding:"0 20px",width:"auto"}}>Cancel</button>
                   <button className="pm-bottom-btn save" onClick={checkJsonImport} style={{flex:1,opacity:importText?1:0.5,pointerEvents:importText?"auto":"none"}}>Check Import</button>
                 </div>
