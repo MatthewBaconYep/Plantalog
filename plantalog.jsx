@@ -2095,7 +2095,14 @@ const styles = `
      read as gone after XLS's bottom Cancel. Pinned to the bottom it lands
      where XLS's is. */
   .imp-pane.imp-json{display:flex;flex-direction:column;}
-  .imp-json-actions{margin-top:auto;padding-top:12px;}
+  /* Cancel is the same full-width pill as XLS's (and Export's Close, 10b),
+     so it is one identical button in one place across both tabs. */
+  .imp-json-actions{margin-top:auto;padding-top:12px;display:flex;flex-direction:column;gap:10px;}
+  .imp-json-actions .pm-bottom-btn{flex:none;padding:13.5px 0;}
+  /* Controls in the tab being hidden must vanish at once. .btn and others
+     carry transition:all, which animates the inherited visibility too, so
+     XLS's Cancel lingered for 0.15s over JSON's buttons on every switch. */
+  .imp-pane.off, .imp-pane.off *{transition:none!important;}
   .stat-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;width:33px;text-align:center;}
   .stat-tile .st-lbl{font-size:8px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);}
   .stat-tile .st-val{font-size:14px;font-weight:800;margin-top:1px;color:#3d472b;}
@@ -4045,7 +4052,7 @@ function App() {
 
             {!xlsPreview && (
               <div style={{marginTop:14}}>
-                <button className="btn btn-secondary" style={{width:"100%"}} onClick={()=>dismissSheet("import", closeImport)}>Cancel</button>
+                <button className="sheet-close-btn" onClick={()=>dismissSheet("import", closeImport)}>Cancel</button>
               </div>
             )}
             </div>
@@ -4067,9 +4074,9 @@ function App() {
                   }}/>
                 </label>
                 {importTab==="json" && importError && <div className="imp-error">{importError}</div>}
-                <div className="imp-json-actions" style={{display:"flex",gap:8}}>
-                  <button className="sheet-close-btn" onClick={()=>dismissSheet("import", closeImport)} style={{flex:"none",padding:"0 20px",width:"auto"}}>Cancel</button>
-                  <button className="pm-bottom-btn save" onClick={checkJsonImport} style={{flex:1,opacity:importText?1:0.5,pointerEvents:importText?"auto":"none"}}>Check Import</button>
+                <div className="imp-json-actions">
+                  <button className="pm-bottom-btn save" onClick={checkJsonImport} style={{opacity:importText?1:0.5,pointerEvents:importText?"auto":"none"}}>Check Import</button>
+                  <button className="sheet-close-btn" onClick={()=>dismissSheet("import", closeImport)}>Cancel</button>
                 </div>
               </>
             )}
