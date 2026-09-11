@@ -1497,23 +1497,13 @@ const styles = `
   .page-header.teal p{color:#c3e3f2;}
   .page-header.brown p{color:#f7d3b5;}
 
-  /* Fill status bar area with header color — works in both Safari and standalone */
-  .page-header.green::before,
-  .page-header.teal::before,
-  .page-header.brown::before,
-  .page-header.slate::before {
-    content: "";
-    display: block;
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    height: env(safe-area-inset-top, 0px);
-    z-index: 200;
-    pointer-events: none;
-  }
-  .page-header.green::before,
-  .page-header.slate::before { background: var(--primary); }
-  .page-header.teal::before { background: var(--water); }
-  .page-header.brown::before { background: var(--accent); }
+  /* Fill the status bar area with the header's own colour, and keep it there
+     while the page scrolls under it. background:inherit follows every header
+     variant and theme; the old per-class list missed Utilities and Graveyard
+     (they had a colour but no strip) and gave dark Repot the light rust. Only
+     has height where the app draws under the status bar (Home Screen app). */
+  .page-header::before{content:"";display:block;position:fixed;top:0;left:0;right:0;
+    height:env(safe-area-inset-top,0px);z-index:200;pointer-events:none;background:inherit;}
 
   /* The column is a fixed 390 at every size, so the phone layout is the
      only layout. These were viewport-keyed and silently stopped applying
@@ -1530,8 +1520,10 @@ const styles = `
      trackpad only, so phones and touch tablets are untouched. */
   @media (min-width:700px) and (min-height:600px) and (hover:hover) and (pointer:fine){
     :root{--col:390px;--zoom:1.2;}
-    html{zoom:var(--zoom);}
   }
+  /* Phones get their --zoom inline from index.html: screen width / 390, so a
+     wider phone shows the 390pt design scaled up rather than stretched. */
+  html{zoom:var(--zoom);}
   /* No rubber-band bounce past the ends of a scroll on desktop, on the page or
      any inner scroller. Phones keep their native overscroll. */
   @media (hover:hover) and (pointer:fine){
@@ -1798,7 +1790,7 @@ const styles = `
   /* ── Add/Edit Plant form (6a/6b) ─────────────────────────────────────────── */
   /* Two layers so the top edge reads dark right at the card but still falls
      off softly instead of ending in a visible band. */
-  .modal.pm-modal{padding:0!important;overflow:hidden;display:flex;flex-direction:column;max-height:calc(96vh / var(--zoom));max-height:calc(96dvh / var(--zoom));border-radius:35px 35px 0 0;box-shadow:0 -10px 26px rgba(0,0,0,.40), 0 -28px 68px rgba(0,0,0,.34);}
+  .modal.pm-modal{padding:0!important;overflow:hidden;display:flex;flex-direction:column;max-height:calc(96vh / var(--zoom) - env(safe-area-inset-top,0px));max-height:calc(96dvh / var(--zoom) - env(safe-area-inset-top,0px));border-radius:35px 35px 0 0;box-shadow:0 -10px 26px rgba(0,0,0,.40), 0 -28px 68px rgba(0,0,0,.34);}
   .pm-header{background:var(--primary);color:var(--primary-ink);padding:12px 16px 13px;flex-shrink:0;display:flex;align-items:center;gap:12px;}
   .pm-icon-btn{border:none;width:32px;height:32px;border-radius:var(--r-pill);background:rgba(242,240,216,.16);color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .pm-title{font-family:var(--font-display);font-weight:400;font-size:21px;line-height:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -1960,7 +1952,6 @@ const styles = `
   .cfm-choice-sub{display:block;font-size:11px;color:var(--text-muted);font-weight:600;margin-top:3px;line-height:1.35;}
   /* Graveyard (8b) */
   .page-header.graveyard{background:var(--graveyard);color:var(--graveyard-ink);}
-  .page-header.graveyard::before{background:var(--graveyard);}
   .page-header.graveyard p{color:var(--graveyard-sub);opacity:1;}
   .dark .grave-stat-val{color:#b9c79a;}
   .dark .grave-stat-lbl{color:#8d9a76;}
@@ -1986,7 +1977,6 @@ const styles = `
   .page-header.charcoal{background:var(--charcoal);color:var(--charcoal-ink);}
   /* dark already drops --charcoal to #33302a; this just documents it stays
      tied to that token rather than needing its own dark rule. */
-  .page-header.charcoal::before{background:var(--charcoal);}
   .page-header.charcoal p{color:var(--charcoal-sub);opacity:1;margin-top:3px;font-weight:600;}
 
   .rd-row{background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow-sm);display:flex;align-items:center;gap:11px;padding:8px 12px 8px 8px;margin-bottom:6px;cursor:pointer;}
@@ -1996,7 +1986,10 @@ const styles = `
   .rd-restore-btn{border:none;background:#e9f0e0;color:#3f5427;width:32px;height:32px;border-radius:var(--r-pill);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   /* Auth (19a/19e/20a) — full green ground, cream wordmark stays cream */
   .auth-screen{position:fixed;inset:0;background:var(--primary);display:flex;flex-direction:column;overflow-y:auto;box-sizing:border-box;}
-  .auth-statusbar{flex-shrink:0;padding:12px 20px 0;display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:rgba(242,240,216,.7);}
+  /* Was a mock "9:41" status bar lifted from the design frames; on a phone it
+     sat under the real one. Kept as the same 27px of space, plus the real
+     status bar's height where the app draws under it. */
+  .auth-statusbar{flex-shrink:0;height:calc(27px + env(safe-area-inset-top,0px));}
   .auth-content{flex:1;display:flex;flex-direction:column;padding:0 26px 30px;max-width:440px;width:100%;margin:0 auto;box-sizing:border-box;}
   .auth-spacer{height:64px;flex-shrink:0;}
   .auth-lockup{display:flex;align-items:flex-end;gap:12px;margin-top:88px;}
@@ -2206,7 +2199,10 @@ const styles = `
      margins: calc(min(100%, var(--col)) / -2) was tried and WebKit applies
      the laptop zoom to it twice, leaving the dim 47px off the column. */
   .modal-overlay{position:fixed;inset:0;background:transparent;z-index:200;display:flex;align-items:flex-end;justify-content:center;}
-  .modal-overlay::before{content:'';position:absolute;top:0;bottom:0;left:0;right:0;margin:0 auto;width:100%;max-width:var(--col);background:rgba(0,0,0,.48);animation:veilIn .26s var(--ease-enter) both;pointer-events:none;}
+  .modal-overlay::before{content:'';position:absolute;top:0;bottom:0;left:0;right:0;margin:0 auto;width:100%;max-width:var(--col);background:rgba(0,0,0,.48);animation:veilIn .26s var(--ease-enter) both;pointer-events:none;
+    /* --veil-k lightens the dim as a drag pulls the sheet down (set inline
+       by the drag); the transition covers the snap back and the slide out. */
+    opacity:var(--veil-k,1);transition:opacity .24s var(--ease-enter);}
   .modal-overlay.closing::before{animation:veilOut .22s var(--ease-exit) both;}
   @keyframes sheetFade{ from { opacity:0; } to { opacity:1; } }
   @keyframes sheetFadeOut{ from { opacity:1; } to { opacity:0; } }
@@ -2283,7 +2279,7 @@ const styles = `
     .score-tip, .primer-card { animation:none !important; }
     .detail-sheet { transition:none !important; }
   }
-  .modal{background:var(--page-bg);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:var(--col);max-height:calc(88vh / var(--zoom));max-height:calc(88dvh / var(--zoom));overflow-y:auto;padding:12px 12px 20px;box-shadow:0 26px 0 var(--page-bg);}
+  .modal{background:var(--page-bg);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:var(--col);max-height:calc(88vh / var(--zoom) - env(safe-area-inset-top,0px));max-height:calc(88dvh / var(--zoom) - env(safe-area-inset-top,0px));overflow-y:auto;padding:12px 12px 20px;box-shadow:0 26px 0 var(--page-bg);}
   .modal.data-sheet{box-shadow:0 -14px 40px rgba(28,25,20,.32);}
   .data-sheet{background:#f2e6d2;border-radius:var(--r-xl) var(--r-xl) 0 0;padding:15px 16px 20px;
     box-sizing:border-box;display:flex;flex-direction:column;gap:10px;
@@ -2325,7 +2321,7 @@ const styles = `
 
 
   /* Detail */
-  .modal.detail-sheet{max-height:calc(96vh / var(--zoom));max-height:calc(96dvh / var(--zoom));border-radius:35px;box-shadow:0 26px 0 var(--page-bg), 0 -10px 26px rgba(0,0,0,.40), 0 -28px 68px rgba(0,0,0,.34);}
+  .modal.detail-sheet{max-height:calc(96vh / var(--zoom) - env(safe-area-inset-top,0px));max-height:calc(96dvh / var(--zoom) - env(safe-area-inset-top,0px));border-radius:35px;box-shadow:0 26px 0 var(--page-bg), 0 -10px 26px rgba(0,0,0,.40), 0 -28px 68px rgba(0,0,0,.34);}
   .close-x-btn{position:absolute;top:8px;left:8px;background:rgba(255,255,255,.22);border:none;border-radius:50%;width:34px;height:34px;color:white;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;}
   .info-card .val{font-size:17px;font-weight:700;color:var(--leaf);}
   .info-card .key{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-top:1px;font-weight:500;}
@@ -2479,7 +2475,7 @@ const styles = `
   .photo-thumb{width:68px;height:68px;object-fit:cover;border-radius:var(--r-sm);display:block;pointer-events:none;user-select:none;-webkit-user-select:none;}
   /* 13d full-screen viewer */
   .viewer{position:fixed;inset:0;z-index:600;background:#141310;display:flex;flex-direction:column;}
-  .viewer-top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 4px;flex-shrink:0;width:100%;max-width:var(--col);margin:0 auto;box-sizing:border-box;}
+  .viewer-top{display:flex;align-items:center;justify-content:space-between;padding:calc(14px + env(safe-area-inset-top,0px)) 16px 4px;flex-shrink:0;width:100%;max-width:var(--col);margin:0 auto;box-sizing:border-box;}
   .viewer-close{width:32px;height:32px;border:none;border-radius:var(--r-pill);background:rgba(240,233,220,.14);
     color:#f0e9dc;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
   .viewer-top-spacer{width:32px;height:32px;flex-shrink:0;}
@@ -2492,7 +2488,7 @@ const styles = `
   .viewer-main-badge{position:absolute;left:10px;bottom:10px;background:rgba(15,68,56,.92);color:#f2f0d8;
     font-family:var(--font-ui);font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
     padding:5px 11px;border-radius:var(--r-pill);pointer-events:none;}
-  .viewer-bottom{flex-shrink:0;display:flex;flex-direction:column;gap:11px;padding:16px 16px 8px;width:100%;max-width:var(--col);margin:0 auto;box-sizing:border-box;}
+  .viewer-bottom{flex-shrink:0;display:flex;flex-direction:column;gap:11px;padding:16px 16px calc(8px + env(safe-area-inset-bottom,0px));width:100%;max-width:var(--col);margin:0 auto;box-sizing:border-box;}
   .viewer-name{font-family:var(--font-display);font-weight:400;font-size:21px;line-height:1;color:#f0e9dc;}
   .viewer-strip{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:5px;margin:-5px;}
   .viewer-strip::-webkit-scrollbar{display:none;}
@@ -2655,7 +2651,7 @@ function LoginScreen({ onLogin }) {
   if (mode==="reset" && resetSent) {
     return (
       <div className="auth-screen">
-        <div className="auth-statusbar"><span>9:41</span><span>&#9646;&#9646;&#9646;</span></div>
+        <div className="auth-statusbar"/>
         <div className="auth-content auth-center">
           <button type="button" className="auth-back-btn auth-back-fixed" onClick={()=>{setMode("login");setResetSent(false);setError("");setInfo("");}}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
@@ -2676,7 +2672,7 @@ function LoginScreen({ onLogin }) {
 
   return (
     <div className="auth-screen">
-      <div className="auth-statusbar"><span>9:41</span><span>&#9646;&#9646;&#9646;</span></div>
+      <div className="auth-statusbar"/>
       <div className="auth-content">
         {mode==="reset" ? (
           /* 20a: reset gets its own header — a back arrow and a big
@@ -2781,7 +2777,7 @@ function SetNewPasswordScreen({ onDone, onCancel }) {
 
   return (
     <div className="auth-screen">
-      <div className="auth-statusbar"><span>9:41</span><span>&#9646;&#9646;&#9646;</span></div>
+      <div className="auth-statusbar"/>
       <div className="auth-content">
         <div style={{height:26}}/>
         <button type="button" className="auth-back-btn" onClick={onCancel} title="Cancel and sign out">
@@ -4886,8 +4882,12 @@ function useSheetDismiss(onClose) {
     // otherwise never fire. Flush it now rather than lose it (§12.8).
     if (closingRef.current) onCloseRef.current && onCloseRef.current();
   }, []);
-  function dismiss() {
+  // { instant:true } skips the exit animation, for a sheet a swipe has
+  // already carried off screen: playing sheetOut then would restart it from
+  // the open position, and it flashed open and slid down a second time.
+  function dismiss(opts) {
     if (closing) return;
+    if (opts && opts.instant) { onCloseRef.current && onCloseRef.current(); return; }
     setClosing(true);
     closingRef.current = true;
     timer.current = setTimeout(() => onCloseRef.current && onCloseRef.current(), SHEET_EXIT_MS);
@@ -5437,17 +5437,18 @@ function useSheetDrag(onCommit, enabled = true) {
     const commit = c.dy > h * 0.25 || (c.v > 0.5 && c.dy > 48);
     if (commit) {
       if (reduced) { setDy(0); onCommit(); return; }
-      const remaining = Math.max(0, h - c.dy);
-      const ms = Math.min(260, Math.max(160, remaining / h * 260));
+      // Close only once the .24s slide below has actually finished; an
+      // earlier close cut the sheet off part way down.
       setDy(h);
-      setTimeout(onCommit, ms);
+      setTimeout(onCommit, 250);
     } else {
       setDy(0);
     }
   }
+  // How much of the backdrop dim remains, 1 open to 0 fully dragged down.
   const veil = (() => {
     const h = sheetRef.current ? sheetRef.current.offsetHeight : 1;
-    return Math.max(0, 0.42 * (1 - Math.min(1, Math.max(0, dy) / h)));
+    return Math.max(0, 1 - Math.min(1, Math.max(0, dy) / h));
   })();
   return { sheetRef, bodyRef, dy, dragging, veil,
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel:onPointerUp } };
@@ -5465,7 +5466,7 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
   // The photo viewer sits on top of this sheet but is still a DOM descendant
   // of it, so its taps and swipes reach the sheet's drag handlers. Nothing in
   // the viewer should ever be able to dismiss the card underneath it.
-  const drag = useSheetDrag(dismissDetail, !ghost && lightboxIdx === null);
+  const drag = useSheetDrag(() => dismissDetail({ instant:true }), !ghost && lightboxIdx === null);
   const [openMenuIdx, setOpenMenuIdx] = useState(null);
 
   const daysSince = daysBetween(plant.lastWatered, fmt(getToday()));
@@ -5529,7 +5530,7 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
   return (
     <div className={`modal-overlay${detailClosing?" closing":""}${enter==="swap"?" swap":""}${ghost?" ghost":""}`}
       onClick={ghost?undefined:dismissDetail}
-      style={drag.dy>0?{background:`rgba(0,0,0,${drag.veil})`,animation:"none"}:undefined}>
+      style={drag.dy>0?{"--veil-k":drag.veil}:undefined}>
       <div className="modal detail-sheet" ref={drag.sheetRef} {...drag.handlers}
         style={{padding:0,overflow:"hidden",display:"flex",flexDirection:"column",
           transform:drag.dy?`translateY(${drag.dy}px)`:undefined,

@@ -9,13 +9,29 @@
     <link rel="icon" type="image/png" href="favicon.png" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Plantalog" />
-    <meta name="theme-color" content="#2d6a4f" />
+    <meta name="theme-color" content="#0f4438" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <style>* { margin:0; padding:0; box-sizing:border-box; } body { background:#000; }</style>
+    <script>
+      // Phones: the design is drawn at 390pt wide, so a wider phone (e.g. a
+      // 430 or 440pt Pro Max) scales the app up by width/390 instead of
+      // stretching it. Set before first paint; plantalog.jsx reads --zoom.
+      (function () {
+        function fit() {
+          var w = window.innerWidth;
+          var touch = window.matchMedia && matchMedia("(pointer: coarse)").matches;
+          var root = document.documentElement.style;
+          if (touch && w > 390 && w < 600) root.setProperty("--zoom", (w / 390).toFixed(4));
+          else root.removeProperty("--zoom");
+        }
+        fit();
+        window.addEventListener("resize", fit);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
@@ -31,6 +47,6 @@
       });
     </script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script type="text/babel" src="plantalog.jsx?v=59"></script>
+    <script type="text/babel" src="plantalog.jsx?v=60"></script>
   </body>
 </html>
