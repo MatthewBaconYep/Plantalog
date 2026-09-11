@@ -1532,6 +1532,11 @@ const styles = `
     :root{--col:390px;--zoom:1.2;}
     html{zoom:var(--zoom);}
   }
+  /* No rubber-band bounce past the ends of a scroll on desktop, on the page or
+     any inner scroller. Phones keep their native overscroll. */
+  @media (hover:hover) and (pointer:fine){
+    html, body, *{overscroll-behavior:none;}
+  }
   @media (min-width:700px){
     .desktop-only{display:flex;}
     .desktop-hide{display:none;}
@@ -1695,10 +1700,17 @@ const styles = `
 
   .score-scrim{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--col);background:rgba(31,29,26,.5);z-index:59;}
   .score-tip{position:absolute;left:50%;top:calc(100% + 14px);transform:translateX(-50%);z-index:60;
-    width:min(300px,calc(100vw / var(--zoom) - 60px));background:var(--surface);border-radius:var(--r-lg);
+    width:min(300px,calc(100vw / var(--zoom) - 60px));background:var(--tip-bg);border-radius:var(--r-lg);
     box-shadow:var(--shadow-lg);padding:15px 16px 14px;animation:scoreTipIn .18s var(--ease-enter);}
   .score-tip-arrow{position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:0;height:0;
-    border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:8px solid var(--surface);}
+    border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:8px solid var(--tip-bg);}
+  .score-tip{--tip-bg:var(--surface);}
+  /* Dark --surface (#2b2823) measured 1.02:1 against the scrim-dimmed cards
+     behind it, so the tip dissolved into them. Lifted above the cards, with
+     a hairline edge; --leaf on it was 2.06:1, the Thriving ink is 7.5:1. */
+  .dark .score-tip{--tip-bg:#433d35;box-shadow:0 0 0 1px rgba(255,255,255,.07);}
+  .dark .score-tip-pts, .dark .score-tip-total-val.muted{color:#bcb19e;}
+  .dark .score-tip-big-pct{color:#86ecad;}
   .score-tip-title{font-family:var(--font-display);font-weight:400;font-size:18px;color:var(--text);margin-bottom:11px;}
   .score-tip-grid{display:grid;grid-template-columns:1fr 68px;gap:5px 10px;font-size:13px;}
   .score-tip-grid.totals{margin-top:0;}
@@ -1729,6 +1741,12 @@ const styles = `
   .card-status-pill.due{background:var(--water-tint);color:var(--water-ink);}
   .card-status-pill.late{background:var(--danger-tint);color:var(--danger);}
   .card-room-pill{font-size:10px;font-weight:800;padding:2px 8px;border-radius:var(--r-pill);flex-shrink:0;background:var(--warn-tint);color:var(--warn);}
+  /* Repot's room + "potted Ny ago" line stays one row. A long room name
+     beside a two-digit pot size ran it out of width and wrapped "potted",
+     growing the card; now the room pill gives way with an ellipsis. */
+  .repot-sub-row{flex-wrap:nowrap;min-width:0;}
+  .repot-sub-row .card-room-pill{flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .repot-sub-row .card-sub-text{flex-shrink:0;white-space:nowrap;}
   .card-sub-text{font-size:11px;color:var(--text-muted);font-weight:600;}
   /* Water/Repot celebration + empty states (7b/7d) */
   .celebration{position:relative;overflow:hidden;background:var(--surface);border-radius:var(--r-lg);
@@ -2067,6 +2085,12 @@ const styles = `
 
   /* Stat tiles */
   .stat-tiles{display:flex;gap:11px;align-items:center;flex-shrink:0;}
+  /* Repot cards render it empty, and an empty flex item still costs the row
+     a 10px gap that the room/potted line needs. */
+  .stat-tiles:empty{display:none;}
+  .imp-stack{display:grid;}
+  .imp-stack > .imp-pane{grid-area:1 / 1;min-width:0;}
+  .imp-stack > .imp-pane.off{visibility:hidden;}
   .stat-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;width:33px;text-align:center;}
   .stat-tile .st-lbl{font-size:8px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);}
   .stat-tile .st-val{font-size:14px;font-weight:800;margin-top:1px;color:#3d472b;}
@@ -2794,6 +2818,31 @@ function SetNewPasswordScreen({ onDone, onCancel }) {
 function App() {
   const [screen,  setScreen]  = useState("home");
   const [utilsSub, setUtilsSub] = useState(null); // "graveyard" | "deleted" | null, lifted so Nav can reset it
+  // Where the Utilities menu was scrolled when a sub-screen (Graveyard,
+  // Recently Deleted, Notifications) opened. Tapping Utils from that
+  // sub-screen returns to it; leaving for any other screen discards it.
+  const utilsMenuScroll = useRef(null);
+  const utilsRestore    = useRef(null);
+  function openUtilsSub(name) {
+    if (name && utilsSub == null) utilsMenuScroll.current = window.scrollY || 0;
+    setUtilsSub(name);
+    // A sub-screen starts at its own top, not at the menu's offset.
+    if (name) window.scrollTo({ top: 0, behavior: "instant" });
+  }
+  function backToUtilsMenu() {
+    if (screen === "utils" && utilsSub != null) utilsRestore.current = utilsMenuScroll.current ?? 0;
+    utilsMenuScroll.current = null;
+    setUtilsSub(null);
+  }
+  useEffect(() => { if (screen !== "utils") utilsMenuScroll.current = null; }, [screen]);
+  // Layout effect: the menu is in the DOM (so the page is tall enough) but
+  // not yet painted, so there is no frame at the sub-screen's offset.
+  useLayoutEffect(() => {
+    if (utilsSub == null && utilsRestore.current != null) {
+      window.scrollTo({ top: utilsRestore.current, behavior: "instant" });
+      utilsRestore.current = null;
+    }
+  }, [utilsSub]);
   const [rooms,   setRooms]   = useState(null);
   const [plants,  setPlants]  = useState(null);
   const [loaded,  setLoaded]  = useState(false);
@@ -3872,7 +3921,7 @@ function App() {
           </> : null} />}
         {shownScreen==="water" && <WaterScreen rooms={rooms} plants={livePlants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} pushUndo={pushUndo} />}
         {shownScreen==="repot" && <RepotScreen rooms={rooms} plants={livePlants} setPlants={setPlants} todayDate={todayDate} showCardPhotos={showCardPhotos} user={user} pushUndo={pushUndo} />}
-        {shownScreen==="utils" && <UtilitiesScreen darkMode={darkMode} setDarkMode={setDarkMode} showCardPhotos={showCardPhotos} setShowCardPhotos={setShowCardPhotos} onOpenExport={()=>setShowExport(true)} onImport={()=>setShowImport(true)} onOpenSchedule={()=>setShowSchedule(true)} user={user || (PREVIEW_MODE ? {email:"preview@plantalog.app"} : null)} onSignOut={handleSignOut} onDeleteAccount={handleDeleteAccount} rooms={rooms} plants={plants} setPlants={setPlants} sub={utilsSub} setSub={setUtilsSub}
+        {shownScreen==="utils" && <UtilitiesScreen darkMode={darkMode} setDarkMode={setDarkMode} showCardPhotos={showCardPhotos} setShowCardPhotos={setShowCardPhotos} onOpenExport={()=>setShowExport(true)} onImport={()=>setShowImport(true)} onOpenSchedule={()=>setShowSchedule(true)} user={user || (PREVIEW_MODE ? {email:"preview@plantalog.app"} : null)} onSignOut={handleSignOut} onDeleteAccount={handleDeleteAccount} rooms={rooms} plants={plants} setPlants={setPlants} sub={utilsSub} setSub={openUtilsSub}
           notifWaterEnabled={notifWaterEnabled} setNotifWaterEnabled={setNotifWaterEnabled} notifWaterTime={notifWaterTime} setNotifWaterTime={setNotifWaterTime}
           notifRepotEnabled={notifRepotEnabled} setNotifRepotEnabled={setNotifRepotEnabled} notifRepotTime={notifRepotTime} setNotifRepotTime={setNotifRepotTime} />}
         </>)}</CrossFade>
@@ -3906,7 +3955,7 @@ function App() {
           </div>
         )}
 
-        <Nav screen={screen} setScreen={setScreen} plants={livePlants} todayDate={todayDate} onUtilsClick={()=>setUtilsSub(null)} />
+        <Nav screen={screen} setScreen={setScreen} plants={livePlants} todayDate={todayDate} onUtilsClick={backToUtilsMenu} />
 
         {/* Import modal — inside .app so dark class applies */}
         {showImport && (
@@ -3923,14 +3972,16 @@ function App() {
               ))}
             </div>
 
-            {/* Tab content — fixed min-height so card doesn't shrink between
-                tabs. 325 is the measured height of the taller (XLS) tab; at 220
-                only JSON was pinned and the card jumped 105px on every switch.
-                JSON just carries the extra space. */}
-            <div style={{minHeight:325}}>
+            {/* Both tabs are laid out in the same grid cell and the inactive
+                one is only hidden, so the card is always as tall as the taller
+                tab and never jumps on a switch. A fixed min-height (325, the
+                XLS tab measured at 480px) did this until the column narrowed:
+                at 390px the XLS copy wraps taller and the card shrank again. */}
+            <div className="imp-stack">
 
+            <div className={`imp-pane${importTab==="xls"?"":" off"}`} aria-hidden={importTab!=="xls"}>
             {/* ── Excel tab ── */}
-            {importTab==="xls" && !xlsPreview && (
+            {!xlsPreview && (
               <>
                 <p style={{fontSize:"12.5px",color:"var(--bark-light)",fontWeight:600,marginBottom:8,lineHeight:1.5}}>
                   Download and complete the blank template to add a batch of new plants. If you have an export with plant updates, import the file here to save those updates in bulk.
@@ -3948,12 +3999,12 @@ function App() {
                   {xlsLoading ? "Reading file…" : "Tap to choose your XLS file"}
                   <input type="file" style={{display:"none"}} disabled={!xlsxReady} onChange={handleXlsFile}/>
                 </label>
-                {importError && <div className="imp-error">{importError}</div>}
+                {importTab==="xls" && importError && <div className="imp-error">{importError}</div>}
               </>
             )}
 
             {/* ── Excel preview / confirm ── */}
-            {importTab==="xls" && xlsPreview && (()=>{
+            {xlsPreview && (()=>{
               const changedUpdates = xlsPreview.toUpdate.filter(u=>u.changed);
               const unchangedCount = xlsPreview.toUpdate.length - changedUpdates.length;
               const summaryNames = [...xlsPreview.toAdd.map(p=>p.name), ...changedUpdates.map(u=>u.name)];
@@ -3984,8 +4035,16 @@ function App() {
               );
             })()}
 
+            {!xlsPreview && (
+              <div style={{marginTop:14}}>
+                <button className="btn btn-secondary" style={{width:"100%"}} onClick={()=>dismissSheet("import", closeImport)}>Cancel</button>
+              </div>
+            )}
+            </div>
+
+            <div className={`imp-pane${importTab==="json"?"":" off"}`} aria-hidden={importTab!=="json"}>
             {/* ── JSON tab: file picker ── */}
-            {importTab==="json" && !jsonPreview && (
+            {!jsonPreview && (
               <>
                 <p style={{fontSize:"12.5px",color:"var(--bark-light)",fontWeight:600,marginBottom:12,lineHeight:1.5}}>Restore from a previously exported backup of your plant data.</p>
                 <label className="file-drop-label">
@@ -3999,7 +4058,7 @@ function App() {
                     e.target.value="";
                   }}/>
                 </label>
-                {importError && <div className="imp-error">{importError}</div>}
+                {importTab==="json" && importError && <div className="imp-error">{importError}</div>}
                 <div style={{display:"flex",gap:8,marginTop:12}}>
                   <button className="sheet-close-btn" onClick={()=>dismissSheet("import", closeImport)} style={{flex:"none",padding:"0 20px",width:"auto"}}>Cancel</button>
                   <button className="pm-bottom-btn save" onClick={checkJsonImport} style={{flex:1,opacity:importText?1:0.5,pointerEvents:importText?"auto":"none"}}>Check Import</button>
@@ -4008,7 +4067,7 @@ function App() {
             )}
 
             {/* ── JSON tab: preview / confirm ── */}
-            {importTab==="json" && jsonPreview && (()=>{
+            {jsonPreview && (()=>{
               const changedUpdates = jsonPreview.toUpdate.filter(u=>u.changed);
               const unchangedCount = jsonPreview.toUpdate.length - changedUpdates.length;
               const summaryNames = [...jsonPreview.toAdd.map(p=>p.name), ...changedUpdates.map(u=>u.name)];
@@ -4032,14 +4091,9 @@ function App() {
               </>
               );
             })()}
+            </div>
 
-            {importTab==="xls" && !xlsPreview && (
-              <div style={{marginTop:14}}>
-                <button className="btn btn-secondary" style={{width:"100%"}} onClick={()=>dismissSheet("import", closeImport)}>Cancel</button>
-              </div>
-            )}
-
-            </div>{/* end fixed-height tab content */}
+            </div>{/* end imp-stack */}
           </div>
         </div>
         )}
@@ -4289,8 +4343,8 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
           </div>
         )}
         {mode==="repot" && room && (
-          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2}}>
-            <span className="card-room-pill" style={room.color
+          <div className="repot-sub-row" style={{display:"flex",alignItems:"center",gap:6,marginTop:2}}>
+            <span className="card-room-pill" title={room.name} style={room.color
               ? {background:room.color, color:roomTextColor(room.color)}
               : {background:"var(--sand)", color:"var(--text)"}}>{room.name}</span>
             <span className="card-sub-text">potted {plantAgeDecimal(plant.pottedDate)} ago</span>
