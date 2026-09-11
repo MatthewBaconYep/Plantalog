@@ -1306,32 +1306,14 @@ const ROOM_COLORS = [
   "#5c4033",   // brown
 ];
 
-// Returns white or dark text depending on background luminance
-// §11.1: the selected chip halo is a lighter version of the room's own
-// colour. Alpha rather than a mixed-to-white tint, so one rule composites
-// correctly over both the cream and the dark card.
-const ACCENT_HEX = "#a3450a";
-function oklchL(hex) {
-  const h = String(hex||"").replace("#","");
-  if (h.length !== 6) return 0.5;
-  const lin = v => { v /= 255; return v <= 0.04045 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); };
-  const r = lin(parseInt(h.slice(0,2),16)), g = lin(parseInt(h.slice(2,4),16)), b = lin(parseInt(h.slice(4,6),16));
-  const l = Math.cbrt(0.4122214708*r + 0.5363325363*g + 0.0514459929*b);
-  const m = Math.cbrt(0.2119034982*r + 0.6806995451*g + 0.1073969566*b);
-  const s = Math.cbrt(0.0883024619*r + 0.2817188376*g + 0.6299787005*b);
-  return 0.2104542553*l + 0.7936177850*m - 0.0040720468*s;
-}
-// A very pale colour vanishes at 26%, so those get 55%. One threshold,
-// no per-room table.
-function chipHalo(hex, dark) {
-  // Dark darkens the colour itself; light lifts it toward the card. The
-  // pale-colour exception is light-only: in dark a pale room darkens to
-  // something visible on its own.
-  if (dark) return `color-mix(in oklab, ${hex} 48%, #000)`;
-  const pct = oklchL(hex) >= 0.90 ? 55 : 26;
-  return `color-mix(in oklab, ${hex} ${pct}%, transparent)`;
-}
+// Selected state for the Edit sheet's room chips and health tiles: the
+// button keeps its own fill and gets a ring separated from it by a sliver of
+// card colour. The ring is --text, so it is dark in light mode and light in
+// dark mode. The old ring was the chip's own colour, which made selection
+// nearly invisible on the chip it belonged to.
+const SELECT_RING = "0 0 0 2px var(--surface), 0 0 0 4px var(--text)";
 
+// Returns white or dark text depending on background luminance
 function roomTextColor(hex) {
   if (!hex) return "var(--bark)";
   const r = parseInt(hex.slice(1,3),16);
@@ -1839,6 +1821,7 @@ const styles = `
   .pm-panel.potting .pm-stepper-row{color:var(--potting-head);}
   .pm-row-between{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;}
   .pm-panel.water .pm-row-between{color:var(--water-ink);}
+  .pm-panel.potting .pm-row-between{color:var(--potting-head);}
   .pm-stepper{display:flex;align-items:center;gap:11px;}
   .pm-step{border:none;width:30px;height:30px;border-radius:var(--r-pill);font-size:19px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
   /* Wide enough for the longest value any of the three steppers can show, so
@@ -1851,25 +1834,13 @@ const styles = `
      edge instead of sitting next to the date (6b). */
   .pm-date-pill.cal-field-btn{background:var(--surface);font-size:12px;font-weight:800;padding:7px 14px;border-radius:var(--r-pill);border:none;gap:7px;width:auto;justify-content:center;flex-shrink:0;}
   .pm-date-pill.cal-field-btn.water{color:var(--water-ink);flex-direction:row-reverse;}
-  .pm-date-pill.mini.cal-field-btn{background:none;padding:0;font-size:12px;color:var(--potting-head);}
+  .pm-date-pill.cal-field-btn.potting{color:var(--potting-head);flex-direction:row-reverse;}
 
   .pm-toggle-row{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;color:var(--potting-head);cursor:pointer;}
   .pm-toggle{width:34px;height:19px;border-radius:var(--r-pill);background:var(--border-strong);display:inline-flex;align-items:center;padding:2px;cursor:pointer;transition:background .15s;}
   .pm-toggle.on{background:var(--accent);justify-content:flex-end;}
   .pm-toggle-knob{width:15px;height:15px;border-radius:50%;background:#fff;display:block;}
 
-  /* Measured against 6b: card 37px, label 9.5px, a 2px gap, value 14.5px. The
-     build inherited body line-height 1.55 on both lines and had no gap at all,
-     which is what made the value sit tight under the label. */
-  .pm-mini-card{flex:1;background:var(--surface);border-radius:var(--r-md);padding:5px 11px 6px;}
-  .pm-mini-lbl{font-size:8px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--bark-light);line-height:1.2;margin-bottom:2px;}
-  .pm-mini-card .pm-mini-val,
-  .pm-mini-card .pm-date-pill.mini.cal-field-btn{line-height:1.2;}
-  /* The number spinner reserves space at the right edge of the input, which is
-     what pushed the inch mark away from the value even when right-aligned. */
-  .pm-mini-val input[type=number]{-webkit-appearance:none;appearance:none;margin:0;}
-  .pm-mini-val input[type=number]::-webkit-inner-spin-button,
-  .pm-mini-val input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
 
   .pm-photo-strip{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px;}
   .pm-photo-strip-thumb{position:relative;width:48px;height:48px;flex-shrink:0;}
@@ -5001,11 +4972,7 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
     return () => window.removeEventListener("keydown", onKey);
   }, [zoomed, photos.length]);
 
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, []);
+  useScrollLock();
 
   function measure() {
     const img = imgRef.current;
@@ -5277,6 +5244,27 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
 // one. Drag starts on the hero or header, or in the body only when it is
 // already scrolled to the top — once the body has scrolled, vertical drags
 // belong to the scroller and we do not fight it.
+// Stops the page behind a sheet or the photo viewer from scrolling. Counted
+// rather than save-and-restore, because these stack and overlap: the viewer
+// opens over View, and View and Edit are both briefly mounted during a swap.
+// With save-and-restore, whichever closed first could hand scrolling back
+// while another was still open.
+let scrollLocks = 0;
+function useScrollLock() {
+  useEffect(() => {
+    if (scrollLocks++ === 0) {
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      if (--scrollLocks === 0) {
+        document.documentElement.style.overflow = "";
+        document.body.style.overflow = "";
+      }
+    };
+  }, []);
+}
+
 function useSheetDrag(onCommit, enabled = true) {
   const sheetRef = useRef(null);
   const bodyRef = useRef(null);
@@ -5349,6 +5337,7 @@ function useSheetDrag(onCommit, enabled = true) {
 }
 
 function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, variant="active", onRestore, onSendToDeleted, enter="slide", ghost=false }) {
+  useScrollLock();
   const [confirm, setConfirm] = useState(null);   // "restore" | "delete"
   const [detailClosing, dismissDetail] = useSheetDismiss(onClose);
   const heroPhoto = getPrimaryPhoto(plant);
@@ -5732,6 +5721,7 @@ function ManageRooms({ rooms, setRooms, plants, user, openNewRef, onSelectRoom }
 
 // ─── Plant Modal ──────────────────────────────────────────────────────────────
 function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone, enter="slide", ghost=false }) {
+  useScrollLock();
   const blank = {
     roomId:rooms[0]?.id||"", name:"", obtainedDate:fmt(getToday()), pottedDate:fmt(getToday()),
     originalPot:true, potMonths:0, potYears:2, currentPotSize:6, nextPotSize:7,
@@ -5760,11 +5750,6 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
   // number input's value is reprogrammed to "20", since the parsed number
   // didn't change — they treat it as a no-op. Forcing the DOM value directly
   // on blur (rather than relying on React's props diff) clears it reliably.
-  function cleanNumberOnBlur(e) {
-    const n = parseFloat(e.target.value);
-    if (!isNaN(n)) e.target.value = String(n);
-  }
-
   // Clone: carries every setting + notes forward, but never the photos, and
   // drops the id so Save creates a brand-new plant rather than overwriting
   // this one. No confirmation — it's non-destructive to the original.
@@ -5857,7 +5842,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
                 const sel = form.roomId===r.id;
                 const tint = r.color ? { background:r.color, color:roomTextColor(r.color) } : { background:"var(--sand)", color:"var(--text)" };
                 return (
-                  <span key={r.id} className={`pm-room-chip${sel?" selected":""}`} style={{...tint, boxShadow:sel?(()=>{const c=r.color||ACCENT_HEX;return `0 0 0 2.5px ${c}, 0 0 0 4.5px ${chipHalo(c, isDark)}`;})():undefined}}
+                  <span key={r.id} className={`pm-room-chip${sel?" selected":""}`} style={{...tint, boxShadow:sel?SELECT_RING:undefined}}
                     onClick={()=>set("roomId",r.id)}>{r.name}</span>
                 );
               })}
@@ -5873,7 +5858,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
                 const t = healthTint(h,isDark);
                 return (
                   <div key={h} className={`pm-health-tile${sel?" selected":""}`}
-                    style={{background:sel?HEALTH[h].deep:t.bg,color:sel?HEALTH[h].deepInk:t.text,boxShadow:sel?`0 0 0 2.5px ${HEALTH[h].deep}, 0 0 0 4.5px ${t.bg}`:undefined}}
+                    style={{background:t.bg,color:t.text,boxShadow:sel?SELECT_RING:undefined}}
                     onClick={()=>set("health",h)}>{HEALTH[h].label}</div>
                 );
               })}
@@ -5920,6 +5905,16 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
                 {stepBtn("inc",()=>setForm(f=>{const v=(Number(f.currentPotSize)||0)+0.5;return {...f,currentPotSize:v,nextPotSize:Math.round((v+1)*2)/2};}),"var(--accent)")}
               </div>
             </div>
+            {/* Stepping Pot size still pre-fills this to one inch larger; this
+                stepper overrides it when the next pot is a different jump. */}
+            <div className="pm-stepper-row">
+              <span>Next pot size</span>
+              <div className="pm-stepper">
+                {stepBtn("dec",()=>set("nextPotSize",Math.max(0.5,(Number(form.nextPotSize)||0)-0.5)),"var(--accent)")}
+                <span className="pm-stepper-val">{form.nextPotSize}&quot;</span>
+                {stepBtn("inc",()=>set("nextPotSize",(Number(form.nextPotSize)||0)+0.5),"var(--accent)")}
+              </div>
+            </div>
             {/* One stepper in years moving in half-year steps, rather than a
                 years and a months stepper side by side. Storage stays
                 potYears + potMonths, so isPotDue and any value already saved
@@ -5933,23 +5928,9 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
                 {stepBtn("inc",()=>setPotEvery(potEvery+0.5),"var(--accent)")}
               </div>
             </div>
-            <div style={{display:"flex",gap:6}}>
-              <div className="pm-mini-card">
-                <div className="pm-mini-lbl">Potted</div>
-                <CalendarField value={form.pottedDate} onChange={d=>set("pottedDate",d)} className="pm-date-pill mini" label="Last potted"/>
-              </div>
-              <div className="pm-mini-card">
-                <div className="pm-mini-lbl">Next pot size</div>
-                {/* 6b renders this as one left-aligned string (7"). The input is
-                    sized to its own content so the inch mark sits against the
-                    digits rather than after the input's leftover width, while
-                    the pair still starts at the cell's left edge. */}
-                <div className="pm-mini-val" style={{display:"flex",alignItems:"baseline",gap:1}}>
-                  <input type="number" min="1" step="0.5" style={{minWidth:0,width:`calc(${String(form.nextPotSize ?? "").length||1}ch + 3px)`,background:"none",border:"none",padding:0,textAlign:"left",fontFamily:"var(--font-ui)",fontSize:12,fontWeight:800,lineHeight:1.2,color:"var(--potting-head)"}}
-                    value={form.nextPotSize} onChange={e=>set("nextPotSize",parseFloat(e.target.value)||0)} onBlur={cleanNumberOnBlur}/>
-                  <span style={{fontSize:12,fontWeight:800,color:"var(--potting-head)"}}>&quot;</span>
-                </div>
-              </div>
+            <div className="pm-row-between">
+              <span>Last potted</span>
+              <CalendarField value={form.pottedDate} onChange={d=>set("pottedDate",d)} className="pm-date-pill potting" label="Last potted" short/>
             </div>
           </div>
 
@@ -5978,12 +5959,12 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
             )}
           </div>
 
-          {/* 6a: a plain strip, no card/label/shadow. Only 6a (Add, zero
-              photos) shows this control, so the populated layout below --
-              existing thumbnails ahead of the add square, same 48px size,
-              same row -- extends the one measured state rather than
-              repeating it verbatim. */}
-          <div className="pm-photo-strip">
+          {/* 6a: a plain strip, no card/label/shadow. Add only: in Edit,
+              photos are managed from the View card (add from its grid, set
+              main or delete in the viewer), so this is not shown there. The
+              form still carries the plant's photos, so saving an edit keeps
+              them untouched. */}
+          {!plant && <div className="pm-photo-strip">
             {(form.photos||[]).map((src,i)=>(
               <div key={i} className="pm-photo-strip-thumb">
                 <img src={src} alt=""/>
@@ -5995,7 +5976,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
             </div>
             <div className="pm-photo-add-lbl">Add photos<br/><em>first one becomes the main shot</em></div>
             <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
-          </div>
+          </div>}
 
           {/* Clone + Delete sit together at the bottom (6b) */}
           {(onDelete || (plant && onClone)) && (
