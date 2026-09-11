@@ -1499,11 +1499,13 @@ const styles = `
   .page-header{height:max(102px, calc(env(safe-area-inset-top,0px) + 71px));box-sizing:border-box;padding:max(12px, env(safe-area-inset-top,0px)) 18px 15px;color:var(--primary-ink);background:var(--primary);display:flex;flex-direction:column;justify-content:flex-end;}
   .page-header .hdr-lockup{display:flex;align-items:flex-end;gap:12px;height:46px;margin-top:auto;}
   .page-header .hdr-mark{width:30px;height:46px;object-fit:contain;flex-shrink:0;}
-  /* Watermark (HdrTitle): a window at the header's lower-right corner, below
-     the real status bar, showing the mark cropped at its right and bottom.
-     The window clips it, so nothing overflows the header or the page. */
+  /* Watermark (HdrTitle): a 100px window at the header's lower-right corner
+     showing the mark cropped at its right and bottom, the mockup's geometry
+     at every header height. On a phone it reaches up behind the status bar,
+     which the status strip no longer covers while the header is there (see
+     --hdr-bottom). The window clips it, so nothing overflows. */
   .page-header{position:relative;}
-  .page-header .hdr-watermark{position:absolute;right:0;bottom:0;height:calc(100% - env(safe-area-inset-top,0px) - 2px);
+  .page-header .hdr-watermark{position:absolute;right:0;bottom:0;height:100px;
     aspect-ratio:.7;overflow:hidden;pointer-events:none;}
   .page-header .hdr-watermark img{position:absolute;right:-8px;bottom:-18px;height:calc(100% + 18px);width:auto;opacity:.16;}
   .header-undo-btn{position:relative;}
@@ -1524,8 +1526,8 @@ const styles = `
      variant and theme; the old per-class list missed Utilities and Graveyard
      (they had a colour but no strip) and gave dark Repot the light rust. Only
      has height where the app draws under the status bar (Home Screen app). */
-  .page-header::before{content:"";display:block;position:fixed;top:0;left:0;right:0;
-    height:env(safe-area-inset-top,0px);z-index:200;pointer-events:none;background:inherit;}
+  .page-header::before{content:"";display:block;position:fixed;top:var(--hdr-bottom,0px);left:0;right:0;
+    height:max(0px, calc(env(safe-area-inset-top,0px) - var(--hdr-bottom,0px)));z-index:200;pointer-events:none;background:inherit;}
 
   /* The column is a fixed 390 at every size, so the phone layout is the
      only layout. These were viewport-keyed and silently stopped applying
@@ -3897,6 +3899,31 @@ function App() {
     });
     closeImport();
   }
+
+  // The status strip (.page-header::before) only has to cover the part of the
+  // status bar the header has scrolled out of: from the header's bottom edge
+  // down to the bar's bottom. While the header still fills the bar it draws
+  // nothing, so the header (and its watermark) show right up to the top.
+  useEffect(() => {
+    let raf = 0;
+    const root = document.documentElement;
+    const update = () => {
+      raf = 0;
+      const h = document.querySelector(".page-header");
+      const b = h ? Math.max(0, h.getBoundingClientRect().bottom / uiZoom()) : 0;
+      root.style.setProperty("--hdr-bottom", b.toFixed(1) + "px");
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); cancelAnimationFrame(raf); };
+  }, []);
+  useLayoutEffect(() => {
+    const h = document.querySelector(".page-header");
+    document.documentElement.style.setProperty("--hdr-bottom",
+      (h ? Math.max(0, h.getBoundingClientRect().bottom / uiZoom()) : 0).toFixed(1) + "px");
+  });
 
   // Phones: paint the page behind the status bar (and any overscroll) in the
   // current header's colour. Safari tints the status bar from the page
