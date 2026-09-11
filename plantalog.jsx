@@ -1307,11 +1307,15 @@ const ROOM_COLORS = [
 ];
 
 // Selected state for the Edit sheet's room chips and health tiles: the
-// button keeps its own fill and gets a ring separated from it by a sliver of
-// card colour. The ring is --text, so it is dark in light mode and light in
-// dark mode. The old ring was the chip's own colour, which made selection
-// nearly invisible on the chip it belonged to.
-const SELECT_RING = "0 0 0 2px var(--surface), 0 0 0 4px var(--text)";
+// button keeps its own fill and gets a ring, separated from it by a sliver
+// of card colour, in a shade of the button's own colour - darker in light
+// mode, lighter in dark. The very first version used the colour itself,
+// which vanished against the chip it belonged to.
+function selectRing(color, dark) {
+  const shade = dark ? `color-mix(in oklab, ${color} 45%, #fff)`
+                     : `color-mix(in oklab, ${color} 55%, #000)`;
+  return `0 0 0 2px var(--surface), 0 0 0 4px ${shade}`;
+}
 
 // Returns white or dark text depending on background luminance
 function roomTextColor(hex) {
@@ -1768,6 +1772,10 @@ const styles = `
   .pm-name-card{display:flex;flex-direction:column;justify-content:center;gap:3px;}
   .pm-got-card{display:flex;flex-direction:column;justify-content:center;gap:3px;}
   .notes-card{height:84px;flex:0 0 84px;overflow:hidden;}
+  /* 84px is the resting size in 6b. The editor (a 72px textarea plus its
+     delete/Save row) does not fit in it, so the card sizes to its content
+     while editing instead of clipping the bottom of the box and the buttons. */
+  .notes-card.editing{height:auto;flex:0 0 auto;overflow:visible;}
   .pm-card{background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow-sm);padding:9px 14px 10px;}
   .pm-lbl{font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--text-muted);}
   /* div/control mismatch: 13c and 6a draw this value as a div inheriting
@@ -5456,7 +5464,7 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
           {/* Watering section (5b) */}
           <div className="detail-panel water">
             <div className="detail-panel-head">
-              <span className="detail-panel-title">Watering</span>
+              <span className="detail-panel-title">Water</span>
               <span className="detail-panel-pill">{daysLeft<=0?"due now":`next in ${daysLeft} day${daysLeft===1?"":"s"}`}</span>
             </div>
             <div className="detail-panel-grid">
@@ -5469,7 +5477,7 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
           {/* Potting section (5b) */}
           <div className="detail-panel potting">
             <div className="detail-panel-head">
-              <span className="detail-panel-title">Potting</span>
+              <span className="detail-panel-title">Pot</span>
               {plant.originalPot && <span className="detail-panel-pill outline">Original pot</span>}
             </div>
             <div className="detail-panel-grid">
@@ -5842,7 +5850,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
                 const sel = form.roomId===r.id;
                 const tint = r.color ? { background:r.color, color:roomTextColor(r.color) } : { background:"var(--sand)", color:"var(--text)" };
                 return (
-                  <span key={r.id} className={`pm-room-chip${sel?" selected":""}`} style={{...tint, boxShadow:sel?SELECT_RING:undefined}}
+                  <span key={r.id} className={`pm-room-chip${sel?" selected":""}`} style={{...tint, boxShadow:sel?selectRing(r.color||"var(--sand)", isDark):undefined}}
                     onClick={()=>set("roomId",r.id)}>{r.name}</span>
                 );
               })}
@@ -5858,7 +5866,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
                 const t = healthTint(h,isDark);
                 return (
                   <div key={h} className={`pm-health-tile${sel?" selected":""}`}
-                    style={{background:t.bg,color:t.text,boxShadow:sel?SELECT_RING:undefined}}
+                    style={{background:t.bg,color:t.text,boxShadow:sel?selectRing(HEALTH[h].color, isDark):undefined}}
                     onClick={()=>set("health",h)}>{HEALTH[h].label}</div>
                 );
               })}
@@ -5868,7 +5876,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
           {/* Watering panel (6a) */}
           <div className="pm-panel water">
             <div className="pm-panel-head">
-              <span className="pm-panel-title">Watering</span>
+              <span className="pm-panel-title">Water</span>
               <span className="pm-panel-badge">{form.lastWatered===fmt(getToday())?"starts today":`last ${plantAgeDecimal(form.lastWatered)} ago`}</span>
             </div>
             <div className="pm-stepper-row">
@@ -5891,14 +5899,14 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
           {/* Potting panel (6a) */}
           <div className="pm-panel potting">
             <div className="pm-panel-head">
-              <span className="pm-panel-title">Potting</span>
+              <span className="pm-panel-title">Pot</span>
               <label className="pm-toggle-row">
                 Original pot
                 <span className={`pm-toggle${form.originalPot?" on":""}`} onClick={()=>set("originalPot",!form.originalPot)}><span className="pm-toggle-knob"/></span>
               </label>
             </div>
             <div className="pm-stepper-row">
-              <span>Pot size</span>
+              <span>Size</span>
               <div className="pm-stepper">
                 {stepBtn("dec",()=>setForm(f=>{const v=Math.max(0.5,(Number(f.currentPotSize)||0)-0.5);return {...f,currentPotSize:v,nextPotSize:Math.round((v+1)*2)/2};}),"var(--accent)")}
                 <span className="pm-stepper-val">{form.currentPotSize}&quot;</span>
@@ -5908,7 +5916,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
             {/* Stepping Pot size still pre-fills this to one inch larger; this
                 stepper overrides it when the next pot is a different jump. */}
             <div className="pm-stepper-row">
-              <span>Next pot size</span>
+              <span>Next size</span>
               <div className="pm-stepper">
                 {stepBtn("dec",()=>set("nextPotSize",Math.max(0.5,(Number(form.nextPotSize)||0)-0.5)),"var(--accent)")}
                 <span className="pm-stepper-val">{form.nextPotSize}&quot;</span>
@@ -5935,7 +5943,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
           </div>
 
           {/* Notes */}
-          <div className="pm-card notes-card">
+          <div className={`pm-card notes-card${editingNotes?" editing":""}`}>
             <div className="pm-lbl" style={{marginBottom:5}}>Notes</div>
             {editingNotes?(
               <>
