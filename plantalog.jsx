@@ -1825,6 +1825,9 @@ const styles = `
   .pm-panel.water .pm-panel-title{color:var(--water-ink);}
   .pm-panel.potting .pm-panel-title{color:var(--potting-head);}
   .pm-panel-badge{background:var(--water);color:#fff;font-size:11px;font-weight:800;padding:4px 11px;border-radius:var(--r-pill);}
+  /* Dark --water (#134b64) sits almost on the #173f52 panel. A clearly
+     lighter blue lifts the badge off it. */
+  .dark .pm-panel-badge{background:#467690;color:#f2f9fc;}
   .pm-stepper-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;font-size:13px;font-weight:700;}
   .pm-panel.water .pm-stepper-row{color:var(--water-ink);}
   .pm-panel.potting .pm-stepper-row{color:var(--potting-head);}
@@ -1843,11 +1846,6 @@ const styles = `
      edge instead of sitting next to the date (6b). */
   .pm-date-pill.cal-field-btn{background:var(--surface);font-size:12px;font-weight:800;padding:7px 14px;border-radius:var(--r-pill);border:none;gap:7px;width:auto;justify-content:center;flex-shrink:0;}
   .pm-date-pill.cal-field-btn.water{color:var(--water-ink);flex-direction:row-reverse;}
-  /* In light the pill is lighter than its blue panel. In dark it defaulted to
-     --surface (#2b2823) on a #173f52 panel, two darks with little between
-     them. A solid, clearly lighter blue keeps the light-mode relationship;
-     a translucent tint was tried first and still read as the panel's blue. */
-  .dark .pm-date-pill.cal-field-btn.water{background:#467690;color:#f2f9fc;}
   .pm-date-pill.cal-field-btn.potting{color:var(--potting-head);flex-direction:row-reverse;}
 
   .pm-toggle-row{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;color:var(--potting-head);cursor:pointer;}
