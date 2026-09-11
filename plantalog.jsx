@@ -1556,7 +1556,7 @@ const styles = `
   @media (hover:hover) and (pointer:fine) { .header-undo-btn:hover{background:rgba(255,255,255,.34);} }
 
   /* Dashboard */
-  .dashboard{padding:12px 14px 8px;display:flex;flex-direction:column;gap:12px;}
+  .dashboard{padding:12px 14px 8px;display:flex;flex-direction:column;gap:10px;}  /* 13a: 13px tiles to label = 10 + leading */
   .dashboard .score-tiles{margin-bottom:0;}
   .dash-card.selected{outline-color:var(--leaf);}
   .dash-card .lbl{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px;font-weight:600;text-align:center;}
@@ -1679,14 +1679,17 @@ const styles = `
     color:var(--text-muted);font-family:var(--font-ui);font-size:13px;font-weight:700;cursor:pointer;}
   /* ── Summary tiles + health score (13a) ─────────────────────────────────── */
   .score-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px;}
-  .score-tile{border-radius:var(--r-md);padding:8px 4px 7px;text-align:center;box-shadow:var(--shadow-sm);cursor:pointer;outline:2px solid transparent;outline-offset:-1px;transition:outline-color .15s;background:var(--surface);min-height:52px;box-sizing:border-box;}
+  .score-tile{border-radius:var(--r-md);padding:8px 4px 7px;text-align:center;box-shadow:var(--shadow-sm);cursor:pointer;outline:2px solid transparent;outline-offset:-1px;transition:outline-color .15s;background:var(--surface);min-height:50px;box-sizing:border-box;}
   .score-tile.all{background:var(--primary);}
   .score-tile-num{font-family:var(--font-display);font-weight:400;font-size:21px;line-height:1;color:var(--text);}
   .score-tile.all .score-tile-num{color:var(--primary-ink);}
-  .score-tile-lbl{font-size:8px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);margin-top:4px;}
+  .score-tile-lbl{font-size:8px;line-height:normal;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);margin-top:4px;}
+  /* 13a/13b measure 50px tiles with a 10px label line box, in WebKit and
+     Chromium alike. The label inherited a taller line-height (12px box) and a
+     52px min-height (from the addendum) papered over it. */
   .score-tile.all .score-tile-lbl{color:rgba(242,240,216,.78);}
 
-  .score-bar-wrap{padding:0 3px;position:relative;}
+  .score-bar-wrap{padding:0 3px;position:relative;line-height:normal;}  /* 13a's row is 15px; the inherited body 1.55 made it 20 */
   .good-health-lbl{font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--text-muted);}
   .good-health-pct{font-size:13px;font-weight:800;color:#0c6b3c;}
   .dark .good-health-pct{color:#86ecad;}
