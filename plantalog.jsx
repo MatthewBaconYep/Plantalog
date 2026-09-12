@@ -1509,10 +1509,6 @@ const styles = `
     aspect-ratio:.7;overflow:hidden;pointer-events:none;}
   .page-header .hdr-watermark img{position:absolute;right:-8px;bottom:-18px;height:calc(100% + 18px);width:auto;opacity:.16;}
   .header-undo-btn{position:relative;}
-  /* The header's colour continued above it, so pulling the page down past
-     the top shows header, while the page background (html/body, set to the
-     app ground on phones) is what shows past the bottom. */
-  .page-header::after{content:"";position:absolute;left:0;right:0;bottom:100%;height:100vh;background:inherit;pointer-events:none;}
   .page-header.green,
   .page-header.slate{background:var(--primary);}
   .page-header.teal{background:var(--water);color:var(--water-header-ink);}
@@ -1521,13 +1517,13 @@ const styles = `
   .page-header.teal p{color:#c3e3f2;}
   .page-header.brown p{color:#f7d3b5;}
 
-  /* Fill the status bar area with the header's own colour, and keep it there
-     while the page scrolls under it. background:inherit follows every header
-     variant and theme; the old per-class list missed Utilities and Graveyard
-     (they had a colour but no strip) and gave dark Repot the light rust. Only
-     has height where the app draws under the status bar (Home Screen app). */
+  /* The status bar band, on a phone that draws under it. It covers only what
+     the header has scrolled out of (--hdr-bottom), so at rest the header
+     itself fills the bar; once the header is gone the band is the page
+     ground, not the header colour, which read as a leftover stripe. */
   .page-header::before{content:"";display:block;position:fixed;top:var(--hdr-bottom,0px);left:0;right:0;
-    height:max(0px, calc(env(safe-area-inset-top,0px) - var(--hdr-bottom,0px)));z-index:200;pointer-events:none;background:inherit;}
+    height:max(0px, calc(env(safe-area-inset-top,0px) - var(--hdr-bottom,0px)));z-index:200;pointer-events:none;
+    background:var(--cream);}
 
   /* The column is a fixed 390 at every size, so the phone layout is the
      only layout. These were viewport-keyed and silently stopped applying
@@ -3907,11 +3903,27 @@ function App() {
   useEffect(() => {
     let raf = 0;
     const root = document.documentElement;
+    const touch = !!(window.matchMedia && matchMedia("(pointer: coarse)").matches);
     const update = () => {
       raf = 0;
       const h = document.querySelector(".page-header");
       const b = h ? Math.max(0, h.getBoundingClientRect().bottom / uiZoom()) : 0;
       root.style.setProperty("--hdr-bottom", b.toFixed(1) + "px");
+      // A rubber-band scroll shows the page's background colour (iOS paints
+      // the overscroll with it and ignores anything positioned above the
+      // page). One colour cannot serve both ends, so it follows the scroll:
+      // header colour while the top edge is in view, the app ground once the
+      // page has moved, which is what shows past the bottom.
+      if (!touch) return;
+      const app = document.querySelector(".app");
+      const ground = app ? getComputedStyle(app).backgroundColor : "";
+      const top = h ? getComputedStyle(h).backgroundColor : "";
+      const scrollable = root.scrollHeight > window.innerHeight + 1;
+      const want = (scrollable && window.scrollY <= 0 && top) ? top : ground;
+      if (want && document.body.style.backgroundColor !== want) {
+        root.style.backgroundColor = want;
+        document.body.style.backgroundColor = want;
+      }
     };
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
     update();
@@ -3936,14 +3948,8 @@ function App() {
     // background: keep it the app's ground (light or dark), not the header
     // colour, which revealed under the last card. The header carries its own
     // colour upward (.page-header::after) for the top; theme-color follows it.
-    const app = document.querySelector(".app");
     const hdr = document.querySelector(".page-header, .auth-screen");
-    const ground = app ? getComputedStyle(app).backgroundColor : "";
     const top = hdr ? getComputedStyle(hdr).backgroundColor : "";
-    if (ground && document.body.style.backgroundColor !== ground) {
-      document.documentElement.style.backgroundColor = ground;
-      document.body.style.backgroundColor = ground;
-    }
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta && top && meta.getAttribute("content") !== top) meta.setAttribute("content", top);
   });
