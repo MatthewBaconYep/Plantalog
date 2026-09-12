@@ -1794,6 +1794,10 @@ const styles = `
   .pot-size-badge-lbl{font-size:8px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--potting-head);margin-top:2px;}
   .plant-age-sub{font-size:11px;color:var(--text-muted);margin-top:1px;font-weight:600;}
   /* View Plant panels (5b) */
+  /* Drag zones: a pull anywhere on these panels moves the card (see
+     useSheetDrag). touch-action:none stops iOS scrolling the list on its own
+     thread before the drag can claim the gesture. */
+  .detail-sheet .detail-panel{touch-action:none;}
   .detail-panel{border-radius:var(--r-lg);padding:13px 16px 14px;}
   .detail-panel.water{background:var(--water);color:var(--water-header-ink);}
   .detail-panel.potting{background:var(--potting-panel);color:var(--potting-ink);}
@@ -5617,7 +5621,7 @@ function useScrollLock() {
   }, []);
 }
 
-function useSheetDrag(onCommit, enabled = true) {
+function useSheetDrag(onCommit, enabled = true, dragZone = null) {
   const sheetRef = useRef(null);
   const bodyRef = useRef(null);
   const st = useRef({ active:false, startY:0, lastY:0, lastT:0, v:0, dy:0 });
@@ -5627,18 +5631,29 @@ function useSheetDrag(onCommit, enabled = true) {
   const reduced = typeof matchMedia === "function" &&
     matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  function canStart(e) {
-    if (!enabled) return false;
+  // Where a drag may begin. Outside the scroller (the header) always; inside
+  // it, only in a drag zone - elements the sheet marks with dragZone, given
+  // touch-action:none in CSS so iOS hands the gesture to us instead of
+  // scrolling on its own thread, which is why a pull below the header used to
+  // do nothing. Those zones scroll by hand below (there is nothing for the
+  // browser to do there), so an upward drag still moves the list.
+  function zoneOf(e) {
     const body = bodyRef.current;
-    // Inside the scroller, only when it is already at the top.
-    if (body && body.contains(e.target)) return body.scrollTop <= 0;
-    return true;
+    if (!body || !body.contains(e.target)) return "header";
+    return dragZone && e.target.closest && e.target.closest(dragZone) ? "zone" : "native";
   }
   function onPointerDown(e) {
     if (e.pointerType === "mouse" && e.button !== 0) return;
-    if (!canStart(e)) return;
+    if (!enabled) return;
+    const where = zoneOf(e);
+    if (where === "native") return;              // the browser scrolls it
+    const body = bodyRef.current;
     const y = e.clientY / uiZoom();
-    st.current = { active:true, startY:y, lastY:y, lastT:performance.now(), v:0, dy:0 };
+    st.current = { active:true, startY:y, lastY:y, lastT:performance.now(), v:0, dy:0,
+      // In a zone the sheet only moves while the list is at its top; otherwise
+      // the gesture scrolls the list.
+      mode: (where === "zone" && body && body.scrollTop > 0) ? "scroll" : "sheet",
+      zone: where === "zone", startScroll: body ? body.scrollTop : 0 };
   }
   function onPointerMove(e) {
     const c = st.current;
@@ -5650,7 +5665,23 @@ function useSheetDrag(onCommit, enabled = true) {
     // the cursor with no button held.
     if (e.pointerType === "mouse" && e.buttons === 0) { onPointerUp(); return; }
     const y = e.clientY / uiZoom();
-    const raw = y - c.startY;
+    let raw = y - c.startY;
+    const body = bodyRef.current;
+    // In a drag zone an upward pull scrolls the list (by hand, since the
+    // browser will not), and it becomes a sheet drag again at the top.
+    if (c.zone && body) {
+      if (c.mode === "sheet" && raw < -3 && body.scrollHeight > body.clientHeight + 1) {
+        c.mode = "scroll"; c.startScroll = 0; c.startY = y; raw = 0;
+        if (dragging) setDragging(false);
+        if (c.dy !== 0) { c.dy = 0; setDy(0); }
+      }
+      if (c.mode === "scroll") {
+        const next = Math.max(0, c.startScroll - raw);
+        body.scrollTop = next;
+        if (next === 0 && raw > 0) { c.mode = "sheet"; c.startY = y; c.dy = 0; }
+        return;
+      }
+    }
     // Upward past the open position is rubber-banded so it resists, not sticks.
     const next = raw >= 0 ? raw : -Math.sqrt(-raw) * 3;
     const now = performance.now();
@@ -5664,6 +5695,7 @@ function useSheetDrag(onCommit, enabled = true) {
     const c = st.current;
     if (!c.active) return;
     c.active = false;
+    if (c.mode === "scroll") { setDragging(false); setDy(0); return; }
     setDragging(false);
     const h = sheetRef.current ? sheetRef.current.offsetHeight : 1;
     // Velocity matters more than distance: a fast flick from near the top
@@ -5703,7 +5735,7 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
   // The photo viewer sits on top of this sheet but is still a DOM descendant
   // of it, so its taps and swipes reach the sheet's drag handlers. Nothing in
   // the viewer should ever be able to dismiss the card underneath it.
-  const drag = useSheetDrag(() => dismissDetail({ instant:true }), !ghost && lightboxIdx === null);
+  const drag = useSheetDrag(() => dismissDetail({ instant:true }), !ghost && lightboxIdx === null, ".detail-panel");
   const [openMenuIdx, setOpenMenuIdx] = useState(null);
 
   const daysSince = daysBetween(plant.lastWatered, fmt(getToday()));
