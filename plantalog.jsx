@@ -5890,7 +5890,6 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
             </div>
             <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
             {plant.photos.length===0 && <div style={{fontSize:12.5,lineHeight:1.45,fontWeight:600,color:"var(--text-muted)",marginTop:7}}>No photos yet. The first one becomes the card thumbnail.</div>}
-            {plant.photos.length>1 && <div style={{fontSize:11,color:"var(--text-muted)",marginTop:5}}>Undated first, then oldest to newest · tap a photo to view or change its date</div>}
           </div>
 
           {/* Notes */}
