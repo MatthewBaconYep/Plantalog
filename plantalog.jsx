@@ -1502,8 +1502,7 @@ const styles = `
   /* Watermark (HdrTitle): a 100px window at the header's lower-right corner
      showing the mark cropped at its right and bottom, the mockup's geometry
      at every header height. On a phone it reaches up behind the status bar,
-     which the status strip no longer covers while the header is there (see
-     --hdr-bottom). The window clips it, so nothing overflows. */
+     which nothing covers. The window clips it, so nothing overflows. */
   .page-header{position:relative;}
   .page-header .hdr-watermark{position:absolute;right:0;bottom:0;height:100px;
     aspect-ratio:.7;overflow:hidden;pointer-events:none;}
@@ -1517,13 +1516,10 @@ const styles = `
   .page-header.teal p{color:#c3e3f2;}
   .page-header.brown p{color:#f7d3b5;}
 
-  /* The status bar band, on a phone that draws under it. It covers only what
-     the header has scrolled out of (--hdr-bottom), so at rest the header
-     itself fills the bar; once the header is gone the band is the page
-     ground, not the header colour, which read as a leftover stripe. */
-  .page-header::before{content:"";display:block;position:fixed;top:var(--hdr-bottom,0px);left:0;right:0;
-    height:max(0px, calc(env(safe-area-inset-top,0px) - var(--hdr-bottom,0px)));z-index:200;pointer-events:none;
-    background:var(--cream);}
+  /* No band across the status bar: the page scrolls under it in full view,
+     and iOS picks a legible clock/battery colour for whatever is behind
+     them. An opaque band (page ground, and header colour before that) hid
+     whatever passed beneath it. */
 
   /* The column is a fixed 390 at every size, so the phone layout is the
      only layout. These were viewport-keyed and silently stopped applying
@@ -3896,10 +3892,7 @@ function App() {
     closeImport();
   }
 
-  // The status strip (.page-header::before) only has to cover the part of the
-  // status bar the header has scrolled out of: from the header's bottom edge
-  // down to the bar's bottom. While the header still fills the bar it draws
-  // nothing, so the header (and its watermark) show right up to the top.
+  // Keeps the page background in step with the scroll (see update below).
   useEffect(() => {
     let raf = 0;
     const root = document.documentElement;
@@ -3907,8 +3900,6 @@ function App() {
     const update = () => {
       raf = 0;
       const h = document.querySelector(".page-header");
-      const b = h ? Math.max(0, h.getBoundingClientRect().bottom / uiZoom()) : 0;
-      root.style.setProperty("--hdr-bottom", b.toFixed(1) + "px");
       // A rubber-band scroll shows the page's background colour (iOS paints
       // the overscroll with it and ignores anything positioned above the
       // page). One colour cannot serve both ends, so it follows the scroll:
@@ -3931,12 +3922,6 @@ function App() {
     window.addEventListener("resize", onScroll);
     return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); cancelAnimationFrame(raf); };
   }, []);
-  useLayoutEffect(() => {
-    const h = document.querySelector(".page-header");
-    document.documentElement.style.setProperty("--hdr-bottom",
-      (h ? Math.max(0, h.getBoundingClientRect().bottom / uiZoom()) : 0).toFixed(1) + "px");
-  });
-
   // Phones: paint the page behind the status bar (and any overscroll) in the
   // current header's colour. Safari tints the status bar from the page
   // background, which is black so the desktop margins stay black, and the

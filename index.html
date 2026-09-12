@@ -47,6 +47,30 @@
       });
     </script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script type="text/babel" src="plantalog.jsx?v=76"></script>
+    <script type="text/babel" src="plantalog.jsx?v=77"></script>
+    <script>
+      // The page itself is cacheable for 10 minutes (GitHub Pages sets
+      // max-age=600), and a Home Screen web app often resumes from that copy,
+      // so a fresh deploy could take ten minutes to appear. Ask the server for
+      // the current version (never from cache) on launch and whenever the app
+      // comes back to the foreground; if it differs, reload through a URL the
+      // cache has no entry for. The ?v= guard stops that repeating.
+      (function () {
+        var HERE = "77";
+        function check() {
+          fetch("version.txt?t=" + Date.now(), { cache: "no-store" })
+            .then(function (r) { return r.ok ? r.text() : null; })
+            .then(function (v) {
+              v = v && v.trim();
+              if (!v || v === HERE) return;
+              if (location.search.indexOf("v=" + v) !== -1) return;
+              location.replace(location.pathname + "?v=" + v);
+            })
+            .catch(function () {});
+        }
+        check();
+        document.addEventListener("visibilitychange", function () { if (!document.hidden) check(); });
+      })();
+    </script>
   </body>
 </html>
