@@ -3892,52 +3892,40 @@ function App() {
     closeImport();
   }
 
-  // Keeps the page background in step with the scroll (see update below).
+  // What a rubber-band scroll shows is the page's background colour: iOS
+  // paints the overscroll with it and ignores anything positioned above or
+  // below the page. One colour cannot serve both ends, so it switches at the
+  // half-way mark, where the page covers it: header colour in the top half,
+  // app ground in the bottom half. (Switching at the very top edge left the
+  // ground on screen for the first frame of a stretch.) theme-color follows
+  // the header for Safari's own chrome.
+  function paintOverscroll() {
+    if (!window.matchMedia || !matchMedia("(pointer: coarse)").matches) return;
+    const root = document.documentElement;
+    const hdr = document.querySelector(".page-header, .auth-screen");
+    const app = document.querySelector(".app");
+    const top = hdr ? getComputedStyle(hdr).backgroundColor : "";
+    const ground = app ? getComputedStyle(app).backgroundColor : "";
+    const maxScroll = root.scrollHeight - window.innerHeight;
+    const want = ((maxScroll <= 0 || window.scrollY < maxScroll / 2) && top) ? top : ground;
+    if (want && document.body.style.backgroundColor !== want) {
+      root.style.backgroundColor = want;
+      document.body.style.backgroundColor = want;
+    }
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta && top && meta.getAttribute("content") !== top) meta.setAttribute("content", top);
+  }
+  // On every render as well as on scroll: a tab change swaps the header (and
+  // its colour) without scrolling, and pulling down right after showed the
+  // previous screen's colour until the next scroll event.
+  useLayoutEffect(() => { paintOverscroll(); });
   useEffect(() => {
     let raf = 0;
-    const root = document.documentElement;
-    const touch = !!(window.matchMedia && matchMedia("(pointer: coarse)").matches);
-    const update = () => {
-      raf = 0;
-      const h = document.querySelector(".page-header");
-      // A rubber-band scroll shows the page's background colour (iOS paints
-      // the overscroll with it and ignores anything positioned above the
-      // page). One colour cannot serve both ends, so it follows the scroll:
-      // header colour while the top edge is in view, the app ground once the
-      // page has moved, which is what shows past the bottom.
-      if (!touch) return;
-      const app = document.querySelector(".app");
-      const ground = app ? getComputedStyle(app).backgroundColor : "";
-      const top = h ? getComputedStyle(h).backgroundColor : "";
-      const scrollable = root.scrollHeight > window.innerHeight + 1;
-      const want = (scrollable && window.scrollY <= 0 && top) ? top : ground;
-      if (want && document.body.style.backgroundColor !== want) {
-        root.style.backgroundColor = want;
-        document.body.style.backgroundColor = want;
-      }
-    };
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
-    update();
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; paintOverscroll(); }); };
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
     return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); cancelAnimationFrame(raf); };
   }, []);
-  // Phones: paint the page behind the status bar (and any overscroll) in the
-  // current header's colour. Safari tints the status bar from the page
-  // background, which is black so the desktop margins stay black, and the
-  // strip above every header read as a black bar. Runs after each render so
-  // it follows screen changes and the theme; theme-color is kept in step.
-  useLayoutEffect(() => {
-    if (!window.matchMedia || !matchMedia("(pointer: coarse)").matches) return;
-    // What shows past the bottom of a rubber-band scroll is the page
-    // background: keep it the app's ground (light or dark), not the header
-    // colour, which revealed under the last card. The header carries its own
-    // colour upward (.page-header::after) for the top; theme-color follows it.
-    const hdr = document.querySelector(".page-header, .auth-screen");
-    const top = hdr ? getComputedStyle(hdr).backgroundColor : "";
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta && top && meta.getAttribute("content") !== top) meta.setAttribute("content", top);
-  });
 
   // Show a blank screen while Supabase initializes
   if (!authLoaded) return (
