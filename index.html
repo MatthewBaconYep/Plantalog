@@ -47,7 +47,7 @@
       });
     </script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script type="text/babel" src="plantalog.jsx?v=78"></script>
+    <script type="text/babel" src="plantalog.jsx?v=79"></script>
     <script>
       // The page itself is cacheable for 10 minutes (GitHub Pages sets
       // max-age=600), and a Home Screen web app often resumes from that copy,
@@ -56,20 +56,32 @@
       // comes back to the foreground; if it differs, reload through a URL the
       // cache has no entry for. The ?v= guard stops that repeating.
       (function () {
-        var HERE = "78";
+        var HERE = "79";
+        var pending = null;
+        // Never reload out from under someone mid-edit: a sheet, dialog, photo
+        // viewer or a focused field means unsaved typing could be on screen.
+        // The update waits and lands the next time they are idle.
+        function busy() {
+          var el = document.activeElement;
+          if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" ||
+                     el.tagName === "SELECT" || el.isContentEditable)) return true;
+          return !!document.querySelector(".modal-overlay, .viewer, .cfm-overlay, .cal-popup-overlay, .dp-overlay, .primer-card");
+        }
+        function apply(v) {
+          if (location.search.indexOf("v=" + v) !== -1) return;
+          if (busy()) { pending = v; return; }
+          pending = null;
+          location.replace(location.pathname + "?v=" + v);
+        }
         function check() {
           fetch("version.txt?t=" + Date.now(), { cache: "no-store" })
             .then(function (r) { return r.ok ? r.text() : null; })
-            .then(function (v) {
-              v = v && v.trim();
-              if (!v || v === HERE) return;
-              if (location.search.indexOf("v=" + v) !== -1) return;
-              location.replace(location.pathname + "?v=" + v);
-            })
+            .then(function (v) { v = v && v.trim(); if (v && v !== HERE) apply(v); })
             .catch(function () {});
         }
         check();
         document.addEventListener("visibilitychange", function () { if (!document.hidden) check(); });
+        setInterval(function () { if (pending) apply(pending); }, 3000);
       })();
     </script>
   </body>
