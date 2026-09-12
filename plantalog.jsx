@@ -1576,8 +1576,11 @@ const styles = `
   .page-header p{font-size:13px;font-weight:600;margin-top:4px;}
   @keyframes barFill{from{width:0;}}
   @keyframes undoIn{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
-  .header-undo-btn{animation:undoIn .22s var(--ease-enter) .12s backwards;display:flex;align-items:center;gap:6px;background:transparent;border:1.5px solid color-mix(in oklab, currentColor 50%, transparent);color:inherit;font-family:var(--font-ui);font-size:12px;font-weight:800;padding:6px 14px;border-radius:var(--r-pill);cursor:pointer;flex-shrink:0;transition:background .15s;}
-  @media (hover:hover) and (pointer:fine) { .header-undo-btn:hover{background:rgba(255,255,255,.34);} }
+  /* Solid, not see-through: the header's own colour (--hdr-bg, set per
+     render) lifted a shade by the inset tint. Transparent, it sat over the
+     watermark and read as a smudge. */
+  .header-undo-btn{animation:undoIn .22s var(--ease-enter) .12s backwards;display:flex;align-items:center;gap:6px;background:var(--hdr-bg, transparent);box-shadow:inset 0 0 0 999px rgba(255,255,255,.16);border:1.5px solid color-mix(in oklab, currentColor 50%, transparent);color:inherit;font-family:var(--font-ui);font-size:12px;font-weight:800;padding:6px 14px;border-radius:var(--r-pill);cursor:pointer;flex-shrink:0;transition:background .15s;}
+  @media (hover:hover) and (pointer:fine) { .header-undo-btn:hover{box-shadow:inset 0 0 0 999px rgba(255,255,255,.30);} }
 
   /* Dashboard */
   .dashboard{padding:12px 14px 8px;display:flex;flex-direction:column;gap:10px;}  /* 13a/13b declare gap:10px */
@@ -3904,12 +3907,15 @@ function App() {
   // ground on screen for the first frame of a stretch.) theme-color follows
   // the header for Safari's own chrome.
   function paintOverscroll() {
-    if (!window.matchMedia || !matchMedia("(pointer: coarse)").matches) return;
     const root = document.documentElement;
     const hdr = document.querySelector(".page-header, .auth-screen");
     const app = document.querySelector(".app");
     const top = hdr ? getComputedStyle(hdr).backgroundColor : "";
     const ground = app ? getComputedStyle(app).backgroundColor : "";
+    // The header's colour, for anything that has to sit opaquely on it (the
+    // Undo button). Set everywhere; the overscroll colours below are phones.
+    if (top && root.style.getPropertyValue("--hdr-bg") !== top) root.style.setProperty("--hdr-bg", top);
+    if (!window.matchMedia || !matchMedia("(pointer: coarse)").matches) return;
     const maxScroll = root.scrollHeight - window.innerHeight;
     const want = ((maxScroll <= 0 || window.scrollY < maxScroll / 2) && top) ? top : ground;
     if (want && document.body.style.backgroundColor !== want) {
