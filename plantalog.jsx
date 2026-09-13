@@ -2120,7 +2120,9 @@ const styles = `
   .sched-count-line{font-size:11.5px;font-weight:700;color:#6f6658;padding:0 2px;}
   .dark .sched-count-line{color:var(--text-muted);}
   .plant-initial{font-family:var(--font-display);font-weight:400;font-size:19px;line-height:1;color:var(--text-muted);}
-  .plant-thumb img{width:100%;height:100%;object-fit:cover;}
+  /* Fades in once loaded, over the thumb's pale tile, instead of popping in. */
+  .plant-thumb img{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .25s ease-out;}
+  .plant-thumb img.in{opacity:1;}
   .plant-name-col{flex:1;min-width:0;}
   .plant-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
@@ -3920,13 +3922,31 @@ function App() {
     if (!bootReady) return;
     const el = document.getElementById("boot-splash");
     if (!el || el.classList.contains("done")) return;
-    el.classList.add("done");
-    setTimeout(() => {
-      el.remove();
-      document.documentElement.classList.add("booted");
-      const cs = document.querySelector('meta[name="color-scheme"]');
-      if (cs) cs.setAttribute("content", "light");   // back to normal form controls
-    }, 260);
+    const hide = () => {
+      if (el.classList.contains("done")) return;
+      el.classList.add("done");
+      setTimeout(() => {
+        el.remove();
+        document.documentElement.classList.add("booted");
+        const cs = document.querySelector('meta[name="color-scheme"]');
+        if (cs) cs.setAttribute("content", "light");   // back to normal form controls
+      }, 260);
+    };
+    // Keep the splash up until the first screen is complete: the photos in
+    // view have downloaded and decoded, and the app fonts are in. Otherwise
+    // Home appeared with its thumbnails popping in one by one and text
+    // swapping font. Capped, so a slow connection never holds the splash long;
+    // anything later fades in (.plant-thumb img).
+    const vh = window.innerHeight;
+    const pending = [...document.querySelectorAll(".app img")].filter(img => {
+      const r = img.getBoundingClientRect();
+      return r.bottom > 0 && r.top < vh && !(img.complete && img.naturalWidth);
+    });
+    const ready = [
+      ...pending.map(img => img.decode ? img.decode().catch(() => {}) : new Promise(res => { img.onload = img.onerror = res; })),
+      document.fonts && document.fonts.ready ? document.fonts.ready.catch(() => {}) : null,
+    ].filter(Boolean);
+    Promise.race([Promise.all(ready), new Promise(res => setTimeout(res, 1500))]).then(hide);
   }, [bootReady]);
 
   // What a rubber-band scroll shows is the page's background colour: iOS
@@ -4528,7 +4548,9 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
       {showCardPhotos && (
       <div className="plant-thumb" style={photo?undefined:{background:isDark?"#334a15":"#e4f7c8"}}>
         {photo
-          ? <img src={photo} alt={plant.name}/>
+          ? <img src={photo} alt={plant.name}
+              ref={img => { if (img && img.complete && img.naturalWidth) img.classList.add("in"); }}
+              onLoad={e => e.currentTarget.classList.add("in")}/>
           : <span className="plant-initial" style={{color:isDark?"#c3ee85":"#3f6b16"}}>{(plant.name||"?").trim().charAt(0).toUpperCase()}</span>}
       </div>
       )}
