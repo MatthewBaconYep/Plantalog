@@ -3921,7 +3921,7 @@ function App() {
     const el = document.getElementById("boot-splash");
     if (!el || el.classList.contains("done")) return;
     el.classList.add("done");
-    setTimeout(() => { el.remove(); document.documentElement.classList.remove("booting"); }, 260);
+    setTimeout(() => { el.remove(); document.documentElement.classList.add("booted"); }, 260);
   }, [bootReady]);
 
   // What a rubber-band scroll shows is the page's background colour: iOS
