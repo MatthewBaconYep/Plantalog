@@ -1549,6 +1549,10 @@ const styles = `
   /* Phones get their --zoom inline from index.html: screen width / 390, so a
      wider phone shows the 390pt design scaled up rather than stretched. */
   html{zoom:var(--zoom);}
+  /* Cancel that zoom on the boot splash (index.html), but only here, once the
+     zoom itself exists: applied from first paint it shrank the splash ~1% and
+     moved the logo off the launch image's position, then snapped back. */
+  #boot-splash{zoom:calc(1 / var(--zoom, 1));}
   /* No rubber-band bounce past the ends of a scroll on desktop, on the page or
      any inner scroller. Phones keep their native overscroll. */
   @media (hover:hover) and (pointer:fine){
@@ -3917,7 +3921,7 @@ function App() {
     const el = document.getElementById("boot-splash");
     if (!el || el.classList.contains("done")) return;
     el.classList.add("done");
-    setTimeout(() => el.remove(), 260);
+    setTimeout(() => { el.remove(); document.documentElement.classList.remove("booting"); }, 260);
   }, [bootReady]);
 
   // What a rubber-band scroll shows is the page's background colour: iOS

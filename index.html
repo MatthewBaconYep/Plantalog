@@ -41,8 +41,11 @@
       #boot-splash{position:fixed;inset:0;z-index:2000;background:#0f4438;display:flex;flex-direction:column;
         align-items:center;justify-content:center;gap:16px;color:#f2f0d8;
         font:600 17px/20px -apple-system, system-ui, "Segoe UI", sans-serif;
-        zoom:calc(1 / var(--zoom, 1));   /* ignore the app's page zoom */
         transition:opacity .18s ease-out;}
+      /* The whole page is splash green while starting up. At launch an iOS
+         Home Screen app briefly lays the page out shorter than the screen, so
+         the fixed splash left a black band at the bottom until it corrected. */
+      html.booting, html.booting body{background:#0f4438;}
       /* Phones: pin to the physical screen centre. At launch an iOS Home Screen
          app reports a page ~60pt shorter than the screen, which centred the
          logo that much higher than the launch image. */
@@ -54,6 +57,7 @@
       #boot-splash.done{opacity:0;pointer-events:none;}
     </style>
     <script>
+      document.documentElement.classList.add("booting");
       if (window.matchMedia && matchMedia("(pointer: coarse)").matches) {
         var sh = Math.max(screen.width, screen.height);        // portrait height, in points
         document.documentElement.classList.add("splash-pin");
@@ -92,7 +96,7 @@
       });
     </script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script type="text/babel" src="plantalog.jsx?v=84"></script>
+    <script type="text/babel" src="plantalog.jsx?v=85"></script>
     <script>
       // The page itself is cacheable for 10 minutes (GitHub Pages sets
       // max-age=600), and a Home Screen web app often resumes from that copy,
@@ -101,7 +105,7 @@
       // comes back to the foreground; if it differs, reload through a URL the
       // cache has no entry for. The ?v= guard stops that repeating.
       (function () {
-        var HERE = "84";
+        var HERE = "85";
         var pending = null;
         // Never reload out from under someone mid-edit: a sheet, dialog, photo
         // viewer or a focused field means unsaved typing could be on screen.
