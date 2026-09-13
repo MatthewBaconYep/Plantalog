@@ -1485,7 +1485,7 @@ const styles = `
   @keyframes tabPick{0%{transform:none;}45%{transform:translateY(-3px) scale(1.12);}100%{transform:none;}}
   .nav-btn.active svg{animation:tabPick .26s var(--ease-arrive);}
   .nav-btn.active{color:var(--primary-ink);background:rgba(242,240,216,.14);}
-  .nav-btn svg{width:28px;height:28px;}
+  .nav-btn svg{width:28px;height:28px;overflow:visible;}  /* strokes at the box edge are not cut */
   /* Icon-only (no labels): the icon fills the capsule, about the same bar
      height as with labels, and each tab stays a ~86x48 tap target. */
   .nav-btn{padding:10px 0;gap:0;}
@@ -4446,7 +4446,9 @@ const NAV_ICONS = {
     solid:   <path fill="currentColor" stroke="none" d="M3 10.2L12 3l9 7.2V20a1 1 0 0 1-1 1h-5.5v-6h-5v6H4a1 1 0 0 1-1-1z"/>,
   },
   water: {
-    outline: <path d="M12 2C6 9 4 13.5 4 16a8 8 0 0016 0c0-2.5-2-7-8-14z"/>,
+    // Bottom at y=22.7, so the 2.1 stroke (1.05 each side) stays inside the
+    // 24 box; the old drop sat on y=24 and its stroke was clipped.
+    outline: <path d="M12 2.6C6.7 9 5 13.2 5 15.7a7 7 0 0 0 14 0c0-2.5-1.7-6.7-7-13.1z"/>,
     solid:   <path fill="currentColor" stroke="none" d="M12 2.2C6.3 9 4.5 13.2 4.5 15.8a7.5 7.5 0 0 0 15 0c0-2.6-1.8-6.8-7.5-13.6z"/>,
   },
   repot: {   // a plain pot: rim and tapered body
