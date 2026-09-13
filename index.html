@@ -62,6 +62,19 @@
          the whole screen, which iOS showed as a two-frame brightening. */
       html{zoom:var(--zoom, 1);}
       #boot-splash{zoom:calc(1 / var(--zoom, 1));}
+      /* Desktop: the splash covers only the app column and the margins are
+         black from the first frame. They used to be splash green across the
+         whole window, then snapped to black as the app appeared. The column
+         size repeats the app stylesheet's laptop rule, so it is right before
+         that stylesheet loads. Centred with auto margins (a left:50% calc
+         gets the zoom applied twice in WebKit). */
+      @media (min-width:700px) and (min-height:600px) and (hover:hover) and (pointer:fine) {
+        :root{--col:390px; --zoom:1.2;}
+      }
+      @media (hover:hover) and (pointer:fine) {
+        html:not(.booted), html:not(.booted) body { background:#000; }
+        #boot-splash{left:0; right:0; margin:0 auto; width:calc(var(--col, 480px) * var(--zoom, 1)); max-width:100%;}
+      }
       /* The page stays splash green until booted (first style in <head>). At
          launch an iOS Home Screen app lays the page out shorter than the
          screen for a moment, and the black background showed below the
@@ -120,7 +133,7 @@
       });
     </script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script type="text/babel" src="plantalog.jsx?v=93"></script>
+    <script type="text/babel" src="plantalog.jsx?v=94"></script>
     <script>
       // The page itself is cacheable for 10 minutes (GitHub Pages sets
       // max-age=600), and a Home Screen web app often resumes from that copy,
@@ -129,7 +142,7 @@
       // comes back to the foreground; if it differs, reload through a URL the
       // cache has no entry for. The ?v= guard stops that repeating.
       (function () {
-        var HERE = "93";
+        var HERE = "94";
         var pending = null;
         // Never reload out from under someone mid-edit: a sheet, dialog, photo
         // viewer or a focused field means unsaved typing could be on screen.
