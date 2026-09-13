@@ -1873,7 +1873,7 @@ const styles = `
   /* CalendarField ships a 15px icon; every date control in 6b draws it at 12. */
   .pm-date-chip svg,.pm-date-pill svg{width:12px;height:12px;}
 
-  .pm-room-scroll{display:flex;gap:6px;overflow-x:auto;padding:6px 14px 7px;scrollbar-width:none;}
+  .pm-room-scroll{position:relative;display:flex;gap:6px;overflow-x:auto;padding:6px 14px 7px;scrollbar-width:none;}
   .pm-room-scroll::-webkit-scrollbar{display:none;}
   .pm-stepper-lbl{display:inline-flex;align-items:center;gap:7px;}
   .tip-q{border:none;width:17px;height:17px;border-radius:var(--r-pill);background:#17627f;color:#fff;
@@ -6153,6 +6153,18 @@ function ManageRooms({ rooms, setRooms, plants, user, openNewRef, onSelectRoom }
 
 // ─── Plant Modal ──────────────────────────────────────────────────────────────
 function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone, enter="slide", ghost=false }) {
+  // Open with the plant's room in view: centred in the chip row, or as far
+  // along as the row scrolls for one of the last rooms. Rooms past the fourth
+  // or so used to start off the right edge. Only on open, so tapping a chip
+  // never shifts the row under the finger.
+  const roomScrollRef = useRef(null);
+  useLayoutEffect(() => {
+    const row = roomScrollRef.current;
+    if (!row || !plant || !plant.roomId) return;
+    const chip = row.querySelector(`[data-room="${plant.roomId}"]`);
+    if (!chip) return;
+    row.scrollLeft = chip.offsetLeft + chip.offsetWidth / 2 - row.clientWidth / 2;
+  }, []);
   useScrollLock();
   const blank = {
     roomId:rooms[0]?.id||"", name:"", obtainedDate:fmt(getToday()), pottedDate:fmt(getToday()),
@@ -6269,12 +6281,12 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
           {/* Room — horizontal scroll, own colors, selected gets a ring (6a) */}
           <div className="pm-card" style={{padding:"9px 0 10px"}}>
             <div className="pm-lbl" style={{padding:"0 14px",marginBottom:5}}>Room</div>
-            <div className="pm-room-scroll">
+            <div className="pm-room-scroll" ref={roomScrollRef}>
               {sortedRooms.map(r=>{
                 const sel = form.roomId===r.id;
                 const tint = r.color ? { background:r.color, color:roomTextColor(r.color) } : { background:"var(--sand)", color:"var(--text)" };
                 return (
-                  <span key={r.id} className={`pm-room-chip${sel?" selected":""}`} style={{...tint, boxShadow:sel?selectRing(r.color||"var(--sand)", isDark):undefined}}
+                  <span key={r.id} data-room={r.id} className={`pm-room-chip${sel?" selected":""}`} style={{...tint, boxShadow:sel?selectRing(r.color||"var(--sand)", isDark):undefined}}
                     onClick={()=>set("roomId",r.id)}>{r.name}</span>
                 );
               })}
