@@ -3924,13 +3924,15 @@ function App() {
     if (!el || el.classList.contains("done")) return;
     const hide = () => {
       if (el.classList.contains("done")) return;
-      el.classList.add("done");
+      el.classList.add("done");                      // logo and message fade out over the green
       setTimeout(() => {
+        // One frame: the splash goes, the app appears (see index.html).
+        const html = document.documentElement;
+        html.classList.add("app-shown", "booted");
         el.remove();
-        document.documentElement.classList.add("booted");
         const cs = document.querySelector('meta[name="color-scheme"]');
         if (cs) cs.setAttribute("content", "light");   // back to normal form controls
-      }, 260);
+      }, 170);
     };
     // Keep the splash up until the first screen is complete: the photos in
     // view have downloaded and decoded, and the app fonts are in. Otherwise
