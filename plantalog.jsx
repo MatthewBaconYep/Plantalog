@@ -1361,7 +1361,7 @@ function RoomHeader({ room, count, style, collapsed, onToggle }) {
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 const styles = `
-  @import url('https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;500;600;700;800;900&display=swap');
+  /* Font faces are declared inline in index.html (no late @import restyle). */
   *{box-sizing:border-box;margin:0;padding:0;}
   html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
   /* ── Design tokens (redesign spec §2, §3) ───────────────────────────────
