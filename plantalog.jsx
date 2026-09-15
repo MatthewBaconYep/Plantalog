@@ -2413,15 +2413,17 @@ const styles = `
   .cal-nav-title{font-family:var(--font-display);font-weight:400;font-size:20px;line-height:1.1;color:var(--text);margin-top:3px;}
   .cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px;}
   .cal-weekdays span{text-align:center;font-size:10px;font-weight:800;color:#8a8071;text-transform:uppercase;}
-  .dark .cal-popup{background:var(--surface);}
+  /* Lifted off the dimmed app behind it (was --surface, 1.17:1 against it;
+     now 1.6:1), matching the dark health score tip. */
+  .dark .cal-popup{background:#433d35;}
   .dark .cal-weekdays span{color:var(--text-muted);}
   /* Light mode stacks these popup < other-month < current-month, lightest last,
      so the current month reads as raised tiles. Dark had it inverted: the popup
      is --surface and .cal-day defaults to --surface too, so the current month
      disappeared into the card, while other-month sat on the lighter --sand and
      was the only thing that looked like a tile. Restore the same ordering. */
-  .dark .cal-day{background:#45403a;}
-  .dark .cal-day.other-month{background:#232019;box-shadow:none;color:var(--text-muted);}
+  .dark .cal-day{background:#575047;}
+  .dark .cal-day.other-month{background:#2f2a24;box-shadow:none;color:var(--text-muted);}
   .dark .rd-days-left{background:var(--sand);color:var(--text-muted);}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
   /* Every cell is a filled tile (13h), not a bare number — current-month
@@ -2429,11 +2431,17 @@ const styles = `
      use a dimmer, unshadowed fill so they read as outside the month without
      disappearing. */
   .cal-day{height:34px;display:flex;align-items:center;justify-content:center;border:none;background:var(--surface);box-shadow:var(--shadow-sm);border-radius:var(--r-sm);font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);cursor:pointer;}
-  .cal-day:hover{background:var(--page-bg);}
+  /* Rollover: a light green, not the page tan (which matched the outside-month
+     days). Today's ring and the selected fill win over it. */
+  .cal-day:hover{background:#cdeccf;}
+  .dark .cal-day:hover{background:#8fd6ac;color:#10261a;}
+  .dark .cal-day.today{box-shadow:inset 0 0 0 1.5px #6fcf97;}
   .cal-day.other-month{background:#f7eeda;box-shadow:none;color:#b8ac97;}
   .cal-day.today{box-shadow:var(--shadow-sm),inset 0 0 0 1.5px var(--primary);}
   .cal-day.selected{background:var(--primary);color:var(--primary-ink);box-shadow:var(--shadow-sm);}
   .cal-day.selected:hover{background:var(--primary);}
+  .dark .cal-day.selected:hover{color:var(--primary-ink);}
+  .dark .cal-day.selected.today{box-shadow:none;}   /* as light: the fill marks it */
   /* Import preview + warning boxes.
      These need explicit dark variants: the default --leaf and --bark text
      colours sit almost on top of --leaf-pale and --sand once dark mode swaps
@@ -6794,7 +6802,10 @@ function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
       setPlants(ps=>ps.map(p=>{
         if(p.id!==id) return p;
         const newCurrent = p.nextPotSize;
-        const newNext    = Math.round((newCurrent+1)*2)/2;
+        // Next size equal to the current one means fresh soil in the same pot,
+        // so both stay put rather than stepping up another size.
+        const sameSize   = Number(p.nextPotSize) === Number(p.currentPotSize);
+        const newNext    = sameSize ? newCurrent : Math.round((newCurrent+1)*2)/2;
         return {...p, pottedDate:fmt(now), originalPot:false, currentPotSize:newCurrent, nextPotSize:newNext};
       }));
       if (prev) pushUndo && pushUndo("repot", id, {
