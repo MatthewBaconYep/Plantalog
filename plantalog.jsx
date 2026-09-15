@@ -2184,6 +2184,8 @@ const styles = `
      stepper to nudge the value and a round commit button. */
   .freq-tooltip{position:absolute;bottom:calc(100% + 10px);right:2px;width:252px;background:var(--card-bg);border-radius:16px;padding:12px 13px 13px;box-shadow:var(--shadow-lg);z-index:50;}
   .freq-tooltip::after{content:'';position:absolute;bottom:-4px;right:60px;width:11px;height:11px;background:var(--card-bg);transform:rotate(45deg);border-radius:6px;}
+  .freq-tooltip.below{bottom:auto;top:calc(100% + 10px);}
+  .freq-tooltip.below::after{bottom:auto;top:-4px;}
   .freq-tooltip-title{font-size:10px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--water-header-ink-on-light,#17627f);margin-bottom:8px;}
   .dark .freq-tooltip-title{color:#a5cfe3;}
   .freq-presets{display:flex;gap:7px;}
@@ -6558,8 +6560,20 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
   function openTooltip(e, plantId) {
     e.stopPropagation();
     if (openFreq===plantId) { setOpenFreq(null); setFreqPick(null); setFreqCustom(""); }
-    else { setOpenFreq(plantId); setFreqPick(7); setFreqCustom(""); }   // 7d preselected, per 16a
+    else { setOpenFreq(plantId); setFreqPick(7); setFreqCustom(""); setFreqBelow(false); }   // 7d preselected, per 16a
   }
+
+  // The popup sits above its card. For cards near the top of the list that
+  // would run it under the header, so it opens below the card instead.
+  const [freqBelow, setFreqBelow] = useState(false);
+  const freqTipRef = useRef(null);
+  useLayoutEffect(() => {
+    const tip = freqTipRef.current;
+    if (openFreq===null || freqBelow || !tip) return;
+    const hdr = document.querySelector(".page-header");
+    const limit = hdr ? hdr.getBoundingClientRect().bottom : 0;
+    if (tip.getBoundingClientRect().top < limit + 8) setFreqBelow(true);
+  }, [openFreq, freqBelow]);
 
   function renderByRoom(list, showActions) {
     return sortedRooms.map(room=>{
@@ -6577,7 +6591,7 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
             <div key={plant.id} style={{position:"relative"}}>
               {/* Freq tooltip */}
               {showActions && openFreq===plant.id && (
-                <div className="freq-tooltip" onClick={e=>e.stopPropagation()}>
+                <div ref={freqTipRef} className={`freq-tooltip${freqBelow?" below":""}`} onClick={e=>e.stopPropagation()}>
                   <div className="freq-tooltip-title">Add days</div>
                   <div className="freq-presets">
                     {[3,7,10].map(d=>(
@@ -6650,7 +6664,7 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
           {rp.map(plant=>(
             <div key={plant.id} style={{position:"relative"}}>
               {openFreq===plant.id && (
-                <div className="freq-tooltip" onClick={e=>e.stopPropagation()}>
+                <div ref={freqTipRef} className={`freq-tooltip${freqBelow?" below":""}`} onClick={e=>e.stopPropagation()}>
                   <div className="freq-tooltip-title">Add days</div>
                   <div className="freq-presets">
                     {[3,7,10].map(d=>(
