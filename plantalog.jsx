@@ -5281,6 +5281,10 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
   const settleTimer = useRef(null);
   const settlePending = useRef(0);
   const SLIDE_MS = 280, PAGE_GAP = 20;
+  // The filmstrip is for touch. With a mouse, photos change by thumbnail,
+  // arrow button or arrow key and swap in place, and dragging does nothing.
+  const isTouch = typeof window !== "undefined" &&
+    window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
   const [panning, setPanning] = useState(false);
   const [smooth, setSmooth]   = useState(false);
   const [pickDate, setPickDate] = useState(false);
@@ -5379,6 +5383,7 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
     if (zoomed) return;
     if (dir < 0 && index === 0) return;
     if (dir > 0 && index === photos.length - 1) return;
+    if (!isTouch) { setIndex(i => Math.max(0, Math.min(photos.length - 1, i + dir))); return; }
     settle(dir);
   }
   useEffect(() => {
@@ -5498,6 +5503,7 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
       if (now > g.lastT) { g.v = (e.clientX - g.lastX) / k / (now - g.lastT); g.lastX = e.clientX; g.lastT = now; }
       if (!moved.current && (Math.abs(dx) < 4 || Math.abs(dx) < Math.abs(dy))) return;
       moved.current = true;
+      if (!isTouch) return;
       const atLeft  = index === 0 && dx > 0;
       const atRight = index === photos.length - 1 && dx < 0;
       const cssDx = dx / k;
@@ -5533,7 +5539,7 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
         const far = Math.abs(dx) > pageW * 0.2;
         const flick = Math.abs(g.v) > 0.35 && Math.sign(g.v) === Math.sign(dx) && Math.abs(dx) > 16;
         const canGo = dir > 0 ? index < photos.length - 1 : index > 0;
-        settle(canGo && (far || flick) ? dir : 0);
+        if (isTouch) settle(canGo && (far || flick) ? dir : 0);   // a mouse drag does nothing
       } else if (!g.onPhoto) {
         onClose();                       // a tap beside the photo closes, as before
         return;
