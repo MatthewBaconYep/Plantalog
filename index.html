@@ -219,10 +219,16 @@
       /* Shown after a beat by colour, so opacity stays free for the exit fade. */
       .boot-msg{color:transparent;animation:bootMsg 0s linear .6s forwards;}
       @keyframes bootMsg{to{color:rgba(242,240,216,.7);}}
+      /* An update reload (?v=) restarts the page mid-launch. The message was
+         already showing, so show it at once rather than blanking it for .6s. */
+      html.update-reload .boot-msg{animation-delay:0s;}
       #boot-splash img, #boot-splash .boot-msg{transition:opacity .15s ease-out;}
       #boot-splash.done img, #boot-splash.done .boot-msg{opacity:0;}
       #boot-splash.done{pointer-events:none;}
     </style>
+    <script>
+      if (/[?&]v=/.test(location.search)) document.documentElement.classList.add("update-reload");
+    </script>
     <script>
       if (window.matchMedia && matchMedia("(pointer: coarse)").matches) {
         var sh = Math.max(screen.width, screen.height);        // portrait height, in points
@@ -261,8 +267,6 @@
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
       });
     </script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script type="text/babel" src="plantalog.jsx?v=103"></script>
     <script>
       // The page itself is cacheable for 10 minutes (GitHub Pages sets
       // max-age=600), and a Home Screen web app often resumes from that copy,
@@ -270,8 +274,10 @@
       // the current version (never from cache) on launch and whenever the app
       // comes back to the foreground; if it differs, reload through a URL the
       // cache has no entry for. The ?v= guard stops that repeating.
+      // It runs before Babel loads, so a stale page reloads before doing the
+      // slow work, usually before the splash message has appeared.
       (function () {
-        var HERE = "103";
+        var HERE = "104";
         var pending = null;
         // Never reload out from under someone mid-edit: a sheet, dialog, photo
         // viewer or a focused field means unsaved typing could be on screen.
@@ -302,5 +308,7 @@
         setInterval(function () { if (pending) apply(pending); }, 3000);
       })();
     </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel" src="plantalog.jsx?v=104"></script>
   </body>
 </html>

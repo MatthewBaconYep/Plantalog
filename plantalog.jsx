@@ -2288,6 +2288,9 @@ const styles = `
     transition:height .34s var(--ease-collapse) .1s,margin-bottom .34s var(--ease-collapse) .1s;}
   .collapse-slot.leaving{overflow:hidden;}
   .room-hdr-wrap{transition:opacity .24s var(--ease-exit),transform .24s var(--ease-exit);}
+  /* Space between Up Next days. A class, not an inline style: CollapseSlot
+     clears its inline margin at rest, which silently dropped an inline 14px. */
+  .collapse-slot.upnext-slot{margin-bottom:26px;}
   .upnext-day{transition:opacity .22s ease-in;}
   .upnext-day.leaving{opacity:0;}
   .room-hdr-wrap.leaving{opacity:0;transform:translateX(-108%);}
@@ -6708,7 +6711,7 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
     });
     const dayEmptying = gPlants.length > 0 && gPlants.every(p=>leaving[p.id]);
     return (
-      <CollapseSlot key={daysAway} leaving={dayEmptying} style={{marginBottom:14}}>
+      <CollapseSlot key={daysAway} leaving={dayEmptying} className="upnext-slot">
         <div className={`upnext-day${dayEmptying?" leaving":""}`}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
             <div className="upnext-lbl" style={{fontSize:13,fontWeight:700,color:"var(--leaf)",textTransform:"uppercase",letterSpacing:.5}}>
