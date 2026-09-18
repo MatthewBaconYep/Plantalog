@@ -1836,10 +1836,10 @@ const styles = `
   .detail-hero-room span:last-child{font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#fbd9ad;}
   .hero-pill.filled{color:#f2fbf5;}
   /* ── Add/Edit Plant form (6a/6b) ─────────────────────────────────────────── */
-  /* Two layers so the top edge reads dark right at the card but still falls
-     off softly instead of ending in a visible band. */
-  .modal.pm-modal{padding:0!important;overflow:hidden;display:flex;flex-direction:column;max-height:calc(96vh / var(--zoom) - env(safe-area-inset-top,0px));max-height:calc(96dvh / var(--zoom) - env(safe-area-inset-top,0px));border-radius:35px 35px 0 0;box-shadow:0 -10px 26px rgba(0,0,0,.40), 0 -28px 68px rgba(0,0,0,.34);}
-  .pm-header{background:var(--primary);color:var(--primary-ink);padding:12px 16px 13px;flex-shrink:0;display:flex;align-items:center;gap:12px;}
+  /* Full screen with square corners, so a plant with no notes shows Delete
+     and Clone without scrolling. The header runs up under the status bar. */
+  .modal.pm-modal{padding:0!important;overflow:hidden;display:flex;flex-direction:column;height:calc(100vh / var(--zoom));height:calc(100dvh / var(--zoom));max-height:none;border-radius:0;box-shadow:none;}
+  .pm-header{background:var(--primary);color:var(--primary-ink);padding:max(12px, env(safe-area-inset-top,0px)) 16px 13px;flex-shrink:0;display:flex;align-items:center;gap:12px;}
   .pm-icon-btn{border:none;width:32px;height:32px;border-radius:var(--r-pill);background:rgba(242,240,216,.16);color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .pm-title{font-family:var(--font-display);font-weight:400;font-size:21px;line-height:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .hero-accent-btn{border:none;background:var(--accent);color:#fff;border-radius:var(--r-pill);
@@ -1848,7 +1848,7 @@ const styles = `
   .dark .hero-accent-btn{background:#f2a13b;color:#3a1d05;}
   .dark .pm-save-btn{background:#f2a13b;color:#3a1d05;}
   .pm-save-btn{border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:13px;font-weight:800;padding:8px 20px;border-radius:var(--r-pill);cursor:pointer;flex-shrink:0;}
-  .pm-body{flex:1;overflow-y:auto;padding:11px 14px 16px;display:flex;flex-direction:column;gap:7px;}
+  .pm-body{flex:1;overflow-y:auto;padding:9px 14px max(16px, env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;}
   .pm-got-card{padding:9px 12px 10px!important;}
   /* 6b centres both cards in this row vertically, not just the Got one. */
   .pm-name-card{display:flex;flex-direction:column;justify-content:center;gap:3px;}
@@ -1858,6 +1858,11 @@ const styles = `
      delete/Save row) does not fit in it, so the card sizes to its content
      while editing instead of clipping the bottom of the box and the buttons. */
   .notes-card.editing{height:auto;flex:0 0 auto;overflow:visible;}
+  .notes-lbl{margin-bottom:5px;}
+  /* No notes yet: the label and the add button share one row, which frees
+     the height the full-screen card needs to show Clone and Delete. */
+  .notes-card.no-notes{height:auto;flex:0 0 auto;display:flex;align-items:center;gap:12px;}
+  .notes-card.no-notes .notes-lbl{margin-bottom:0;flex-shrink:0;}
   .pm-card{background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow-sm);padding:9px 14px 10px;}
   .pm-lbl{font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--text-muted);}
   /* div/control mismatch: 13c and 6a draw this value as a div inheriting
@@ -1901,7 +1906,7 @@ const styles = `
   .pm-panel{border-radius:var(--r-md);padding:9px 14px 11px;}
   .pm-panel.water{background:var(--water-tint);}
   .pm-panel.potting{background:var(--potting-panel);}
-  .pm-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .pm-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
   .pm-panel-title{font-family:var(--font-display);font-weight:400;font-size:15px;}
   .pm-panel.water .pm-panel-title{color:var(--water-ink);}
   .pm-panel.potting .pm-panel-title{color:var(--potting-head);}
@@ -1909,7 +1914,7 @@ const styles = `
   /* Dark --water (#134b64) sits almost on the #173f52 panel. A clearly
      lighter blue lifts the badge off it. */
   .dark .pm-panel-badge{background:#467690;color:#f2f9fc;}
-  .pm-stepper-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;font-size:13px;font-weight:700;}
+  .pm-stepper-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;font-size:13px;font-weight:700;}
   .pm-panel.water .pm-stepper-row{color:var(--water-ink);}
   .pm-panel.potting .pm-stepper-row{color:var(--potting-head);}
   .pm-row-between{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;}
@@ -6429,8 +6434,8 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
           </div>
 
           {/* Notes */}
-          <div className={`pm-card notes-card${editingNotes?" editing":""}`}>
-            <div className="pm-lbl" style={{marginBottom:5}}>Notes</div>
+          <div className={`pm-card notes-card${editingNotes?" editing":form.notes?"":" no-notes"}`}>
+            <div className="pm-lbl notes-lbl">Notes</div>
             {editingNotes?(
               <>
                 <textarea className="notes-editor" value={notesDraft} onChange={e=>setNotesDraft(e.target.value)} placeholder="Add any notes about this plant..." autoFocus/>
