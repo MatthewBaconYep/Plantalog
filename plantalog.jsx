@@ -1878,7 +1878,10 @@ const styles = `
   /* CalendarField ships a 15px icon; every date control in 6b draws it at 12. */
   .pm-date-chip svg,.pm-date-pill svg{width:12px;height:12px;}
 
-  .pm-room-scroll{position:relative;display:flex;gap:6px;overflow-x:auto;padding:6px 14px 7px;scrollbar-width:none;}
+  /* Inset by the card's own 10px side padding, so chips scroll out of sight
+     before the capsule edge instead of touching it; the 4px keeps the first
+     chip aligned with the Room label. */
+  .pm-room-scroll{position:relative;display:flex;gap:6px;overflow-x:auto;margin:0 10px;padding:6px 4px 7px;scrollbar-width:none;}
   .pm-room-scroll::-webkit-scrollbar{display:none;}
   .pm-stepper-lbl{display:inline-flex;align-items:center;gap:7px;}
   .tip-q{border:none;width:17px;height:17px;border-radius:var(--r-pill);background:#17627f;color:#fff;
