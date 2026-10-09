@@ -2067,10 +2067,16 @@ const styles = `
   .dark .hero-accent-btn{background:#f2a13b;color:#3a1d05;}
   .dark .pm-save-btn{background:#f2a13b;color:#3a1d05;}
   .pm-save-btn{border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:13px;font-weight:800;padding:8px 20px;border-radius:var(--r-pill);cursor:pointer;flex-shrink:0;}
-  /* The scroll used to end 16px under the action row, which put the pills'
-     bottom corners on the screen edge. Enough to read as deliberate, and
-     clear of the home indicator on a Home Screen launch. */
   .pm-body{flex:1;overflow-y:auto;padding:9px 14px max(24px, calc(env(safe-area-inset-bottom,0px) + 14px));display:flex;flex-direction:column;gap:6px;}
+  /* Editing: the action row below carries the bottom clearance instead, and
+     the scroll ends one gap above it, as it did when the row was its last
+     child. Adding a plant has no action row, so the padding above stands. */
+  .pm-body.has-actions{padding-bottom:6px;}
+  /* Pinned, so the row is on screen whatever the window height and whatever
+     the form holds. Its own bottom padding keeps the pills off the screen
+     edge, and clears the home indicator on a Home Screen launch. */
+  .pm-actions{position:relative;z-index:2;flex-shrink:0;display:flex;gap:8px;
+    padding:0 14px max(24px, calc(env(safe-area-inset-bottom,0px) + 14px));}
   .pm-got-card{padding:9px 12px 10px!important;}
   /* 6b centres both cards in this row vertically, not just the Got one. */
   .pm-name-card{display:flex;flex-direction:column;justify-content:center;gap:3px;}
@@ -7023,7 +7029,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
           <button type="button" className="pm-save-btn" onClick={()=>{ if(!form.name.trim()) return alert("Plant name required."); onSave(form); }}>Save</button>
         </div>
 
-        <div className="pm-body">
+        <div className={`pm-body${(onDelete || (plant && onClone))?" has-actions":""}`}>
           {/* Name + Got (date obtained) */}
           <div style={{display:"flex",gap:7}}>
             <div className="pm-card pm-name-card" style={{flex:1}}>
@@ -7195,9 +7201,15 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
             <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
           </div>}
 
-          {/* Clone + Delete sit together at the bottom (6b) */}
-          {(onDelete || (plant && onClone)) && (
-            <div style={{display:"flex",gap:8}}>
+        </div>
+
+        {/* Clone + Delete sit together at the bottom (6b). Pinned below the
+            scroller rather than carried inside it: at a laptop window height
+            the form is taller than the card, so as the scroller's last child
+            this row sat under the fold or on the screen edge however much
+            padding it was given. */}
+        {(onDelete || (plant && onClone)) && (
+          <div className="pm-actions">
               {plant && <>
                 {leafTip && <div className="leaf-tip-catch" onClick={closeLeafTip}/>}
                 <div className={`leaf-switch-wrap${leafTip?" tip-open":""}`}>
@@ -7227,9 +7239,8 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
                   Delete
                 </button>
               )}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {confirmDel && (
           <ConfirmDialog
