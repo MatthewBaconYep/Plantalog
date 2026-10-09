@@ -6557,12 +6557,16 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
     e.stopPropagation(); e.preventDefault(); swipe.current.suppress = false;
   }
 
-  // A pull that starts inside the panel scrolls the timeline. It must never
-  // drag the whole card away.
+  // A pull down on the Leaf Log panel closes the card, the way a pull on
+  // View's header and panels does. The exception is the timeline list while
+  // it has something to scroll: there the pull scrolls it, natively and with
+  // momentum, the way View's body scrolls. A list short enough not to scroll
+  // closes the card like the rest of the panel, so a pull is never ignored.
   const sheetHandlers = {
     ...drag.handlers,
     onPointerDown: e => {
-      if (e.target.closest && e.target.closest(".leaf-panel")) return;
+      const list = e.target.closest && e.target.closest(".leaf-scroll");
+      if (list && list.scrollHeight > list.clientHeight + 1) return;
       drag.handlers.onPointerDown(e);
     },
   };
