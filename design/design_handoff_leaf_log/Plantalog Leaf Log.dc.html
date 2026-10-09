@@ -1,0 +1,1887 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/organic-5d6935a8-53de-4d92-b2bf-8bde60756161/styles.css">
+<script src="_ds/organic-5d6935a8-53de-4d92-b2bf-8bde60756161/_ds_bundle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#ded2ba;font-family:'Figtree',sans-serif;font-weight:600;line-height:1.55;color:#201e1d;}
+  a{color:#a3450a;text-decoration:none;}
+  a:hover{color:#7d3406;text-decoration:underline;}
+  .no-scrollbar::-webkit-scrollbar{display:none;}
+  @keyframes toastUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes dotIn{from{opacity:0;transform:scale(.4);}to{opacity:1;transform:scale(1);}}
+  @keyframes panelDown{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+</style>
+</helmet>
+
+<section style="--ground:#1f1d1a;--surface:#2b2823;--text:#f0e9dc;--muted:#a99e8c;--border:#3a352d;--strong:#544e43;--primary:#15644a;--ink:#e5efd6;--lg-rail:#6e665a;--lg-grow:#5fbf8a;--lg-dot:#5f8a6e;--lg-calink:#f0e9dc;--lg-calout:#6f6658;--lg-calbg:#3b362f;--lg-caloutbg:#2b2823;--lg-calsh:none;--lg-selink:#04210f;--lg-seldot:#04210f;--lg-mlab:#f0e9dc;--lg-mlab0:#7d7464;--lg-mcount:#d8cfbf;--lg-trackon:#3f9d6d;--lg-trackoff:#544e43;background:#161513;padding:40px 40px 30px;display:flex;flex-direction:column;gap:22px;font-family:'Figtree',sans-serif;">
+  <div style="display:flex;flex-direction:column;gap:12px;max-width:760px;">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;">
+      <h1 style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:34px;line-height:1.1;margin:0;color:var(--text);">Leaf Log, dark</h1>
+      <span style="font-size:13px;font-weight:700;color:var(--muted);">Turn 4 &middot; <a href="#3a">3a</a> and <a href="#3b">3b</a> in dark mode</span>
+    </div>
+    <p style="margin:0;font-size:14.5px;line-height:1.55;color:#cfc5b4;max-width:640px;text-wrap:pretty;">Same layout and behavior as Turn 3, on the app's dark tokens. Surfaces separate by color, not shadow. Affirmative actions become a bright green fill with dark ink; the stat tiles become deep green with light values. Both turns share state, so data, Leaf Log open and popups move together.</p>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">How much data</span>
+      <div style="display:flex;gap:4px;background:var(--border);border-radius:16px;padding:4px;flex-wrap:wrap;">
+        <button onClick="{{ setD_none }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 14px;border-radius:12px;background:{{ dBg_none }};color:{{ dInk_none }};">No leaves</button><button onClick="{{ setD_one }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 14px;border-radius:12px;background:{{ dBg_one }};color:{{ dInk_one }};">1 leaf</button><button onClick="{{ setD_new }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 14px;border-radius:12px;background:{{ dBg_new }};color:{{ dInk_new }};">3 leaves</button><button onClick="{{ setD_year }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 14px;border-radius:12px;background:{{ dBg_year }};color:{{ dInk_year }};">1 year</button><button onClick="{{ setD_mature }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 14px;border-radius:12px;background:{{ dBg_mature }};color:{{ dInk_mature }};">3 years</button>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;">
+
+    <div id="4a" style="display:flex;flex-direction:column;gap:9px;">
+      <div style="display:flex;align-items:center;gap:9px;">
+        <span style="font-family:'Caprasimo',Georgia,serif;font-size:14px;background:var(--text);color:var(--ground);padding:2px 11px;border-radius:999px;">4a</span>
+        <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;color:var(--text);">View Plant + Leaf Log</span>
+      </div>
+      <div style="width:390px;height:800px;box-sizing:border-box;border:9px solid #2e2b25;border-radius:44px;overflow:hidden;box-shadow:0 22px 54px rgba(0,0,0,.5);background:#0f0e0c;position:relative;">
+        <div onPointerDown="{{ pd3 }}" onPointerMove="{{ pm3 }}" onPointerUp="{{ pu3 }}" onPointerCancel="{{ pu3 }}" onClickCapture="{{ clickCap3 }}" style="position:absolute;top:28px;left:0;bottom:0;width:651px;display:flex;touch-action:pan-y;user-select:none;transform:{{ trackX }};transition:{{ trackTransition }};">
+
+          <div style="width:372px;flex-shrink:0;height:100%;background:var(--ground);border-radius:{{ viewRadius }};overflow:hidden;position:relative;display:flex;flex-direction:column;transition:border-radius .2s;">
+            <div style="position:absolute;top:0;left:0;right:0;height:22px;display:flex;justify-content:center;z-index:5;pointer-events:none;"><span style="display:block;width:38px;height:4px;border-radius:999px;background:#f0e9dc;margin-top:12px;opacity:.5;"></span></div>
+            <div style="height:216px;flex-shrink:0;position:relative;overflow:hidden;background:#0f4438;color:#fff;-webkit-mask-image:{{ heroMask }};mask-image:{{ heroMask }};">
+              <div style="position:absolute;inset:-2px;background:url(img/p1.jpeg) center/cover no-repeat;filter:saturate(.92) contrast(.97);"></div>
+              <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(15,68,56,.94) 0%,rgba(15,68,56,.3) 48%,rgba(15,68,56,0) 78%);"></div>
+              <div style="position:absolute;left:0;right:0;top:0;height:70px;background:linear-gradient(to bottom,rgba(15,68,56,.45),rgba(15,68,56,0));"></div>
+              <button style="position:absolute;top:8px;left:8px;z-index:3;width:36px;height:36px;border:none;border-radius:50%;background:rgba(255,255,255,.22);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+              <div style="position:absolute;top:24px;right:16px;z-index:3;display:flex;align-items:center;gap:6px;opacity:{{ heroBtnOpacity }};pointer-events:{{ heroBtnEvents }};transition:opacity .2s;">
+                <sc-if value="{{ leafOn }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ openLeaf3 }}" style="border:none;background:#2f7d52;color:#fff;padding:8px 16px;border-radius:999px;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;line-height:normal;cursor:pointer;white-space:nowrap;">Leaf Log</button>
+                </sc-if>
+                <button style="border:none;background:#8c491a;color:#fff;border-radius:999px;padding:8px 20px;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;line-height:normal;cursor:pointer;">Edit</button>
+              </div>
+              <div style="position:absolute;left:20px;right:20px;bottom:14px;z-index:2;">
+                <div style="display:flex;align-items:center;gap:7px;margin-bottom:2px;">
+                  <span style="width:9px;height:9px;border-radius:50%;background:#fc8181;display:block;"></span>
+                  <span style="font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#fbd9ad;">Sun Room</span>
+                </div>
+                <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:31px;line-height:1.12;">Monstera Deliciosa</div>
+                <div style="display:flex;gap:7px;margin-top:5px;">
+                  <span style="background:#0f9d58;color:#f2fbf5;padding:3px 11px;border-radius:999px;font-size:12px;font-weight:700;">Thriving</span>
+                  <span style="background:rgba(255,255,255,.22);padding:3px 11px;border-radius:999px;font-size:12px;font-weight:700;">2.9y old</span>
+                </div>
+              </div>
+            </div>
+            <div style="flex:1;min-height:0;overflow:hidden;padding:10px 12px;display:flex;flex-direction:column;gap:6px;">
+              <div style="background:#17313d;color:#cfe8f4;border-radius:22px;padding:13px 16px 14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;">
+                  <span style="font-family:'Caprasimo',Georgia,serif;font-size:16px;">Water</span>
+                  <span style="background:rgba(255,255,255,.22);font-size:11px;font-weight:800;padding:4px 11px;border-radius:999px;">next in 11 days</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+                  <div><div style="font-family:'Caprasimo',Georgia,serif;font-size:23px;line-height:1;">30d</div><div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#a5cfe3;margin-top:4px;">Every</div></div>
+                  <div><div style="font-family:'Caprasimo',Georgia,serif;font-size:23px;line-height:1;">19d ago</div><div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#a5cfe3;margin-top:4px;">Last</div></div>
+                  <div><div style="font-family:'Caprasimo',Georgia,serif;font-size:23px;line-height:1;">Oct 2</div><div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#a5cfe3;margin-top:4px;">Next</div></div>
+                </div>
+              </div>
+              <div style="background:#4a2c17;color:#e8bb92;border-radius:22px;padding:13px 16px 14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;">
+                  <span style="font-family:'Caprasimo',Georgia,serif;font-size:16px;color:#f7c9a3;">Pot</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+                  <div><div style="font-family:'Caprasimo',Georgia,serif;font-size:23px;line-height:1;color:#f7c9a3;">2.1y</div><div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:4px;">Pot age</div></div>
+                  <div><div style="font-family:'Caprasimo',Georgia,serif;font-size:23px;line-height:1;color:#f7c9a3;">3y</div><div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:4px;">Repot every</div></div>
+                  <div><div style="font-family:'Caprasimo',Georgia,serif;font-size:23px;line-height:1;color:#f7c9a3;">11.5&rarr;13"</div><div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:4px;">Pot size</div></div>
+                </div>
+              </div>
+              <div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;">
+                  <img src="img/p4.jpeg" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:16px;display:block;">
+                  <img src="img/p6.jpeg" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:16px;display:block;">
+                  <img src="img/p1.jpeg" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:16px;display:block;">
+                  <div style="aspect-ratio:1;border:2px dashed #5a5346;border-radius:16px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:24px;">+</div>
+                </div>
+              </div>
+            </div>
+            <div onClick="{{ closeLeaf3 }}" style="position:absolute;inset:0;z-index:20;opacity:{{ stripOpacity }};pointer-events:{{ stripEvents }};cursor:pointer;">
+              
+            </div>
+          </div>
+
+          <div style="width:279px;flex-shrink:0;height:100%;background:var(--ground);border-radius:0 35px 0 0;overflow:hidden;position:relative;display:flex;flex-direction:column;">
+            <div style="flex-shrink:0;padding:12px 10px 0 14px;display:flex;align-items:center;gap:6px;">
+              <div style="flex:1;min-width:0;font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:30px;line-height:1.05;color:var(--text);white-space:nowrap;">Leaf Log</div>
+              <div style="width:104px;flex-shrink:0;display:flex;justify-content:center;">
+                <button onClick="{{ openAdd3 }}" title="Record a leaf" style="width:100%;height:36px;border-radius:999px;background:#2f7d52;color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;padding:0;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;white-space:nowrap;" style-hover="background:#37905f;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>New Leaf</button>
+              </div>
+            </div>
+            <div style="flex:1;min-height:0;padding:10px 10px 12px;display:flex;gap:6px;align-items:stretch;">
+              <div style="flex:1;min-width:0;background:var(--surface);border-radius:16px;border:1.5px solid #8fa070;padding:10px 4px 10px 2px;display:flex;flex-direction:column;">
+                <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:15px;color:var(--text);padding:0 8px;">Timeline</span>
+                <sc-if value="{{ empty2 }}" hint-placeholder-val="{{ false }}">
+                  <p style="margin:8px 8px 0;font-size:12px;font-weight:600;line-height:1.5;color:var(--muted);">No leaves recorded yet. Tap New Leaf to record the first one.</p>
+                </sc-if>
+                <div class="no-scrollbar" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;margin-top:8px;padding-bottom:12px;">
+                  <sc-for list="{{ spine2 }}" as="row" hint-placeholder-count="5">
+                    <div style="display:flex;flex-direction:column;">
+                      <sc-if value="{{ row.showHeader }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;align-items:center;gap:6px;height:20px;margin-bottom:4px;padding-left:4px;">
+                          <span style="flex:1;height:1.5px;background:#6e665a;display:block;"></span>
+                          <span style="font-size:10px;font-weight:800;letter-spacing:1.1px;color:var(--muted);">{{ row.headerYear }}</span>
+                          <span style="flex:1;height:1.5px;background:#6e665a;display:block;"></span>
+                        </div>
+                      </sc-if>
+                      <div style="display:flex;align-items:center;min-height:26px;">
+                        <div style="width:52px;flex-shrink:0;align-self:stretch;position:relative;display:flex;align-items:center;justify-content:center;">
+                          <span style="position:absolute;left:25px;width:2px;top:0;height:50%;background:{{ row.topLineBg }};display:block;"></span>
+                          <span style="position:absolute;left:25px;width:2px;top:50%;bottom:0;background:{{ row.bottomLineBg }};display:block;"></span>
+                          <span style="position:relative;width:20px;height:20px;border-radius:999px;background:var(--surface);color:{{ row.dotBg }};display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg></span>
+                        </div>
+                        <button onClick="{{ row.edit }}" style="border:none;background:none;padding:3px 6px;margin-left:-6px;border-radius:8px;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;color:var(--text);line-height:1.3;white-space:nowrap;cursor:pointer;" style-hover="background:#3b362f;">{{ row.dateLabel }}</button>
+                      </div>
+                      <sc-if value="{{ row.hasGap }}" hint-placeholder-val="{{ true }}">
+                        <div style="height:{{ row.gapPx }}px;position:relative;">
+                          <sc-for list="{{ row.years }}" as="yb" hint-placeholder-count="0">
+                            <div style="position:absolute;left:4px;right:0;top:{{ yb.top }}%;transform:translateY(-50%);z-index:1;display:flex;align-items:center;gap:6px;">
+                              <span style="position:absolute;left:17px;top:50%;width:10px;height:16px;transform:translateY(-50%);background:var(--surface);display:block;"></span>
+                              <span style="position:relative;flex:1;height:1.5px;background:#6e665a;display:block;"></span>
+                              <span style="position:relative;font-size:10px;font-weight:800;letter-spacing:1.1px;color:var(--muted);background:var(--surface);">{{ yb.label }}</span>
+                              <span style="position:relative;flex:1;height:1.5px;background:#6e665a;display:block;"></span>
+                            </div>
+                          </sc-for>
+                          <span style="position:absolute;left:25px;width:2px;top:0;bottom:0;background:#6e665a;display:block;"></span>
+                          <span style="position:absolute;left:26px;top:{{ row.pillTop }}%;transform:translate(-50%,-50%);white-space:nowrap;background:#3b362f;border:2px solid var(--surface);color:#e8dfcd;font-size:11.5px;font-weight:800;line-height:1;height:20px;box-sizing:border-box;padding:1.5px 8px 0;display:flex;align-items:center;border-radius:999px;">{{ row.gapShort }}</span>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="width:104px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;">
+                <div style="height:58px;box-sizing:border-box;flex-shrink:0;background:#143a2c;border:1.5px solid #2a6a4c;border-radius:16px;padding:9px 10px;display:flex;flex-direction:column;justify-content:space-between;">
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;line-height:1.1;color:#b6e3c6;white-space:nowrap;">{{ count }}</div>
+                  <div style="font-size:8.5px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;color:#8fc4a3;line-height:1.25;white-space:nowrap;">Leaves Recorded</div>
+                </div>
+                <div style="height:58px;box-sizing:border-box;flex-shrink:0;background:#143a2c;border:1.5px solid #2a6a4c;border-radius:16px;padding:9px 10px;display:flex;flex-direction:column;justify-content:space-between;">
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;line-height:1.1;color:#b6e3c6;white-space:nowrap;">{{ avgShort }}</div>
+                  <div style="font-size:8.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#8fc4a3;line-height:1.25;white-space:nowrap;">Average gap</div>
+                </div>
+                <div style="height:58px;box-sizing:border-box;flex-shrink:0;background:#143a2c;border:1.5px solid #2a6a4c;border-radius:16px;padding:9px 10px;display:flex;flex-direction:column;justify-content:space-between;">
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;line-height:1.1;color:#b6e3c6;white-space:nowrap;">{{ sinceShort }}</div>
+                  <div style="font-size:8.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#8fc4a3;line-height:1.25;white-space:nowrap;">Since last</div>
+                </div>
+                <div style="height:58px;box-sizing:border-box;flex-shrink:0;background:#143a2c;border:1.5px solid #2a6a4c;border-radius:16px;padding:9px 10px;display:flex;flex-direction:column;justify-content:space-between;">
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;line-height:1.1;color:#b6e3c6;white-space:nowrap;">{{ firstDay }}</div>
+                  <div style="font-size:8.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#8fc4a3;line-height:1.25;white-space:nowrap;">First recorded</div>
+                </div>
+                <div style="height:58px;box-sizing:border-box;flex-shrink:0;background:#143a2c;border:1.5px solid #2a6a4c;border-radius:16px;padding:9px 10px;display:flex;flex-direction:column;justify-content:space-between;">
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;line-height:1.1;color:#b6e3c6;white-space:nowrap;">{{ historyVal }}</div>
+                  <div style="font-size:8.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#8fc4a3;line-height:1.25;white-space:nowrap;">History</div>
+                </div>
+                <div style="flex:1;min-height:0;background:var(--surface);border:1.5px solid #8fa070;border-radius:16px;padding:10px 9px 10px 10px;display:flex;flex-direction:column;gap:8px;overflow:hidden;">
+                  <div style="font-size:8.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#a99e8c;line-height:1.25;">Last Year</div>
+                  <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:space-between;">
+                    <sc-for list="{{ months12 }}" as="mo" hint-placeholder-count="12">
+                      <div style="display:flex;align-items:center;gap:5px;height:15px;">
+                        <span style="width:24px;flex-shrink:0;font-size:9.5px;font-weight:800;color:{{ mo.labelInk }};">{{ mo.label }}</span>
+                        <span style="flex:1;min-width:0;height:8px;border-radius:999px;background:#3b362f;position:relative;overflow:hidden;display:block;">
+                          <span style="position:absolute;left:0;top:0;bottom:0;width:{{ mo.pct }}%;border-radius:999px;background:#8fa070;display:block;"></span>
+                        </span>
+                        <span style="width:9px;flex-shrink:0;text-align:right;font-size:9.5px;font-weight:800;color:{{ mo.countInk }};">{{ mo.count }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <sc-if value="{{ toast2Open }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;left:10px;right:10px;bottom:12px;z-index:4;display:flex;align-items:center;gap:12px;background:var(--text);color:var(--ground);padding:11px 13px;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.45);font-size:12.5px;font-weight:600;animation:toastUp .22s cubic-bezier(.34,1.28,.64,1) both;">
+                <span style="flex:1;min-width:0;">{{ toast2Text }}</span>
+              </div>
+            </sc-if>
+          </div>
+
+        </div>
+        <sc-if value="{{ sheet3Open }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ closeSheet3 }}" style="position:absolute;inset:0;z-index:30;background:rgba(28,25,20,.52);display:flex;align-items:center;justify-content:center;padding:22px;box-sizing:border-box;">
+                <div onClick="{{ stop }}" style="width:100%;background:#35302a;border-radius:22px;padding:16px 14px;box-shadow:0 18px 50px rgba(0,0,0,.55);animation:panelDown .2s cubic-bezier(.16,.84,.44,1) both;">
+                  <div style="text-align:center;margin-bottom:10px;">
+                    <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:#a99e8c;">{{ sheetTitle }}</div>
+                    <div style="font-family:'Caprasimo',Georgia,serif;font-size:19px;line-height:1.15;color:#f0e9dc;margin-top:3px;">{{ sheetDateLabel }}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <button onClick="{{ calPrev }}" style="border:none;background:#3b362f;color:#e8dfcd;width:30px;height:30px;border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button>
+                    <div style="flex:1;text-align:center;font-size:13px;font-weight:800;color:#e8dfcd;">{{ calTitle }}</div>
+                    <button onClick="{{ calNext }}" style="border:none;background:#3b362f;color:#e8dfcd;width:30px;height:30px;border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;opacity:{{ calNextOpacity }};"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px;">
+                    <div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">S</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">M</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">T</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">W</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">T</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">F</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">S</div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">
+                    <sc-for list="{{ calCells }}" as="c" hint-placeholder-count="35">
+                      <button onClick="{{ c.pick }}" style="height:34px;border:none;border-radius:12px;padding:0;font-family:'Figtree',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:{{ c.fs }};font-weight:{{ c.fw }};color:{{ c.ink }};background:{{ c.bg }};box-shadow:{{ c.shadow }};opacity:{{ c.opacity }};cursor:{{ c.cursor }};">
+                        <span style="line-height:1.1;">{{ c.num }}</span>
+                        <span style="width:4px;height:4px;border-radius:999px;background:{{ c.dotBg }};display:block;"></span>
+                      </button>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex;gap:6px;margin-top:12px;">
+                    <sc-if value="{{ sheetEdit }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ askDelete3 }}" style="flex:1;min-height:40px;border:1.5px solid #ffb3a8;background:#4a1f1a;color:#ffb3a8;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;white-space:nowrap;padding:0 8px;">Delete</button>
+                    </sc-if>
+                    <button onClick="{{ closeSheet3 }}" style="flex:1;min-height:40px;border:1.5px solid #5a5346;background:transparent;color:#e8dfcd;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;white-space:nowrap;padding:0 8px;">Cancel</button>
+                    <button onClick="{{ saveSheet3 }}" style="flex:1;min-height:40px;border:none;background:#3f9d6d;color:#04210f;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;white-space:nowrap;padding:0 8px;">{{ saveLabel }}</button>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ confirm3 }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ cancelDelete3 }}" style="position:absolute;inset:0;z-index:31;background:rgba(28,25,20,.4);display:flex;align-items:center;justify-content:center;padding:22px;box-sizing:border-box;">
+                <div onClick="{{ stop }}" style="width:100%;background:#35302a;border-radius:22px;padding:16px 14px 13px;box-shadow:0 18px 50px rgba(0,0,0,.55);">
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-size:18px;line-height:1.2;color:#f0e9dc;">Delete this leaf log?</div>
+                  <div style="font-size:12.5px;font-weight:600;color:var(--muted);margin-top:4px;">{{ confirmDateLabel }}</div>
+                  <div style="display:flex;gap:6px;margin-top:14px;">
+                    <button onClick="{{ cancelDelete3 }}" style="flex:1;min-height:40px;border:1.5px solid #5a5346;background:transparent;color:#e8dfcd;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;white-space:nowrap;padding:0 8px;">Cancel</button>
+                    <button onClick="{{ confirmDelete3 }}" style="flex:1;min-height:40px;border:none;background:#7d2e24;color:#ffd5cc;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;white-space:nowrap;padding:0 8px;">Delete</button>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+      </div>
+          </div>
+
+    <div id="4b" style="display:flex;flex-direction:column;gap:9px;">
+      <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+        <span style="font-family:'Caprasimo',Georgia,serif;font-size:14px;background:var(--text);color:var(--ground);padding:2px 11px;border-radius:999px;">4b</span>
+        <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;color:var(--text);">Where the switch lives</span>
+        <div style="display:flex;gap:4px;background:var(--border);border-radius:16px;padding:4px;margin-left:4px;">
+          <button onClick="{{ setPlaceHealth }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:12.5px;font-weight:800;padding:6px 13px;border-radius:12px;background:{{ tabHealthBg }};color:{{ tabHealthInk }};">Health card</button>
+          <button onClick="{{ setPlaceActions }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:12.5px;font-weight:800;padding:6px 13px;border-radius:12px;background:{{ tabActBg }};color:{{ tabActInk }};">Action row</button>
+        </div>
+      </div>
+      <div style="width:390px;height:800px;box-sizing:border-box;border:9px solid #2e2b25;border-radius:44px;overflow:hidden;box-shadow:0 22px 54px rgba(0,0,0,.5);background:var(--ground);display:flex;flex-direction:column;">
+        <div style="background:var(--primary);color:var(--ink);padding:12px 16px 13px;flex-shrink:0;display:flex;align-items:center;gap:12px;">
+          <button style="border:none;width:36px;height:36px;border-radius:999px;background:rgba(242,240,216,.16);color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+          <div style="font-family:'Caprasimo',Georgia,serif;font-size:21px;line-height:1;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Edit Monstera Deliciosa</div>
+          <button style="border:none;background:#8c491a;color:#fff;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 20px;border-radius:999px;cursor:pointer;flex-shrink:0;">Save</button>
+        </div>
+        <div style="flex:1;min-height:0;overflow:hidden;padding:9px 14px 16px;display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;gap:7px;">
+            <div style="flex:1;min-width:0;background:var(--surface);border-radius:16px;padding:9px 14px 10px;display:flex;flex-direction:column;justify-content:center;gap:3px;">
+              <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">Name</div>
+              <div style="font-family:'Caprasimo',Georgia,serif;font-size:20px;line-height:1.55;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Monstera Deliciosa</div>
+              <span style="display:block;height:2px;border-radius:999px;background:#2b6f8c;"></span>
+            </div>
+            <div style="width:136px;flex-shrink:0;box-sizing:border-box;background:var(--surface);border-radius:16px;padding:9px 12px 10px;display:flex;flex-direction:column;justify-content:center;gap:3px;">
+              <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">Got</div>
+              <div style="font-size:13px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M8 3v4M16 3v4M3 11h18"></path></svg>Oct 29, 2023</div>
+              <div style="font-size:10px;font-weight:700;color:#9a9082;">2.9y ago</div>
+            </div>
+          </div>
+          <div style="background:var(--surface);border-radius:16px;padding:9px 0 10px;">
+            <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);padding:0 14px;margin-bottom:5px;">Room</div>
+            <div class="no-scrollbar" style="display:flex;gap:6px;overflow-x:auto;padding:6px 14px 7px;scrollbar-width:none;">
+              <span style="flex-shrink:0;background:#f2a63e;color:#2a1a05;font-size:12px;font-weight:800;padding:6px 15px;border-radius:999px;box-shadow:0 0 0 2px #2b2823, 0 0 0 4px #f2a63e;">Sun Room</span>
+              <span style="flex-shrink:0;background:#5e1c14;color:#ffb3a8;font-size:12px;font-weight:800;padding:6px 15px;border-radius:999px;">Living Room</span>
+              <span style="flex-shrink:0;background:#5a3607;color:#ffcb85;font-size:12px;font-weight:800;padding:6px 15px;border-radius:999px;">Studio</span>
+              <span style="flex-shrink:0;background:#274a5a;color:#cfe8f4;font-size:12px;font-weight:800;padding:6px 15px;border-radius:999px;">Office</span>
+              <span style="flex-shrink:0;background:#1e4444;color:#a9dede;font-size:12px;font-weight:800;padding:6px 15px;border-radius:999px;">Bathroom</span>
+              <span style="flex-shrink:0;background:#0f4a30;color:#b6d9c4;font-size:12px;font-weight:800;padding:6px 15px;border-radius:999px;">Kitchen</span>
+              <span style="flex-shrink:0;background:#3a2f52;color:#d6c6f2;font-size:12px;font-weight:800;padding:6px 15px;border-radius:999px;">Bedroom</span>
+            </div>
+          </div>
+          <div style="background:var(--surface);border-radius:16px;padding:9px 14px 10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;min-height:19px;">
+              <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">Health</div>
+              <sc-if value="{{ placeHealth }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ toggleLeaf }}" style="border:none;background:none;padding:0;cursor:pointer;display:flex;align-items:center;gap:7px;font-family:'Figtree',sans-serif;font-size:11px;font-weight:800;color:#8fc4a3;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg>Leaf Log
+                  <span style="width:34px;height:19px;box-sizing:border-box;border-radius:999px;background:{{ miniTrack }};display:flex;align-items:center;justify-content:{{ miniJustify }};padding:2px;transition:background .15s;"><span style="width:15px;height:15px;border-radius:50%;background:#fff;display:block;"></span></span>
+                </button>
+              </sc-if>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+              <div style="background:#5e1c14;color:#ffb3a8;border-radius:12px;padding:9px 2px;text-align:center;font-size:11px;font-weight:800;">Dying</div>
+              <div style="background:#5a3607;color:#ffcb85;border-radius:12px;padding:9px 2px;text-align:center;font-size:11px;font-weight:800;">Caution</div>
+              <div style="background:#414a0d;color:#cdf07a;border-radius:12px;padding:9px 2px;text-align:center;font-size:11px;font-weight:800;">Good</div>
+              <div style="background:#15644a;color:#f2fbf5;border-radius:12px;padding:9px 2px;text-align:center;font-size:11px;font-weight:800;box-shadow:0 0 0 2px #2b2823, 0 0 0 4px #1fa85f;">Thriving</div>
+            </div>
+          </div>
+          <div style="background:#17313d;border-radius:16px;padding:9px 14px 11px;color:#cfe8f4;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-family:'Caprasimo',Georgia,serif;font-size:15px;">Water</span>
+              <span style="background:#2b6f8c;color:#fff;font-size:11px;font-weight:800;padding:4px 11px;border-radius:999px;">last 19d ago</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;font-size:13px;font-weight:700;">
+              <span style="display:inline-flex;align-items:center;gap:7px;">Water every<span style="width:17px;height:17px;border-radius:999px;background:#2b6f8c;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2.5px #17313d, 0 0 0 4.5px #2b6f8c;">?</span></span>
+              <div style="display:flex;align-items:center;gap:11px;">
+                <span style="width:30px;height:30px;border-radius:999px;background:rgba(255,255,255,.12);color:#a5cfe3;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;">&minus;</span>
+                <span style="font-family:'Caprasimo',Georgia,serif;font-size:22px;min-width:62px;text-align:center;">30d</span>
+                <span style="width:30px;height:30px;border-radius:999px;background:#2b6f8c;color:#fff;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;">+</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;">
+              <span>Last watered</span>
+              <span style="background:rgba(255,255,255,.12);font-size:12px;font-weight:800;padding:7px 14px;border-radius:999px;display:flex;align-items:center;gap:7px;">Sep 2<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M8 3v4M16 3v4M3 11h18"></path></svg></span>
+            </div>
+          </div>
+          <div style="background:#4a2c17;border-radius:16px;padding:9px 14px 11px;color:#e8bb92;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-family:'Caprasimo',Georgia,serif;font-size:15px;">Pot</span>
+              <span style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;">Original pot<span style="width:34px;height:19px;box-sizing:border-box;border-radius:999px;background:#5a5346;display:flex;align-items:center;padding:2px;"><span style="width:15px;height:15px;border-radius:50%;background:#fff;display:block;"></span></span></span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;font-size:13px;font-weight:700;">
+              <span>Size</span>
+              <div style="display:flex;align-items:center;gap:11px;"><span style="width:30px;height:30px;border-radius:999px;background:rgba(255,255,255,.12);color:#e8bb92;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;">&minus;</span><span style="font-family:'Caprasimo',Georgia,serif;font-size:22px;min-width:62px;text-align:center;">11.5"</span><span style="width:30px;height:30px;border-radius:999px;background:#8c491a;color:#fff;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;">+</span></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;font-size:13px;font-weight:700;">
+              <span>Next size</span>
+              <div style="display:flex;align-items:center;gap:11px;"><span style="width:30px;height:30px;border-radius:999px;background:rgba(255,255,255,.12);color:#e8bb92;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;">&minus;</span><span style="font-family:'Caprasimo',Georgia,serif;font-size:22px;min-width:62px;text-align:center;">13"</span><span style="width:30px;height:30px;border-radius:999px;background:#8c491a;color:#fff;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;">+</span></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;font-size:13px;font-weight:700;">
+              <span>Repot every</span>
+              <div style="display:flex;align-items:center;gap:11px;"><span style="width:30px;height:30px;border-radius:999px;background:rgba(255,255,255,.12);color:#e8bb92;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;">&minus;</span><span style="font-family:'Caprasimo',Georgia,serif;font-size:22px;min-width:62px;text-align:center;">3y</span><span style="width:30px;height:30px;border-radius:999px;background:#8c491a;color:#fff;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;">+</span></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;">
+              <span>Last potted</span>
+              <span style="background:rgba(255,255,255,.12);font-size:12px;font-weight:800;padding:7px 14px;border-radius:999px;display:flex;align-items:center;gap:7px;">Jul 31, 2024<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M8 3v4M16 3v4M3 11h18"></path></svg></span>
+            </div>
+          </div>
+          <div style="background:var(--surface);border-radius:16px;padding:9px 14px 10px;display:flex;align-items:center;gap:12px;">
+            <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);flex-shrink:0;">Notes</div>
+            <div style="flex:1;border:1.5px dashed #5a5346;border-radius:12px;padding:7px 12px;font-size:13px;font-weight:600;color:var(--muted);">+ Add a note&hellip;</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <sc-if value="{{ placeActions }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1.25;position:relative;display:flex;">
+                <div onClick="{{ toggleTip3 }}" style="flex:1;min-height:44px;background:#143a2c;color:#b6e3c6;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 10px;white-space:nowrap;user-select:none;">
+                  Leaf Log
+                  <span onClick="{{ toggleLeafStop }}" style="width:34px;height:19px;box-sizing:border-box;border-radius:999px;background:{{ miniTrack }};display:flex;align-items:center;justify-content:{{ miniJustify }};padding:2px;transition:background .15s;"><span style="width:15px;height:15px;border-radius:50%;background:#fff;display:block;"></span></span>
+                </div>
+                <sc-if value="{{ tip3 }}" hint-placeholder-val="{{ false }}">
+                  <div onClick="{{ toggleTip3 }}" style="position:absolute;left:0;bottom:calc(100% + 9px);width:214px;z-index:6;background:#f0e9dc;color:#201e1d;border-radius:14px;padding:10px 12px;box-shadow:0 12px 32px rgba(46,43,37,.28);display:flex;align-items:flex-start;gap:9px;font-size:12.5px;font-weight:600;line-height:1.45;white-space:normal;animation:toastUp .2s cubic-bezier(.34,1.28,.64,1) both;">
+                    <span style="color:#15644a;margin-top:2px;display:flex;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg></span>
+                    <span>Record new leaves. Best for climbing and upright plants.</span>
+                    <span style="position:absolute;left:28px;bottom:-5px;width:10px;height:10px;background:#f0e9dc;transform:rotate(45deg);border-radius:2px;display:block;"></span>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+            <button style="flex:1;min-height:44px;border:none;background:#3b362f;color:var(--text);font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg>Clone</button>
+            <button style="flex:1;min-height:44px;border:none;background:#4a1f1a;color:#ffb3a8;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14"></path></svg>Delete</button>
+          </div>
+        </div>
+      </div>
+      <p style="margin:0;max-width:390px;font-size:12.5px;font-weight:600;color:var(--muted);line-height:1.5;text-wrap:pretty;"><strong style="color:#e8dfcd;">Action row</strong> (chosen): sits with the other plant-level actions and costs no height. <strong style="color:#e8dfcd;">Health card</strong>: kept for comparison. Either switch drives <a href="#4a">4a</a>.</p>
+    </div>
+
+  </div>
+</section>
+
+<section style="--ground:#f5ead8;--surface:#fffdf8;--text:#201e1d;--muted:#6f6658;--border:#e6dbc7;--strong:#c9bda6;--primary:#0f4438;--ink:#f2f0d8;padding:40px 40px 10px;display:flex;flex-direction:column;gap:22px;font-family:'Figtree',sans-serif;">
+  <div style="display:flex;flex-direction:column;gap:12px;max-width:760px;">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;">
+      <h1 style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:34px;line-height:1.1;margin:0;color:var(--text);">Leaf Log, attached</h1>
+      <span style="font-size:13px;font-weight:700;color:var(--muted);">Turn 3 &middot; <a href="#2a">2a</a> folded into the View card</span>
+    </div>
+    <p style="margin:0;font-size:14.5px;line-height:1.55;color:#4a453c;max-width:640px;text-wrap:pretty;">With Leaf Log on, the View card loses its top right corner and runs off the edge. Tap Leaf Log or swipe left: the card slides over and the log fills the right 75%, leaving the card's right quarter showing. Tap that strip or swipe right to go back. Built from the current View and Edit code on main.</p>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">How much data</span>
+      <div style="display:flex;gap:4px;background:var(--border);border-radius:16px;padding:4px;flex-wrap:wrap;">
+        <button onClick="{{ setD_none }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 14px;border-radius:12px;background:{{ dBg_none }};color:{{ dInk_none }};">No leaves</button><button onClick="{{ setD_one }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 14px;border-radius:12px;background:{{ dBg_one }};color:{{ dInk_one }};">1 leaf</button><button onClick="{{ setD_new }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 14px;border-radius:12px;background:{{ dBg_new }};color:{{ dInk_new }};">3 leaves</button><button onClick="{{ setD_year }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 14px;border-radius:12px;background:{{ dBg_year }};color:{{ dInk_year }};">1 year</button><button onClick="{{ setD_mature }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 14px;border-radius:12px;background:{{ dBg_mature }};color:{{ dInk_mature }};">3 years</button>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start;">
+
+    <div id="3a" style="display:flex;flex-direction:column;gap:9px;">
+      <div style="display:flex;align-items:center;gap:9px;">
+        <span style="font-family:'Caprasimo',Georgia,serif;font-size:14px;background:var(--text);color:var(--ground);padding:2px 11px;border-radius:999px;">3a</span>
+        <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;color:var(--text);">View Plant + Leaf Log</span>
+      </div>
+      <div style="width:390px;height:800px;box-sizing:border-box;border:9px solid #2e2b25;border-radius:44px;overflow:hidden;box-shadow:0 22px 54px rgba(46,43,37,.22);background:#7d776c;position:relative;">
+        <div onPointerDown="{{ pd3 }}" onPointerMove="{{ pm3 }}" onPointerUp="{{ pu3 }}" onPointerCancel="{{ pu3 }}" onClickCapture="{{ clickCap3 }}" style="position:absolute;top:28px;left:0;bottom:0;width:651px;display:flex;touch-action:pan-y;user-select:none;transform:{{ trackX }};transition:{{ trackTransition }};">
+
+          <div style="width:372px;flex-shrink:0;height:100%;background:var(--ground);border-radius:{{ viewRadius }};overflow:hidden;position:relative;display:flex;flex-direction:column;transition:border-radius .2s;">
+            <div style="position:absolute;top:0;left:0;right:0;height:22px;display:flex;justify-content:center;z-index:5;pointer-events:none;"><span style="display:block;width:38px;height:4px;border-radius:999px;background:#d8cbb4;margin-top:12px;opacity:.5;"></span></div>
+            <div style="height:216px;flex-shrink:0;position:relative;overflow:hidden;background:#0f4438;color:#fff;-webkit-mask-image:{{ heroMask }};mask-image:{{ heroMask }};">
+              <div style="position:absolute;inset:-2px;background:url(img/p1.jpeg) center/cover no-repeat;filter:saturate(.92) contrast(.97);"></div>
+              <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(15,68,56,.94) 0%,rgba(15,68,56,.3) 48%,rgba(15,68,56,0) 78%);"></div>
+              <div style="position:absolute;left:0;right:0;top:0;height:70px;background:linear-gradient(to bottom,rgba(15,68,56,.45),rgba(15,68,56,0));"></div>
+              <button style="position:absolute;top:8px;left:8px;z-index:3;width:36px;height:36px;border:none;border-radius:50%;background:rgba(255,255,255,.22);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+              <div style="position:absolute;top:24px;right:16px;z-index:3;display:flex;align-items:center;gap:6px;opacity:{{ heroBtnOpacity }};pointer-events:{{ heroBtnEvents }};transition:opacity .2s;">
+                <sc-if value="{{ leafOn }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ openLeaf3 }}" style="border:none;background:#2f7d52;color:#f2fbf5;padding:8px 16px;border-radius:999px;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;line-height:normal;cursor:pointer;white-space:nowrap;">Leaf Log</button>
+                </sc-if>
+                <button style="border:none;background:#a3450a;color:#fff;border-radius:999px;padding:8px 20px;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;line-height:normal;cursor:pointer;">Edit</button>
+              </div>
+              <div style="position:absolute;left:20px;right:20px;bottom:14px;z-index:2;">
+                <div style="display:flex;align-items:center;gap:7px;margin-bottom:2px;">
+                  <span style="width:9px;height:9px;border-radius:50%;background:#fc8181;display:block;"></span>
+                  <span style="font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#fbd9ad;">Sun Room</span>
+                </div>
+                <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:31px;line-height:1.12;">Monstera Deliciosa</div>
+                <div style="display:flex;gap:7px;margin-top:5px;">
+                  <span style="background:#0f9d58;color:#f2fbf5;padding:3px 11px;border-radius:999px;font-size:12px;font-weight:700;">Thriving</span>
+                  <span style="background:rgba(255,255,255,.22);padding:3px 11px;border-radius:999px;font-size:12px;font-weight:700;">2.9y old</span>
+                </div>
+              </div>
+            </div>
+            <div style="flex:1;min-height:0;overflow:hidden;padding:10px 12px;display:flex;flex-direction:column;gap:6px;">
+              <div style="background:#17627f;color:#eaf6fc;border-radius:22px;padding:13px 16px 14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;">
+                  <span style="font-family:'Caprasimo',Georgia,serif;font-size:16px;">Water</span>
+                  <span style="background:rgba(255,255,255,.22);font-size:11px;font-weight:800;padding:4px 11px;border-radius:999px;">next in 11 days</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+                  <div><div style="font-family:'Caprasimo',Georgia,serif;font-size:23px;line-height:1;">30d</div><div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#d6ecf7;margin-top:4px;">Every</div></div>
+                  <div><div style="font-family:'Caprasimo',Georgia,serif;font-size:23px;line-height:1;">19d ago</div><div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#d6ecf7;margin-top:4px;">Last</div></div>
+                  <div><div style="font-family:'Caprasimo',Georgia,serif;font-size:23px;line-height:1;">Oct 2</div><div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#d6ecf7;margin-top:4px;">Next</div></div>
+                </div>
+              </div>
+              <div style="background:#efc6a6;color:#5c2a08;border-radius:22px;padding:13px 16px 14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px;">
+                  <span style="font-family:'Caprasimo',Georgia,serif;font-size:16px;color:#8c3f07;">Pot</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+                  <div><div style="font-family:'Caprasimo',Georgia,serif;font-size:23px;line-height:1;color:#8c3f07;">2.1y</div><div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:4px;">Pot age</div></div>
+                  <div><div style="font-family:'Caprasimo',Georgia,serif;font-size:23px;line-height:1;color:#8c3f07;">3y</div><div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:4px;">Repot every</div></div>
+                  <div><div style="font-family:'Caprasimo',Georgia,serif;font-size:23px;line-height:1;color:#8c3f07;">11.5&rarr;13"</div><div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:4px;">Pot size</div></div>
+                </div>
+              </div>
+              <div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;">
+                  <img src="img/p4.jpeg" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:16px;display:block;">
+                  <img src="img/p6.jpeg" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:16px;display:block;">
+                  <img src="img/p1.jpeg" alt="" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:16px;display:block;">
+                  <div style="aspect-ratio:1;border:2px dashed #c9bda6;border-radius:16px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:24px;">+</div>
+                </div>
+              </div>
+            </div>
+            <div onClick="{{ closeLeaf3 }}" style="position:absolute;inset:0;z-index:20;opacity:{{ stripOpacity }};pointer-events:{{ stripEvents }};cursor:pointer;">
+              
+            </div>
+          </div>
+
+          <div style="width:279px;flex-shrink:0;height:100%;background:var(--ground);border-radius:0 35px 0 0;overflow:hidden;position:relative;display:flex;flex-direction:column;">
+            <div style="flex-shrink:0;padding:12px 10px 0 14px;display:flex;align-items:center;gap:6px;">
+              <div style="flex:1;min-width:0;font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:30px;line-height:1.05;color:var(--text);white-space:nowrap;">Leaf Log</div>
+              <div style="width:104px;flex-shrink:0;display:flex;justify-content:center;">
+                <button onClick="{{ openAdd3 }}" title="Record a leaf" style="width:100%;height:36px;border-radius:999px;background:#0f4438;color:#f2f0d8;border:none;cursor:pointer;box-shadow:0 1px 2px rgba(46,43,37,.14);display:flex;align-items:center;justify-content:center;gap:4px;padding:0;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;white-space:nowrap;" style-hover="background:#15644a;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>New Leaf</button>
+              </div>
+            </div>
+            <div style="flex:1;min-height:0;padding:10px 10px 12px;display:flex;gap:6px;align-items:stretch;">
+              <div style="flex:1;min-width:0;background:var(--surface);border-radius:16px;border:1.5px solid #7a8a5e;padding:10px 4px 10px 2px;display:flex;flex-direction:column;">
+                <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:15px;color:var(--text);padding:0 8px;">Timeline</span>
+                <sc-if value="{{ empty2 }}" hint-placeholder-val="{{ false }}">
+                  <p style="margin:8px 8px 0;font-size:12px;font-weight:600;line-height:1.5;color:var(--muted);">No leaves recorded yet. Tap New Leaf to record the first one.</p>
+                </sc-if>
+                <div class="no-scrollbar" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;margin-top:8px;padding-bottom:12px;">
+                  <sc-for list="{{ spine2 }}" as="row" hint-placeholder-count="5">
+                    <div style="display:flex;flex-direction:column;">
+                      <sc-if value="{{ row.showHeader }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;align-items:center;gap:6px;height:20px;margin-bottom:4px;padding-left:4px;">
+                          <span style="flex:1;height:1.5px;background:#e6dbc7;display:block;"></span>
+                          <span style="font-size:10px;font-weight:800;letter-spacing:1.1px;color:var(--muted);">{{ row.headerYear }}</span>
+                          <span style="flex:1;height:1.5px;background:#e6dbc7;display:block;"></span>
+                        </div>
+                      </sc-if>
+                      <div style="display:flex;align-items:center;min-height:26px;">
+                        <div style="width:52px;flex-shrink:0;align-self:stretch;position:relative;display:flex;align-items:center;justify-content:center;">
+                          <span style="position:absolute;left:25px;width:2px;top:0;height:50%;background:{{ row.topLineBg }};display:block;"></span>
+                          <span style="position:absolute;left:25px;width:2px;top:50%;bottom:0;background:{{ row.bottomLineBg }};display:block;"></span>
+                          <span style="position:relative;width:20px;height:20px;border-radius:999px;background:var(--surface);color:{{ row.dotBg }};display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg></span>
+                        </div>
+                        <button onClick="{{ row.edit }}" style="border:none;background:none;padding:3px 6px;margin-left:-6px;border-radius:8px;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;color:var(--text);line-height:1.3;white-space:nowrap;cursor:pointer;" style-hover="background:#f2ece0;">{{ row.dateLabel }}</button>
+                      </div>
+                      <sc-if value="{{ row.hasGap }}" hint-placeholder-val="{{ true }}">
+                        <div style="height:{{ row.gapPx }}px;position:relative;">
+                          <sc-for list="{{ row.years }}" as="yb" hint-placeholder-count="0">
+                            <div style="position:absolute;left:4px;right:0;top:{{ yb.top }}%;transform:translateY(-50%);z-index:1;display:flex;align-items:center;gap:6px;">
+                              <span style="position:absolute;left:17px;top:50%;width:10px;height:16px;transform:translateY(-50%);background:var(--surface);display:block;"></span>
+                              <span style="position:relative;flex:1;height:1.5px;background:#e6dbc7;display:block;"></span>
+                              <span style="position:relative;font-size:10px;font-weight:800;letter-spacing:1.1px;color:var(--muted);background:var(--surface);">{{ yb.label }}</span>
+                              <span style="position:relative;flex:1;height:1.5px;background:#e6dbc7;display:block;"></span>
+                            </div>
+                          </sc-for>
+                          <span style="position:absolute;left:25px;width:2px;top:0;bottom:0;background:#e6dbc7;display:block;"></span>
+                          <span style="position:absolute;left:26px;top:{{ row.pillTop }}%;transform:translate(-50%,-50%);white-space:nowrap;background:#f2ece0;border:2px solid var(--surface);color:#4a453c;font-size:11.5px;font-weight:800;line-height:1;height:20px;box-sizing:border-box;padding:1.5px 8px 0;display:flex;align-items:center;border-radius:999px;">{{ row.gapShort }}</span>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="width:104px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;">
+                <div style="height:58px;box-sizing:border-box;flex-shrink:0;background:#e3f2e6;border:1.5px solid #9ccaa9;border-radius:16px;padding:9px 10px;display:flex;flex-direction:column;justify-content:space-between;">
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;line-height:1.1;color:#1c5436;white-space:nowrap;">{{ count }}</div>
+                  <div style="font-size:8.5px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;color:#3f6b4e;line-height:1.25;white-space:nowrap;">Leaves Recorded</div>
+                </div>
+                <div style="height:58px;box-sizing:border-box;flex-shrink:0;background:#e3f2e6;border:1.5px solid #9ccaa9;border-radius:16px;padding:9px 10px;display:flex;flex-direction:column;justify-content:space-between;">
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;line-height:1.1;color:#1c5436;white-space:nowrap;">{{ avgShort }}</div>
+                  <div style="font-size:8.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#3f6b4e;line-height:1.25;white-space:nowrap;">Average gap</div>
+                </div>
+                <div style="height:58px;box-sizing:border-box;flex-shrink:0;background:#e3f2e6;border:1.5px solid #9ccaa9;border-radius:16px;padding:9px 10px;display:flex;flex-direction:column;justify-content:space-between;">
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;line-height:1.1;color:#1c5436;white-space:nowrap;">{{ sinceShort }}</div>
+                  <div style="font-size:8.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#3f6b4e;line-height:1.25;white-space:nowrap;">Since last</div>
+                </div>
+                <div style="height:58px;box-sizing:border-box;flex-shrink:0;background:#e3f2e6;border:1.5px solid #9ccaa9;border-radius:16px;padding:9px 10px;display:flex;flex-direction:column;justify-content:space-between;">
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;line-height:1.1;color:#1c5436;white-space:nowrap;">{{ firstDay }}</div>
+                  <div style="font-size:8.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#3f6b4e;line-height:1.25;white-space:nowrap;">First recorded</div>
+                </div>
+                <div style="height:58px;box-sizing:border-box;flex-shrink:0;background:#e3f2e6;border:1.5px solid #9ccaa9;border-radius:16px;padding:9px 10px;display:flex;flex-direction:column;justify-content:space-between;">
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;line-height:1.1;color:#1c5436;white-space:nowrap;">{{ historyVal }}</div>
+                  <div style="font-size:8.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#3f6b4e;line-height:1.25;white-space:nowrap;">History</div>
+                </div>
+                <div style="flex:1;min-height:0;background:#fffdf8;border:1.5px solid #7a8a5e;border-radius:16px;padding:10px 9px 10px 10px;display:flex;flex-direction:column;gap:8px;overflow:hidden;">
+                  <div style="font-size:8.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#6f6658;line-height:1.25;">Last Year</div>
+                  <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:space-between;">
+                    <sc-for list="{{ months12 }}" as="mo" hint-placeholder-count="12">
+                      <div style="display:flex;align-items:center;gap:5px;height:15px;">
+                        <span style="width:24px;flex-shrink:0;font-size:9.5px;font-weight:800;color:{{ mo.labelInk }};">{{ mo.label }}</span>
+                        <span style="flex:1;min-width:0;height:8px;border-radius:999px;background:#efe4cd;position:relative;overflow:hidden;display:block;">
+                          <span style="position:absolute;left:0;top:0;bottom:0;width:{{ mo.pct }}%;border-radius:999px;background:#7a8a5e;display:block;"></span>
+                        </span>
+                        <span style="width:9px;flex-shrink:0;text-align:right;font-size:9.5px;font-weight:800;color:{{ mo.countInk }};">{{ mo.count }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <sc-if value="{{ toast2Open }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;left:10px;right:10px;bottom:12px;z-index:4;display:flex;align-items:center;gap:12px;background:var(--text);color:var(--ground);padding:11px 13px;border-radius:12px;box-shadow:0 12px 32px rgba(46,43,37,.22);font-size:12.5px;font-weight:600;animation:toastUp .22s cubic-bezier(.34,1.28,.64,1) both;">
+                <span style="flex:1;min-width:0;">{{ toast2Text }}</span>
+              </div>
+            </sc-if>
+          </div>
+
+        </div>
+        <sc-if value="{{ sheet3Open }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ closeSheet3 }}" style="position:absolute;inset:0;z-index:30;background:rgba(28,25,20,.52);display:flex;align-items:center;justify-content:center;padding:22px;box-sizing:border-box;">
+                <div onClick="{{ stop }}" style="width:100%;background:#f2e6d2;border-radius:22px;padding:16px 14px;box-shadow:0 18px 50px rgba(28,25,20,.42);animation:panelDown .2s cubic-bezier(.16,.84,.44,1) both;">
+                  <div style="text-align:center;margin-bottom:10px;">
+                    <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:#6f6658;">{{ sheetTitle }}</div>
+                    <div style="font-family:'Caprasimo',Georgia,serif;font-size:19px;line-height:1.15;color:#201e1d;margin-top:3px;">{{ sheetDateLabel }}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <button onClick="{{ calPrev }}" style="border:none;background:#fffdf8;color:#474238;width:30px;height:30px;border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(46,43,37,.14);flex-shrink:0;padding:0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button>
+                    <div style="flex:1;text-align:center;font-size:13px;font-weight:800;color:#474238;">{{ calTitle }}</div>
+                    <button onClick="{{ calNext }}" style="border:none;background:#fffdf8;color:#474238;width:30px;height:30px;border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(46,43,37,.14);flex-shrink:0;padding:0;opacity:{{ calNextOpacity }};"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px;">
+                    <div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">S</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">M</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">T</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">W</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">T</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">F</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">S</div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">
+                    <sc-for list="{{ calCells }}" as="c" hint-placeholder-count="35">
+                      <button onClick="{{ c.pick }}" style="height:34px;border:none;border-radius:12px;padding:0;font-family:'Figtree',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:{{ c.fs }};font-weight:{{ c.fw }};color:{{ c.ink }};background:{{ c.bg }};box-shadow:{{ c.shadow }};opacity:{{ c.opacity }};cursor:{{ c.cursor }};">
+                        <span style="line-height:1.1;">{{ c.num }}</span>
+                        <span style="width:4px;height:4px;border-radius:999px;background:{{ c.dotBg }};display:block;"></span>
+                      </button>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex;gap:6px;margin-top:12px;">
+                    <sc-if value="{{ sheetEdit }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ askDelete3 }}" style="flex:1;min-height:40px;border:1.5px solid #a32e22;background:#f6d6d0;color:#a32e22;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;white-space:nowrap;padding:0 8px;">Delete</button>
+                    </sc-if>
+                    <button onClick="{{ closeSheet3 }}" style="flex:1;min-height:40px;border:1.5px solid #c9bda6;background:#fffdf8;color:#201e1d;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;white-space:nowrap;padding:0 8px;">Cancel</button>
+                    <button onClick="{{ saveSheet3 }}" style="flex:1;min-height:40px;border:none;background:#0f4438;color:#f2f0d8;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;white-space:nowrap;padding:0 8px;">{{ saveLabel }}</button>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ confirm3 }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ cancelDelete3 }}" style="position:absolute;inset:0;z-index:31;background:rgba(28,25,20,.4);display:flex;align-items:center;justify-content:center;padding:22px;box-sizing:border-box;">
+                <div onClick="{{ stop }}" style="width:100%;background:#fffdf8;border-radius:22px;padding:16px 14px 13px;box-shadow:0 18px 50px rgba(28,25,20,.42);">
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-size:18px;line-height:1.2;color:#201e1d;">Delete this leaf log?</div>
+                  <div style="font-size:12.5px;font-weight:600;color:var(--muted);margin-top:4px;">{{ confirmDateLabel }}</div>
+                  <div style="display:flex;gap:6px;margin-top:14px;">
+                    <button onClick="{{ cancelDelete3 }}" style="flex:1;min-height:40px;border:none;background:#e9dcc3;color:#201e1d;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;white-space:nowrap;padding:0 8px;">Cancel</button>
+                    <button onClick="{{ confirmDelete3 }}" style="flex:1;min-height:40px;border:none;background:#a32e22;color:#fff;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;white-space:nowrap;padding:0 8px;">Delete</button>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+      </div>
+          </div>
+
+    <div id="3b" style="display:flex;flex-direction:column;gap:9px;">
+      <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+        <span style="font-family:'Caprasimo',Georgia,serif;font-size:14px;background:var(--text);color:var(--ground);padding:2px 11px;border-radius:999px;">3b</span>
+        <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;color:var(--text);">Where the switch lives</span>
+        <div style="display:flex;gap:4px;background:var(--border);border-radius:16px;padding:4px;margin-left:4px;">
+          <button onClick="{{ setPlaceHealth }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:12.5px;font-weight:800;padding:6px 13px;border-radius:12px;background:{{ tabHealthBg }};color:{{ tabHealthInk }};">Health card</button>
+          <button onClick="{{ setPlaceActions }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:12.5px;font-weight:800;padding:6px 13px;border-radius:12px;background:{{ tabActBg }};color:{{ tabActInk }};">Action row</button>
+        </div>
+      </div>
+      <div style="width:390px;height:800px;box-sizing:border-box;border:9px solid #2e2b25;border-radius:44px;overflow:hidden;box-shadow:0 22px 54px rgba(46,43,37,.22);background:var(--ground);display:flex;flex-direction:column;">
+        <div style="background:var(--primary);color:var(--ink);padding:12px 16px 13px;flex-shrink:0;display:flex;align-items:center;gap:12px;">
+          <button style="border:none;width:36px;height:36px;border-radius:999px;background:rgba(242,240,216,.16);color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+          <div style="font-family:'Caprasimo',Georgia,serif;font-size:21px;line-height:1;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Edit Monstera Deliciosa</div>
+          <button style="border:none;background:#a3450a;color:#fff;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 20px;border-radius:999px;cursor:pointer;flex-shrink:0;">Save</button>
+        </div>
+        <div style="flex:1;min-height:0;overflow:hidden;padding:9px 14px 16px;display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;gap:7px;">
+            <div style="flex:1;min-width:0;background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:9px 14px 10px;display:flex;flex-direction:column;justify-content:center;gap:3px;">
+              <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">Name</div>
+              <div style="font-family:'Caprasimo',Georgia,serif;font-size:20px;line-height:1.55;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Monstera Deliciosa</div>
+              <span style="display:block;height:2px;border-radius:999px;background:#17627f;"></span>
+            </div>
+            <div style="width:136px;flex-shrink:0;box-sizing:border-box;background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:9px 12px 10px;display:flex;flex-direction:column;justify-content:center;gap:3px;">
+              <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">Got</div>
+              <div style="font-size:13px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M8 3v4M16 3v4M3 11h18"></path></svg>Oct 29, 2023</div>
+              <div style="font-size:10px;font-weight:700;color:#8a7f6d;">2.9y ago</div>
+            </div>
+          </div>
+          <div style="background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:9px 0 10px;">
+            <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);padding:0 14px;margin-bottom:5px;">Room</div>
+            <div class="no-scrollbar" style="display:flex;gap:6px;overflow-x:auto;padding:6px 14px 7px;scrollbar-width:none;">
+              <span style="flex-shrink:0;background:#fc8181;color:#1e1410;font-size:12px;font-weight:800;padding:6px 15px;border-radius:999px;box-shadow:0 0 0 2px #fffdf8, 0 0 0 4px #8b4747;">Sun Room</span>
+              <span style="flex-shrink:0;background:#dd6b20;color:#fff;font-size:12px;font-weight:800;padding:6px 15px;border-radius:999px;">Living Room</span>
+              <span style="flex-shrink:0;background:#d69e2e;color:#1e1410;font-size:12px;font-weight:800;padding:6px 15px;border-radius:999px;">Studio</span>
+              <span style="flex-shrink:0;background:#68d391;color:#1e1410;font-size:12px;font-weight:800;padding:6px 15px;border-radius:999px;">Office</span>
+              <span style="flex-shrink:0;background:#319795;color:#fff;font-size:12px;font-weight:800;padding:6px 15px;border-radius:999px;">Bathroom</span>
+              <span style="flex-shrink:0;background:#2b6cb0;color:#fff;font-size:12px;font-weight:800;padding:6px 15px;border-radius:999px;">Kitchen</span>
+              <span style="flex-shrink:0;background:#6b46c1;color:#fff;font-size:12px;font-weight:800;padding:6px 15px;border-radius:999px;">Bedroom</span>
+            </div>
+          </div>
+          <div style="background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:9px 14px 10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;min-height:19px;">
+              <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">Health</div>
+              <sc-if value="{{ placeHealth }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ toggleLeaf }}" style="border:none;background:none;padding:0;cursor:pointer;display:flex;align-items:center;gap:7px;font-family:'Figtree',sans-serif;font-size:11px;font-weight:800;color:#1c5436;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg>Leaf Log
+                  <span style="width:34px;height:19px;box-sizing:border-box;border-radius:999px;background:{{ miniTrack }};display:flex;align-items:center;justify-content:{{ miniJustify }};padding:2px;transition:background .15s;"><span style="width:15px;height:15px;border-radius:50%;background:#fff;display:block;"></span></span>
+                </button>
+              </sc-if>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+              <div style="background:#ffd7d2;color:#97281d;border-radius:12px;padding:9px 2px;text-align:center;font-size:11px;font-weight:800;">Dying</div>
+              <div style="background:#ffe6c0;color:#8a4c06;border-radius:12px;padding:9px 2px;text-align:center;font-size:11px;font-weight:800;">Caution</div>
+              <div style="background:#e4f7c8;color:#3f6b16;border-radius:12px;padding:9px 2px;text-align:center;font-size:11px;font-weight:800;">Good</div>
+              <div style="background:#c8f2d9;color:#0a5c34;border-radius:12px;padding:9px 2px;text-align:center;font-size:11px;font-weight:800;box-shadow:0 0 0 2px #fffdf8, 0 0 0 4px #085630;">Thriving</div>
+            </div>
+          </div>
+          <div style="background:#e6f2f8;border-radius:16px;padding:9px 14px 11px;color:#12556e;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-family:'Caprasimo',Georgia,serif;font-size:15px;">Water</span>
+              <span style="background:#17627f;color:#fff;font-size:11px;font-weight:800;padding:4px 11px;border-radius:999px;">last 19d ago</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;font-size:13px;font-weight:700;">
+              <span style="display:inline-flex;align-items:center;gap:7px;">Water every<span style="width:17px;height:17px;border-radius:999px;background:#17627f;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2.5px #e6f2f8, 0 0 0 4.5px #17627f;">?</span></span>
+              <div style="display:flex;align-items:center;gap:11px;">
+                <span style="width:30px;height:30px;border-radius:999px;background:#fffdf8;color:#17627f;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;">&minus;</span>
+                <span style="font-family:'Caprasimo',Georgia,serif;font-size:22px;min-width:62px;text-align:center;">30d</span>
+                <span style="width:30px;height:30px;border-radius:999px;background:#17627f;color:#fff;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;">+</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;">
+              <span>Last watered</span>
+              <span style="background:#fffdf8;font-size:12px;font-weight:800;padding:7px 14px;border-radius:999px;display:flex;align-items:center;gap:7px;">Sep 2<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M8 3v4M16 3v4M3 11h18"></path></svg></span>
+            </div>
+          </div>
+          <div style="background:#f7d9c2;border-radius:16px;padding:9px 14px 11px;color:#8c3f07;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-family:'Caprasimo',Georgia,serif;font-size:15px;">Pot</span>
+              <span style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;">Original pot<span style="width:34px;height:19px;box-sizing:border-box;border-radius:999px;background:#c9bda6;display:flex;align-items:center;padding:2px;"><span style="width:15px;height:15px;border-radius:50%;background:#fff;display:block;"></span></span></span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;font-size:13px;font-weight:700;">
+              <span>Size</span>
+              <div style="display:flex;align-items:center;gap:11px;"><span style="width:30px;height:30px;border-radius:999px;background:#fffdf8;color:#a3450a;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;">&minus;</span><span style="font-family:'Caprasimo',Georgia,serif;font-size:22px;min-width:62px;text-align:center;">11.5"</span><span style="width:30px;height:30px;border-radius:999px;background:#a3450a;color:#fff;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;">+</span></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;font-size:13px;font-weight:700;">
+              <span>Next size</span>
+              <div style="display:flex;align-items:center;gap:11px;"><span style="width:30px;height:30px;border-radius:999px;background:#fffdf8;color:#a3450a;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;">&minus;</span><span style="font-family:'Caprasimo',Georgia,serif;font-size:22px;min-width:62px;text-align:center;">13"</span><span style="width:30px;height:30px;border-radius:999px;background:#a3450a;color:#fff;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;">+</span></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;font-size:13px;font-weight:700;">
+              <span>Repot every</span>
+              <div style="display:flex;align-items:center;gap:11px;"><span style="width:30px;height:30px;border-radius:999px;background:#fffdf8;color:#a3450a;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;">&minus;</span><span style="font-family:'Caprasimo',Georgia,serif;font-size:22px;min-width:62px;text-align:center;">3y</span><span style="width:30px;height:30px;border-radius:999px;background:#a3450a;color:#fff;font-size:19px;font-weight:800;display:flex;align-items:center;justify-content:center;">+</span></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;">
+              <span>Last potted</span>
+              <span style="background:#fffdf8;font-size:12px;font-weight:800;padding:7px 14px;border-radius:999px;display:flex;align-items:center;gap:7px;">Jul 31, 2024<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M8 3v4M16 3v4M3 11h18"></path></svg></span>
+            </div>
+          </div>
+          <div style="background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:9px 14px 10px;display:flex;align-items:center;gap:12px;">
+            <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);flex-shrink:0;">Notes</div>
+            <div style="flex:1;border:1.5px dashed #c9bda6;border-radius:12px;padding:7px 12px;font-size:13px;font-weight:600;color:var(--muted);">+ Add a note&hellip;</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <sc-if value="{{ placeActions }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1.25;position:relative;display:flex;">
+                <div onClick="{{ toggleTip3 }}" style="flex:1;min-height:44px;background:#e3f2e6;color:#1c5436;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 10px;white-space:nowrap;user-select:none;">
+                  Leaf Log
+                  <span onClick="{{ toggleLeafStop }}" style="width:34px;height:19px;box-sizing:border-box;border-radius:999px;background:{{ miniTrack }};display:flex;align-items:center;justify-content:{{ miniJustify }};padding:2px;transition:background .15s;"><span style="width:15px;height:15px;border-radius:50%;background:#fff;display:block;"></span></span>
+                </div>
+                <sc-if value="{{ tip3 }}" hint-placeholder-val="{{ false }}">
+                  <div onClick="{{ toggleTip3 }}" style="position:absolute;left:0;bottom:calc(100% + 9px);width:214px;z-index:6;background:#201e1d;color:#f5ead8;border-radius:14px;padding:10px 12px;box-shadow:0 12px 32px rgba(46,43,37,.28);display:flex;align-items:flex-start;gap:9px;font-size:12.5px;font-weight:600;line-height:1.45;white-space:normal;animation:toastUp .2s cubic-bezier(.34,1.28,.64,1) both;">
+                    <span style="color:#8fd6ac;margin-top:2px;display:flex;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg></span>
+                    <span>Record new leaves. Best for climbing and upright plants.</span>
+                    <span style="position:absolute;left:28px;bottom:-5px;width:10px;height:10px;background:#201e1d;transform:rotate(45deg);border-radius:2px;display:block;"></span>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+            <button style="flex:1;min-height:44px;border:none;background:#e9dcc3;color:var(--text);font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg>Clone</button>
+            <button style="flex:1;min-height:44px;border:none;background:#f6d6d0;color:#a32e22;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14"></path></svg>Delete</button>
+          </div>
+        </div>
+      </div>
+      <p style="margin:0;max-width:390px;font-size:12.5px;font-weight:600;color:var(--muted);line-height:1.5;text-wrap:pretty;"><strong style="color:#4a453c;">Action row</strong> (chosen): sits with the other plant-level actions and costs no height. <strong style="color:#4a453c;">Health card</strong>: kept for comparison. Either switch drives <a href="#3a">3a</a>.</p>
+    </div>
+
+  </div>
+</section>
+
+<section style="--ground:#f5ead8;--surface:#fffdf8;--text:#201e1d;--muted:#6f6658;--border:#e6dbc7;--strong:#c9bda6;--primary:#0f4438;--ink:#f2f0d8;padding:40px 40px 10px;display:flex;flex-direction:column;gap:22px;font-family:'Figtree',sans-serif;">
+  <div style="display:flex;flex-direction:column;gap:12px;max-width:760px;">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;">
+      <h1 style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:34px;line-height:1.1;margin:0;color:var(--text);">Leaf Log</h1>
+      <span style="font-size:13px;font-weight:700;color:var(--muted);">Turn 2 &middot; <a href="#1a">1a</a> refined</span>
+    </div>
+    <p style="margin:0;font-size:14.5px;line-height:1.55;color:#4a453c;max-width:640px;text-wrap:pretty;">Record button at the top, stats stacked down the left, and the days between leaves sit on the rail itself. Tap the date to open the app's calendar. A per-plant switch in Edit Plant turns the feature on; a leaf badge on the plant card marks plants with at least one leaf recorded.</p>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">How much data</span>
+      <div style="display:flex;gap:4px;background:var(--border);border-radius:16px;padding:4px;">
+        <button onClick="{{ setNew }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 16px;border-radius:12px;background:{{ tabNewBg }};color:{{ tabNewInk }};">3 leaves</button>
+        <button onClick="{{ setYear }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 16px;border-radius:12px;background:{{ tabYearBg }};color:{{ tabYearInk }};">1 year</button>
+        <button onClick="{{ setMature }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 16px;border-radius:12px;background:{{ tabMatureBg }};color:{{ tabMatureInk }};">3 years</button>
+      </div>
+    </div>
+  </div>
+  <div id="2a" style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;">
+    <div style="display:flex;flex-direction:column;gap:9px;">
+      <div style="display:flex;align-items:center;gap:9px;">
+        <span style="font-family:'Caprasimo',Georgia,serif;font-size:14px;background:var(--text);color:var(--ground);padding:2px 11px;border-radius:999px;">2a</span>
+        <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;color:var(--text);">Leaf Log card</span>
+      </div>
+      <div style="width:390px;background:var(--ground);border-radius:30px;box-shadow:0 12px 32px rgba(46,43,37,.22);overflow:hidden;display:flex;flex-direction:column;position:relative;">
+        <div style="background:var(--primary);color:var(--ink);padding:14px 16px 15px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+          <div>
+            <div style="font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#a8d8bd;">Monstera</div>
+            <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:24px;line-height:1.1;margin-top:1px;">Leaf Log</div>
+          </div>
+          <button style="border:none;cursor:pointer;width:30px;height:30px;border-radius:999px;background:rgba(240,233,220,.16);color:var(--ink);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+        </div>
+        <div style="padding:12px;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="flex:1;min-width:0;background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:7px 8px;display:flex;align-items:center;gap:8px;">
+              <button onClick="{{ dec2 }}" style="border:none;cursor:pointer;width:30px;height:30px;border-radius:999px;background:#e3f2e6;color:#1c5436;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button>
+              <div style="flex:1;min-width:0;text-align:center;">
+                <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:20px;line-height:1.15;color:var(--text);">{{ date2Label }}</div>
+                <div style="font-size:11px;font-weight:700;color:var(--muted);">{{ date2Rel }}</div>
+              </div>
+              <button onClick="{{ inc2 }}" style="border:none;cursor:pointer;width:30px;height:30px;border-radius:999px;background:#e3f2e6;color:#1c5436;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:{{ fwd2Opacity }};"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+              <button onClick="{{ openCal2 }}" title="Pick a date" style="flex-shrink:0;width:30px;height:30px;border-radius:999px;background:#e3f2e6;color:#1c5436;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M8 3v4M16 3v4M3 11h18"></path></svg></button>
+            </div>
+            <button onClick="{{ add2 }}" title="Record a leaf on this date" style="flex-shrink:0;width:48px;height:48px;border-radius:999px;background:#0f4438;color:#f2f0d8;border:none;cursor:pointer;box-shadow:0 1px 2px rgba(46,43,37,.14);display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-start;">
+            <div style="width:116px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;">
+              <div style="background:#e3f2e6;color:#1c5436;border:1.5px solid #b9dcc3;border-radius:16px;padding:10px 12px 11px;">
+                <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:26px;line-height:1;">{{ count }}</div>
+                <div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:5px;color:#3f6b4e;">Leaves</div>
+              </div>
+              <div style="background:#e3f2e6;border:1.5px solid #b9dcc3;border-radius:16px;padding:10px 12px 11px;">
+                <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:21px;line-height:1;color:#1c5436;">{{ avgShort }}</div>
+                <div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:5px;color:#3f6b4e;">Average gap</div>
+              </div>
+              <div style="background:#e3f2e6;border:1.5px solid #b9dcc3;border-radius:16px;padding:10px 12px 11px;">
+                <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:21px;line-height:1;color:#1c5436;">{{ sinceShort }}</div>
+                <div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:5px;color:#3f6b4e;">Since last</div>
+              </div>
+              <div style="background:#e3f2e6;border:1.5px solid #b9dcc3;border-radius:16px;padding:10px 12px 11px;">
+                <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:21px;line-height:1;color:#1c5436;">{{ firstDay }}</div>
+                <div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:4px;color:#3f6b4e;">First recorded</div>
+              </div>
+              <div style="background:#e3f2e6;border:1.5px solid #b9dcc3;border-radius:16px;padding:10px 12px 11px;">
+                <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:21px;line-height:1;color:#1c5436;">{{ historyVal }}</div>
+                <div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:5px;color:#3f6b4e;">History</div>
+              </div>
+            </div>
+            <div style="flex:1;min-width:0;background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:12px 6px 14px 4px;">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:0 8px;">
+                <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:16px;color:var(--text);">Timeline</span>
+              </div>
+              <sc-if value="{{ empty2 }}" hint-placeholder-val="{{ false }}">
+                <p style="margin:10px 8px 0;font-size:12.5px;font-weight:600;line-height:1.5;color:var(--muted);">No leaves yet. Record the first one above.</p>
+              </sc-if>
+              <div class="no-scrollbar" style="max-height:408px;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;margin-top:10px;">
+                <sc-for list="{{ spine2 }}" as="row" hint-placeholder-count="5">
+                  <div style="display:flex;flex-direction:column;">
+                    <sc-if value="{{ row.showHeader }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;align-items:center;gap:8px;height:22px;margin-bottom:4px;padding-left:4px;">
+                        <span style="flex:1;height:1.5px;background:#e6dbc7;display:block;"></span>
+                        <span style="font-size:10px;font-weight:800;letter-spacing:1.1px;color:var(--muted);">{{ row.headerYear }}</span>
+                        <span style="flex:1;height:1.5px;background:#e6dbc7;display:block;"></span>
+                      </div>
+                    </sc-if>
+                    <div style="display:flex;align-items:center;min-height:24px;">
+                      <div style="width:60px;flex-shrink:0;align-self:stretch;position:relative;display:flex;align-items:center;justify-content:center;">
+                        <span style="position:absolute;left:29px;width:2px;top:0;height:50%;background:{{ row.topLineBg }};display:block;"></span>
+                        <span style="position:absolute;left:29px;width:2px;top:50%;bottom:0;background:{{ row.bottomLineBg }};display:block;"></span>
+                        <span style="position:relative;width:11px;height:11px;border-radius:999px;background:{{ row.dotBg }};border:2.5px solid var(--surface);box-shadow:0 0 0 1.5px {{ row.ringColor }};display:block;"></span>
+                      </div>
+                      <span style="font-size:13.5px;font-weight:800;color:var(--text);line-height:1.3;">{{ row.dateLabel }}</span>
+                    </div>
+                    <sc-if value="{{ row.hasGap }}" hint-placeholder-val="{{ true }}">
+                      <div style="height:{{ row.gapPx }}px;position:relative;">
+                        <sc-for list="{{ row.years }}" as="yb" hint-placeholder-count="0">
+                          <div style="position:absolute;left:4px;right:0;top:{{ yb.top }}%;transform:translateY(-50%);z-index:1;display:flex;align-items:center;gap:8px;">
+                            <span style="position:absolute;left:21px;top:50%;width:10px;height:16px;transform:translateY(-50%);background:var(--surface);display:block;"></span>
+                            <span style="position:relative;flex:1;height:1.5px;background:#e6dbc7;display:block;"></span>
+                            <span style="position:relative;font-size:10px;font-weight:800;letter-spacing:1.1px;color:var(--muted);background:var(--surface);">{{ yb.label }}</span>
+                            <span style="position:relative;flex:1;height:1.5px;background:#e6dbc7;display:block;"></span>
+                          </div>
+                        </sc-for>
+                        <span style="position:absolute;left:29px;width:2px;top:0;bottom:0;background:#e6dbc7;display:block;"></span>
+                        <span style="position:absolute;left:30px;top:{{ row.pillTop }}%;transform:translate(-50%,-50%);white-space:nowrap;background:#f2ece0;border:2px solid var(--surface);color:#4a453c;font-size:10px;font-weight:800;line-height:1.3;padding:1px 7px;border-radius:999px;">{{ row.gapLabel }}</span>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <sc-if value="{{ showGraph }}" hint-placeholder-val="{{ true }}">
+            <div style="background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:12px 14px 13px;">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
+                <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:16px;color:var(--text);">By month</span>
+                <span style="font-size:10.5px;font-weight:700;color:var(--muted);">{{ graphRange2 }}</span>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:3px;height:74px;margin-top:12px;">
+                <sc-for list="{{ bars }}" as="bar" hint-placeholder-count="8">
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;height:100%;">
+                    <span style="font-size:9.5px;font-weight:800;color:{{ bar.numInk }};line-height:1;">{{ bar.numLabel }}</span>
+                    <span style="width:100%;background:{{ bar.fill }};border-radius:4px 4px 2px 2px;height:{{ bar.h }}px;display:block;"></span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:3px;margin-top:5px;">
+                <sc-for list="{{ bars }}" as="bar" hint-placeholder-count="8">
+                  <span style="flex:1;min-width:0;text-align:center;font-size:9px;font-weight:800;color:var(--muted);">{{ bar.label }}</span>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+        <sc-if value="{{ toast2Open }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:14px;right:14px;bottom:14px;z-index:4;display:flex;align-items:center;gap:14px;background:var(--text);color:var(--ground);padding:11px 14px;border-radius:12px;box-shadow:0 12px 32px rgba(46,43,37,.22);font-size:13px;font-weight:600;animation:toastUp .22s cubic-bezier(.34,1.28,.64,1) both;">
+            <span style="flex:1;min-width:0;">{{ toast2Text }}</span>
+            <button onClick="{{ undo2 }}" style="background:none;border:none;color:#8fd6ac;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;cursor:pointer;padding:0;flex-shrink:0;">Undo</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ cal2 }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ closeCal2 }}" style="position:absolute;inset:0;z-index:5;background:rgba(28,25,20,.52);display:flex;align-items:flex-start;justify-content:center;padding:92px 22px 22px;">
+            <div onClick="{{ stop }}" style="width:100%;background:#f2e6d2;border-radius:22px;padding:16px 14px 16px;box-shadow:0 18px 50px rgba(28,25,20,.42);">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                <button onClick="{{ calPrev }}" style="border:none;background:#fffdf8;color:#474238;width:30px;height:30px;border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(46,43,37,.14);flex-shrink:0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button>
+                <div style="flex:1;text-align:center;">
+                  <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:#6f6658;">Date of this leaf</div>
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-size:20px;line-height:1.1;color:#201e1d;margin-top:3px;">{{ calTitle }}</div>
+                </div>
+                <button onClick="{{ calNext }}" style="border:none;background:#fffdf8;color:#474238;width:30px;height:30px;border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(46,43,37,.14);flex-shrink:0;opacity:{{ calNextOpacity }};"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px;">
+                <div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">S</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">M</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">T</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">W</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">T</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">F</div><div style="text-align:center;font-size:10px;font-weight:800;color:#8a8071;">S</div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">
+                <sc-for list="{{ calCells }}" as="c" hint-placeholder-count="35">
+                  <button onClick="{{ c.pick }}" style="height:34px;border:none;border-radius:12px;padding:0;font-family:'Figtree',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:{{ c.fs }};font-weight:{{ c.fw }};color:{{ c.ink }};background:{{ c.bg }};box-shadow:{{ c.shadow }};opacity:{{ c.opacity }};cursor:{{ c.cursor }};">
+                    <span style="line-height:1.1;">{{ c.num }}</span>
+                    <span style="width:4px;height:4px;border-radius:999px;background:{{ c.dotBg }};display:block;"></span>
+                  </button>
+                </sc-for>
+              </div>
+              <p style="margin:10px 2px 0;font-size:11px;font-weight:700;color:var(--muted);line-height:1.4;">Dots mark leaves already recorded. Up to a week ahead.</p>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:22px;width:390px;">
+
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        <span style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">Add / Edit Plant &middot; per-plant switch</span>
+        <div style="background:#fffdf8;border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:11px 14px 12px;display:flex;align-items:center;gap:12px;">
+          <div style="width:30px;height:30px;border-radius:999px;background:#e3f2e6;color:#2f7d52;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:15px;line-height:1.2;color:var(--text);">Leaf Log</div>
+            <div style="font-size:11.5px;font-weight:600;color:var(--muted);line-height:1.4;">Track new leaves. Best for climbing and upright plants.</div>
+          </div>
+          <button onClick="{{ toggleLeaf }}" style="position:relative;width:44px;height:26px;flex-shrink:0;border:none;padding:0;border-radius:999px;cursor:pointer;background:{{ trackBg }};transition:background .3s;">
+            <span style="position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fffdf8;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.22);transition:transform .3s;transform:{{ thumbX }};display:block;"></span>
+          </button>
+        </div>
+        <p style="margin:0;font-size:12.5px;font-weight:600;color:var(--muted);line-height:1.5;text-wrap:pretty;">Off by default. Turning it off hides the Leaf Log button and badge but keeps any recorded leaves, so turning it back on restores the history.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        <span style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">View Plant &middot; next to Edit</span>
+        <div style="height:150px;position:relative;border-radius:30px 30px 0 0;overflow:hidden;background:var(--primary);color:var(--ink);display:flex;flex-direction:column;justify-content:flex-end;padding:14px 16px;box-shadow:0 3px 10px rgba(46,43,37,.16);">
+          <div style="position:absolute;top:10px;right:10px;display:flex;gap:6px;">
+            <sc-if value="{{ leafOn }}" hint-placeholder-val="{{ true }}">
+              <button style="border:none;cursor:pointer;background:#2f7d52;color:#f2fbf5;font-family:'Figtree',sans-serif;font-size:11px;font-weight:800;padding:5px 12px 5px 10px;border-radius:999px;display:flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg>Leaf Log</button>
+            </sc-if>
+            <button style="border:none;cursor:pointer;background:rgba(255,255,255,.22);color:#fff;font-family:'Figtree',sans-serif;font-size:11px;font-weight:800;padding:5px 12px;border-radius:999px;">Edit</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:2px;">
+            <span style="width:9px;height:9px;border-radius:50%;background:#c67139;display:block;"></span>
+            <span style="font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#fbd9ad;">Living Room</span>
+          </div>
+          <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:27px;line-height:1.12;">Monstera</div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        <span style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">Plant card &middot; badge after the age</span>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="background:#fffdf8;border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);display:flex;overflow:hidden;">
+            <span style="width:5px;background:#0f9d58;flex-shrink:0;display:block;"></span>
+            <div style="display:flex;align-items:center;gap:9px;padding:7px 10px 7px 9px;flex:1;min-width:0;">
+              <div style="width:42px;height:42px;border-radius:12px;flex-shrink:0;background:#e4f7c8;color:#3f6b16;display:flex;align-items:center;justify-content:center;font-family:'Caprasimo',Georgia,serif;font-size:19px;line-height:1;">M</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:700;color:#201e1d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Monstera</div>
+                <div style="display:flex;align-items:center;gap:5px;margin-top:1px;">
+                  <span style="font-size:11px;color:#6f6658;font-weight:600;">2.3y</span>
+                  <sc-if value="{{ hasLeaves }}" hint-placeholder-val="{{ true }}">
+                    <span title="{{ leafWord }}" style="width:16px;height:16px;border-radius:999px;background:#e3f2e6;color:#2f7d52;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg></span>
+                  </sc-if>
+                </div>
+              </div>
+              <div style="display:flex;gap:11px;flex-shrink:0;">
+                <div style="width:33px;text-align:center;"><div style="font-size:8px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#6f6658;">Every</div><div style="font-size:14px;font-weight:800;color:#3d472b;margin-top:1px;">7d</div></div>
+                <div style="width:33px;text-align:center;"><div style="font-size:8px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#6f6658;">Next</div><div style="font-size:14px;font-weight:800;color:#1a6b8f;margin-top:1px;">3d</div></div>
+                <div style="width:33px;text-align:center;"><div style="font-size:8px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#6f6658;">Pot</div><div style="font-size:14px;font-weight:800;color:#645c50;margin-top:1px;">1.4y</div></div>
+              </div>
+            </div>
+          </div>
+          <div style="background:#fffdf8;border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);display:flex;overflow:hidden;">
+            <span style="width:5px;background:#0f9d58;flex-shrink:0;display:block;"></span>
+            <div style="display:flex;align-items:center;gap:9px;padding:7px 10px 7px 9px;flex:1;min-width:0;">
+              <div style="width:42px;height:42px;border-radius:12px;flex-shrink:0;background:#e4f7c8;color:#3f6b16;display:flex;align-items:center;justify-content:center;font-family:'Caprasimo',Georgia,serif;font-size:19px;line-height:1;">P</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:700;color:#201e1d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Golden Pothos</div>
+                <div style="font-size:11px;color:#6f6658;margin-top:1px;font-weight:600;">1.1y</div>
+              </div>
+              <div style="display:flex;gap:11px;flex-shrink:0;">
+                <div style="width:33px;text-align:center;"><div style="font-size:8px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#6f6658;">Every</div><div style="font-size:14px;font-weight:800;color:#3d472b;margin-top:1px;">5d</div></div>
+                <div style="width:33px;text-align:center;"><div style="font-size:8px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#6f6658;">Next</div><div style="font-size:14px;font-weight:800;color:#1a6b8f;margin-top:1px;">1d</div></div>
+                <div style="width:33px;text-align:center;"><div style="font-size:8px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#6f6658;">Pot</div><div style="font-size:14px;font-weight:800;color:#645c50;margin-top:1px;">0.6y</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p style="margin:0;font-size:12.5px;font-weight:600;color:var(--muted);line-height:1.5;text-wrap:pretty;">Monstera has leaves recorded, so it carries the badge. Golden Pothos has Leaf Log on but nothing recorded yet, so it shows none.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section style="--ground:#f5ead8;--surface:#fffdf8;--text:#201e1d;--muted:#6f6658;--border:#e6dbc7;--strong:#c9bda6;--primary:#0f4438;--ink:#f2f0d8;--accent:#a3450a;--sand:#efe4cd;padding:40px;display:flex;flex-direction:column;gap:26px;font-family:'Figtree',sans-serif;">
+
+  <div style="display:flex;flex-direction:column;gap:14px;max-width:760px;">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;">
+      <h1 style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:34px;line-height:1.1;margin:0;color:var(--text);">Leaf Log</h1>
+      <span style="font-size:13px;font-weight:700;color:var(--muted);">Turn 1 &middot; three directions</span>
+    </div>
+    <p style="margin:0;font-size:14.5px;line-height:1.55;color:#4a453c;max-width:640px;text-wrap:pretty;">Same log, three treatments. They differ on the timeline's density, how you record a leaf, and how the dashboard is arranged. The chart and the entry point are deliberately identical in all three so the comparison stays on those three things.</p>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">How much data</span>
+      <div style="display:flex;gap:4px;background:var(--border);border-radius:16px;padding:4px;">
+        <button onClick="{{ setNew }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 16px;border-radius:12px;background:{{ tabNewBg }};color:{{ tabNewInk }};">3 leaves</button>
+        <button onClick="{{ setYear }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 16px;border-radius:12px;background:{{ tabYearBg }};color:{{ tabYearInk }};">1 year</button>
+        <button onClick="{{ setMature }}" style="border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;padding:8px 16px;border-radius:12px;background:{{ tabMatureBg }};color:{{ tabMatureInk }};">3 years</button>
+      </div>
+      <span style="font-size:12.5px;font-weight:600;color:var(--muted);">Recording in any card updates all three.</span>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    <h2 style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;margin:0;color:var(--text);">Shared in all three</h2>
+    <div style="display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;">
+
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        <span style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">Entry point, next to Edit</span>
+        <div style="width:390px;height:150px;position:relative;border-radius:30px 30px 0 0;overflow:hidden;background:var(--primary);color:var(--ink);display:flex;flex-direction:column;justify-content:flex-end;padding:14px 16px;box-shadow:0 6px 18px rgba(46,43,37,.16);">
+          <div style="position:absolute;top:10px;right:10px;display:flex;gap:6px;">
+            <button style="border:none;cursor:pointer;background:#2f7d52;color:#f2fbf5;font-family:'Figtree',sans-serif;font-size:11px;font-weight:800;padding:5px 12px;border-radius:999px;display:flex;align-items:center;gap:6px;">
+              <span style="width:6px;height:6px;border-radius:999px;background:#c8f2d9;display:block;"></span>Leaf Log</button>
+            <button style="border:none;cursor:pointer;background:rgba(255,255,255,.22);color:#fff;font-family:'Figtree',sans-serif;font-size:11px;font-weight:800;padding:5px 12px;border-radius:999px;">Edit</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:2px;">
+            <span style="width:9px;height:9px;border-radius:50%;background:#c67139;display:block;"></span>
+            <span style="font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#fbd9ad;">Living Room</span>
+          </div>
+          <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:27px;line-height:1.12;">Monstera</div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        <span style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">Count on the plant card</span>
+        <div style="width:390px;background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);display:flex;overflow:hidden;">
+          <div style="width:5px;flex-shrink:0;background:#2f7d52;"></div>
+          <div style="flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:7px 10px 7px 9px;">
+            <div style="width:42px;height:42px;border-radius:12px;flex-shrink:0;background:#e3f2e6;display:flex;align-items:center;justify-content:center;font-family:'Caprasimo',Georgia,serif;font-size:19px;line-height:1;color:#1c5436;">M</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:16px;line-height:1.15;color:var(--text);">Monstera</div>
+              <div style="font-size:11.5px;font-weight:700;color:var(--muted);line-height:1.4;">Living Room</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;background:#e3f2e6;padding:4px 10px;border-radius:999px;flex-shrink:0;">
+              <span style="width:6px;height:6px;border-radius:999px;background:#2f7d52;display:block;"></span>
+              <span style="font-size:11px;font-weight:800;color:#1c5436;">{{ count }} leaves</span>
+            </div>
+          </div>
+        </div>
+        <p style="margin:0;font-size:12.5px;font-weight:600;color:var(--muted);max-width:390px;line-height:1.5;">Only shows once a plant has a leaf recorded, so untracked plants look untouched.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;">
+
+    <div id="1a" style="display:flex;flex-direction:column;gap:9px;">
+      <div style="display:flex;align-items:center;gap:9px;">
+        <span style="font-family:'Caprasimo',Georgia,serif;font-size:14px;background:var(--text);color:var(--ground);padding:2px 11px;border-radius:999px;">1a</span>
+        <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;color:var(--text);">Spine</span>
+      </div>
+      <p style="margin:0;max-width:390px;font-size:13px;font-weight:600;line-height:1.5;color:#4a453c;">Distance is time: a four-month gap is four months of empty rail. Stats read as one row. Recording opens a panel in place.</p>
+
+      <div style="width:390px;background:var(--ground);border-radius:30px;box-shadow:0 22px 54px rgba(46,43,37,.22);overflow:hidden;display:flex;flex-direction:column;">
+        <div style="background:var(--primary);color:var(--ink);padding:14px 16px 15px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+          <div>
+            <div style="font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#a8d8bd;">Monstera</div>
+            <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:24px;line-height:1.1;margin-top:1px;">Leaf Log</div>
+          </div>
+          <button style="border:none;cursor:pointer;width:30px;height:30px;border-radius:999px;background:rgba(240,233,220,.16);color:var(--ink);font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">&times;</button>
+        </div>
+
+        <div style="padding:12px;display:flex;flex-direction:column;gap:10px;">
+
+          <div style="background:#e3f2e6;border-radius:16px;padding:11px 14px 12px;">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+              <div>
+                <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:23px;line-height:1;color:#1c5436;">{{ count }}</div>
+                <div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#3f6b4e;margin-top:4px;">Leaves</div>
+              </div>
+              <div>
+                <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:23px;line-height:1;color:#1c5436;">{{ avgShort }}</div>
+                <div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#3f6b4e;margin-top:4px;">Average gap</div>
+              </div>
+              <div>
+                <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:23px;line-height:1;color:#1c5436;">{{ sinceShort }}</div>
+                <div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#3f6b4e;margin-top:4px;">Since last</div>
+              </div>
+            </div>
+            <div style="margin-top:10px;padding-top:9px;border-top:1px solid rgba(28,84,54,.16);display:flex;justify-content:space-between;gap:10px;font-size:11.5px;font-weight:700;color:#3f6b4e;">
+              <span>First {{ firstLabel }}</span>
+              <span>Last {{ lastLabel }}</span>
+            </div>
+          </div>
+
+          <sc-if value="{{ open1a }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:11px 14px 13px;animation:panelDown .2s cubic-bezier(.16,.84,.44,1) both;">
+              <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">Date of this leaf</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:11px;margin-top:6px;">
+                <button onClick="{{ dec1a }}" style="border:none;cursor:pointer;width:34px;height:34px;border-radius:999px;background:#e3f2e6;color:#1c5436;font-size:19px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;">&lsaquo;</button>
+                <div style="text-align:center;min-width:0;flex:1;">
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:20px;line-height:1.15;color:var(--text);">{{ date1aLabel }}</div>
+                  <div style="font-size:11px;font-weight:700;color:var(--muted);">{{ date1aRel }}</div>
+                </div>
+                <button onClick="{{ inc1a }}" style="border:none;cursor:pointer;width:34px;height:34px;border-radius:999px;background:#e3f2e6;color:#1c5436;font-size:19px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:{{ fwd1aOpacity }};">&rsaquo;</button>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:12px;">
+                <button onClick="{{ close1a }}" style="flex:none;padding:11px 18px;border-radius:12px;border:1.5px solid var(--strong);background:var(--surface);color:#474238;font-family:'Figtree',sans-serif;font-size:13.5px;font-weight:800;cursor:pointer;">Cancel</button>
+                <button onClick="{{ save1a }}" style="flex:1;padding:11px 0;border-radius:12px;border:none;background:#2f7d52;color:#f2fbf5;font-family:'Figtree',sans-serif;font-size:13.5px;font-weight:800;cursor:pointer;">Record leaf</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ closed1a }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ open1aFn }}" style="width:100%;border:none;cursor:pointer;background:#2f7d52;color:#f2fbf5;font-family:'Figtree',sans-serif;font-size:14px;font-weight:800;padding:12px 0;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:8px;">
+              <span style="font-size:17px;line-height:1;">+</span>Record a new leaf</button>
+          </sc-if>
+
+          <div style="background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:12px 14px 14px;">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
+              <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:16px;color:var(--text);">Timeline</span>
+              <span style="font-size:10.5px;font-weight:700;color:var(--muted);">newest first &middot; to scale</span>
+            </div>
+            <div style="max-height:340px;overflow-y:auto;margin-top:10px;">
+              <sc-for list="{{ spine }}" as="row" hint-placeholder-count="4">
+                <div style="display:flex;gap:11px;align-items:stretch;">
+                  <div style="width:11px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;">
+                    <span style="width:11px;height:11px;border-radius:999px;background:{{ row.dotBg }};border:2.5px solid var(--surface);box-shadow:0 0 0 1.5px {{ row.ringColor }};flex-shrink:0;display:block;"></span>
+                    <span style="flex:1;width:2px;background:var(--border);min-height:{{ row.gapPx }}px;display:block;"></span>
+                  </div>
+                  <div style="flex:1;min-width:0;padding-bottom:{{ row.gapPx }}px;">
+                    <div style="font-size:13.5px;font-weight:800;color:var(--text);line-height:1.3;">{{ row.dateLabel }}</div>
+                    <div style="font-size:11px;font-weight:700;color:var(--muted);line-height:1.4;">{{ row.gapLabel }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <sc-if value="{{ showGraph }}" hint-placeholder-val="{{ true }}">
+            <div style="background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:12px 14px 13px;">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
+                <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:16px;color:var(--text);">By month</span>
+                <span style="font-size:10.5px;font-weight:700;color:var(--muted);">{{ graphRange }}</span>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:3px;height:74px;margin-top:12px;">
+                <sc-for list="{{ bars }}" as="bar" hint-placeholder-count="8">
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;height:100%;">
+                    <span style="font-size:9.5px;font-weight:800;color:{{ bar.numInk }};line-height:1;">{{ bar.numLabel }}</span>
+                    <span style="width:100%;background:{{ bar.fill }};border-radius:4px 4px 2px 2px;height:{{ bar.h }}px;display:block;"></span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:3px;margin-top:5px;">
+                <sc-for list="{{ bars }}" as="bar" hint-placeholder-count="8">
+                  <span style="flex:1;min-width:0;text-align:center;font-size:9px;font-weight:800;color:var(--muted);">{{ bar.label }}</span>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+    </div>
+
+    <div id="1b" style="display:flex;flex-direction:column;gap:9px;">
+      <div style="display:flex;align-items:center;gap:9px;">
+        <span style="font-family:'Caprasimo',Georgia,serif;font-size:14px;background:var(--text);color:var(--ground);padding:2px 11px;border-radius:999px;">1b</span>
+        <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;color:var(--text);">Ledger</span>
+      </div>
+      <p style="margin:0;max-width:390px;font-size:13px;font-weight:600;line-height:1.5;color:#4a453c;">Every leaf gets one equal row, so a long history stays scannable. Stats sit in a 2&times;2 block. One tap records today, with undo.</p>
+
+      <div style="width:390px;background:var(--ground);border-radius:30px;box-shadow:0 22px 54px rgba(46,43,37,.22);overflow:hidden;display:flex;flex-direction:column;position:relative;">
+        <div style="background:var(--primary);color:var(--ink);padding:14px 16px 15px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+          <div>
+            <div style="font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#a8d8bd;">Monstera</div>
+            <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:24px;line-height:1.1;margin-top:1px;">Leaf Log</div>
+          </div>
+          <button style="border:none;cursor:pointer;width:30px;height:30px;border-radius:999px;background:rgba(240,233,220,.16);color:var(--ink);font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">&times;</button>
+        </div>
+
+        <div style="padding:12px;display:flex;flex-direction:column;gap:10px;">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
+            <div style="background:#2f7d52;color:#f2fbf5;border-radius:16px;padding:11px 14px 12px;">
+              <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:28px;line-height:1;">{{ count }}</div>
+              <div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:4px;color:#c8f2d9;">Leaves recorded</div>
+            </div>
+            <div style="background:var(--surface);box-shadow:0 1px 2px rgba(46,43,37,.14);border-radius:16px;padding:11px 14px 12px;">
+              <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:28px;line-height:1;color:var(--text);">{{ sinceShort }}</div>
+              <div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:4px;color:var(--muted);">Since last leaf</div>
+            </div>
+            <div style="background:var(--surface);box-shadow:0 1px 2px rgba(46,43,37,.14);border-radius:16px;padding:11px 14px 12px;">
+              <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:28px;line-height:1;color:var(--text);">{{ avgShort }}</div>
+              <div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:4px;color:var(--muted);">Average gap</div>
+              <div style="font-size:10.5px;font-weight:700;color:var(--muted);margin-top:3px;line-height:1.35;">{{ avgHuman }}</div>
+            </div>
+            <div style="background:var(--surface);box-shadow:0 1px 2px rgba(46,43,37,.14);border-radius:16px;padding:11px 14px 12px;">
+              <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:17px;line-height:1.15;color:var(--text);">{{ firstLabel }}</div>
+              <div style="font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-top:4px;color:var(--muted);">First recorded</div>
+              <div style="font-size:10.5px;font-weight:700;color:var(--muted);margin-top:3px;line-height:1.35;">{{ spanHuman }}</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;">
+            <button onClick="{{ quickAdd }}" style="flex:1;border:none;cursor:pointer;background:#2f7d52;color:#f2fbf5;font-family:'Figtree',sans-serif;font-size:14px;font-weight:800;padding:12px 0;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:8px;">
+              <span style="font-size:17px;line-height:1;">+</span>New leaf today</button>
+            <button onClick="{{ openPick1b }}" style="flex:none;padding:12px 16px;border-radius:12px;border:1.5px solid var(--strong);background:var(--surface);color:#474238;font-family:'Figtree',sans-serif;font-size:13.5px;font-weight:800;cursor:pointer;">Other day</button>
+          </div>
+
+          <sc-if value="{{ pick1b }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:11px 14px 13px;animation:panelDown .2s cubic-bezier(.16,.84,.44,1) both;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:11px;">
+                <button onClick="{{ dec1b }}" style="border:none;cursor:pointer;width:34px;height:34px;border-radius:999px;background:#e3f2e6;color:#1c5436;font-size:19px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;">&lsaquo;</button>
+                <div style="text-align:center;flex:1;min-width:0;">
+                  <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:20px;line-height:1.15;color:var(--text);">{{ date1bLabel }}</div>
+                  <div style="font-size:11px;font-weight:700;color:var(--muted);">{{ date1bRel }}</div>
+                </div>
+                <button onClick="{{ inc1b }}" style="border:none;cursor:pointer;width:34px;height:34px;border-radius:999px;background:#e3f2e6;color:#1c5436;font-size:19px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:{{ fwd1bOpacity }};">&rsaquo;</button>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:12px;">
+                <button onClick="{{ close1b }}" style="flex:none;padding:11px 18px;border-radius:12px;border:1.5px solid var(--strong);background:var(--surface);color:#474238;font-family:'Figtree',sans-serif;font-size:13.5px;font-weight:800;cursor:pointer;">Cancel</button>
+                <button onClick="{{ save1b }}" style="flex:1;padding:11px 0;border-radius:12px;border:none;background:#2f7d52;color:#f2fbf5;font-family:'Figtree',sans-serif;font-size:13.5px;font-weight:800;cursor:pointer;">Record leaf</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:12px 14px 14px;">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
+              <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:16px;color:var(--text);">Every leaf</span>
+              <span style="font-size:10.5px;font-weight:700;color:var(--muted);">newest first</span>
+            </div>
+            <div style="max-height:340px;overflow-y:auto;padding-right:10px;margin-top:8px;display:flex;flex-direction:column;">
+              <sc-for list="{{ ledger }}" as="row" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;gap:11px;padding:7px 0;border-top:1px solid var(--border);">
+                  <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:13px;color:#3f6b4e;width:30px;flex-shrink:0;text-align:right;">{{ row.num }}</span>
+                  <span style="width:9px;height:9px;border-radius:999px;background:{{ row.dotBg }};flex-shrink:0;display:block;"></span>
+                  <span style="flex:1;min-width:0;font-size:13.5px;font-weight:800;color:var(--text);">{{ row.dateLabel }}</span>
+                  <span style="font-size:11px;font-weight:800;color:var(--muted);flex-shrink:0;">{{ row.gapShort }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <sc-if value="{{ showGraph }}" hint-placeholder-val="{{ true }}">
+            <div style="background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:12px 14px 13px;">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
+                <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:16px;color:var(--text);">By month</span>
+                <span style="font-size:10.5px;font-weight:700;color:var(--muted);">{{ graphRange }}</span>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:3px;height:74px;margin-top:12px;">
+                <sc-for list="{{ bars }}" as="bar" hint-placeholder-count="8">
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;height:100%;">
+                    <span style="font-size:9.5px;font-weight:800;color:{{ bar.numInk }};line-height:1;">{{ bar.numLabel }}</span>
+                    <span style="width:100%;background:{{ bar.fill }};border-radius:4px 4px 2px 2px;height:{{ bar.h }}px;display:block;"></span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:3px;margin-top:5px;">
+                <sc-for list="{{ bars }}" as="bar" hint-placeholder-count="8">
+                  <span style="flex:1;min-width:0;text-align:center;font-size:9px;font-weight:800;color:var(--muted);">{{ bar.label }}</span>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+        </div>
+
+        <sc-if value="{{ toastOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:14px;right:14px;bottom:14px;display:flex;align-items:center;gap:14px;background:var(--text);color:var(--ground);padding:11px 14px;border-radius:12px;box-shadow:0 22px 54px rgba(46,43,37,.22);font-size:13px;font-weight:600;animation:toastUp .22s cubic-bezier(.34,1.28,.64,1) both;">
+            <span style="flex:1;min-width:0;">{{ toastText }}</span>
+            <button onClick="{{ undo }}" style="background:none;border:none;color:#8fd6ac;font-family:'Figtree',sans-serif;font-size:13px;font-weight:800;cursor:pointer;padding:0;flex-shrink:0;">Undo</button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <div id="1c" style="display:flex;flex-direction:column;gap:9px;">
+      <div style="display:flex;align-items:center;gap:9px;">
+        <span style="font-family:'Caprasimo',Georgia,serif;font-size:14px;background:var(--text);color:var(--ground);padding:2px 11px;border-radius:999px;">1c</span>
+        <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:19px;color:var(--text);">Months</span>
+      </div>
+      <p style="margin:0;max-width:390px;font-size:13px;font-weight:600;line-height:1.5;color:#4a453c;">The timeline is the calendar: one row per month, dots for leaves, quiet months shown empty. One hero number, three small ones. Recording is a day strip.</p>
+
+      <div style="width:390px;background:var(--ground);border-radius:30px;box-shadow:0 22px 54px rgba(46,43,37,.22);overflow:hidden;display:flex;flex-direction:column;">
+        <div style="background:var(--primary);color:var(--ink);padding:14px 16px 15px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+          <div>
+            <div style="font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#a8d8bd;">Monstera</div>
+            <div style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:24px;line-height:1.1;margin-top:1px;">Leaf Log</div>
+          </div>
+          <button style="border:none;cursor:pointer;width:30px;height:30px;border-radius:999px;background:rgba(240,233,220,.16);color:var(--ink);font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">&times;</button>
+        </div>
+
+        <div style="padding:12px;display:flex;flex-direction:column;gap:10px;">
+
+          <div style="background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:14px 16px 13px;">
+            <div style="display:flex;align-items:flex-end;gap:10px;">
+              <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:46px;line-height:.9;color:#1c5436;">{{ count }}</span>
+              <span style="font-size:13px;font-weight:700;color:var(--muted);line-height:1.4;padding-bottom:4px;">leaves since<br>{{ firstLabel }}</span>
+            </div>
+            <p style="margin:9px 0 0;font-size:12.5px;font-weight:600;line-height:1.5;color:#4a453c;">{{ sentence }}</p>
+            <div style="display:flex;gap:6px;margin-top:11px;padding-top:11px;border-top:1px solid var(--border);">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:800;color:var(--text);line-height:1.2;">{{ avgShort }}</div>
+                <div style="font-size:9px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin-top:2px;">Avg gap</div>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:800;color:var(--text);line-height:1.2;">{{ sinceShort }}</div>
+                <div style="font-size:9px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin-top:2px;">Since last</div>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:800;color:var(--text);line-height:1.2;">{{ lastLabel }}</div>
+                <div style="font-size:9px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin-top:2px;">Most recent</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:11px 14px 13px;">
+            <div style="font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);">Record a leaf</div>
+            <div style="display:flex;gap:5px;overflow-x:auto;margin-top:9px;padding-bottom:4px;">
+              <sc-for list="{{ strip }}" as="day" hint-placeholder-count="12">
+                <button onClick="{{ day.pick }}" style="flex:none;width:44px;border:none;cursor:pointer;border-radius:12px;padding:7px 0 8px;background:{{ day.bg }};color:{{ day.ink }};font-family:'Figtree',sans-serif;display:flex;flex-direction:column;align-items:center;gap:1px;">
+                  <span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;opacity:.75;">{{ day.dow }}</span>
+                  <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:17px;line-height:1.1;">{{ day.dom }}</span>
+                  <span style="font-size:8.5px;font-weight:800;opacity:.75;">{{ day.mon }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <button onClick="{{ add1c }}" style="width:100%;margin-top:9px;border:none;cursor:pointer;background:#2f7d52;color:#f2fbf5;font-family:'Figtree',sans-serif;font-size:14px;font-weight:800;padding:12px 0;border-radius:12px;">{{ add1cLabel }}</button>
+          </div>
+
+          <div style="background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:12px 14px 14px;">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
+              <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:16px;color:var(--text);">Month by month</span>
+              <span style="font-size:10.5px;font-weight:700;color:var(--muted);">newest first</span>
+            </div>
+            <div style="max-height:340px;overflow-y:auto;padding-right:10px;margin-top:8px;display:flex;flex-direction:column;">
+              <sc-for list="{{ months }}" as="m" hint-placeholder-count="7">
+                <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--border);min-height:30px;">
+                  <span style="width:62px;flex-shrink:0;font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:{{ m.labelInk }};">{{ m.label }}</span>
+                  <div style="flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
+                    <sc-for list="{{ m.dots }}" as="dot" hint-placeholder-count="2">
+                      <span style="width:13px;height:13px;border-radius:999px;background:#2f7d52;display:block;animation:dotIn .2s cubic-bezier(.34,1.28,.64,1) both;"></span>
+                    </sc-for>
+                    <sc-if value="{{ m.empty }}" hint-placeholder-val="{{ false }}">
+                      <span style="width:16px;height:2px;background:var(--border);display:block;"></span>
+                    </sc-if>
+                  </div>
+                  <span style="font-size:11px;font-weight:800;color:{{ m.countInk }};flex-shrink:0;">{{ m.countLabel }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <sc-if value="{{ showGraph }}" hint-placeholder-val="{{ true }}">
+            <div style="background:var(--surface);border-radius:16px;box-shadow:0 1px 2px rgba(46,43,37,.14);padding:12px 14px 13px;">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
+                <span style="font-family:'Caprasimo',Georgia,serif;font-weight:400;font-size:16px;color:var(--text);">By month</span>
+                <span style="font-size:10.5px;font-weight:700;color:var(--muted);">{{ graphRange }}</span>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:3px;height:74px;margin-top:12px;">
+                <sc-for list="{{ bars }}" as="bar" hint-placeholder-count="8">
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;height:100%;">
+                    <span style="font-size:9.5px;font-weight:800;color:{{ bar.numInk }};line-height:1;">{{ bar.numLabel }}</span>
+                    <span style="width:100%;background:{{ bar.fill }};border-radius:4px 4px 2px 2px;height:{{ bar.h }}px;display:block;"></span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:3px;margin-top:5px;">
+                <sc-for list="{{ bars }}" as="bar" hint-placeholder-count="8">
+                  <span style="flex:1;min-width:0;text-align:center;font-size:9px;font-weight:800;color:var(--muted);">{{ bar.label }}</span>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <p style="margin:0;max-width:760px;font-size:12.5px;font-weight:600;line-height:1.55;color:var(--muted);">Light mode only, and dated to 21 Sep 2026 so the numbers stay reproducible. Future dates are capped at seven days ahead; any past date is allowed.</p>
+
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;growthColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#2f7d52&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#2f7d52&quot;,&quot;#0f4438&quot;,&quot;#7a8a5e&quot;,&quot;#17627f&quot;],&quot;section&quot;:&quot;Leaf Log&quot;},&quot;showGraph&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Leaf Log&quot;},&quot;futureWindowDays&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:7,&quot;min&quot;:0,&quot;max&quot;:30,&quot;unit&quot;:&quot;days&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Leaf Log&quot;}}">
+class Component extends DCLogic {
+  TODAY = "2026-09-21";
+
+  SEEDS = {
+    none: [],
+    one: ["2026-09-06"],
+    "new": ["2026-07-28","2026-08-19","2026-09-06"],
+    year: ["2025-07-14","2025-08-02","2025-08-27","2025-09-21","2025-10-30",
+           "2026-02-18","2026-04-06","2026-05-11","2026-06-02","2026-06-14","2026-06-27","2026-07-19","2026-08-03","2026-08-17","2026-08-29","2026-09-06"],
+    mature: ["2023-04-12","2023-05-03","2023-05-28","2023-06-19","2023-07-08","2023-08-14","2023-09-22","2023-10-19",
+             "2024-03-28","2024-04-21","2024-05-16","2024-06-07","2024-06-29","2024-07-24","2024-08-18","2024-09-14","2024-10-26",
+             "2025-04-02","2025-04-29","2025-05-24","2025-06-16","2025-07-14","2025-08-02","2025-08-27","2025-09-21","2025-10-30",
+             "2026-02-18","2026-04-06","2026-05-11","2026-06-02","2026-06-14","2026-06-27","2026-07-19","2026-08-03","2026-08-17","2026-08-29","2026-09-06"]
+  };
+
+  MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  state = {
+    density: "year",
+    leaves: this.SEEDS.year.slice(),
+    open1a: false, d1a: this.TODAY,
+    pick1b: false, d1b: this.TODAY, toast: null,
+    d1c: this.TODAY,
+    open2: false, d2: this.TODAY, cal2: false, calMonth: this.TODAY.slice(0,7), leafOn: true,
+    open3: false, drag3: null, cal3: false, place3: "actions", sheet3: null, confirm3: false
+  };
+
+  vals3(){
+    const W = 279, s = this.state;
+    const x = s.drag3 != null ? s.drag3 : (s.open3 && s.leafOn ? -W : 0);
+    const p = -x / W;
+    const sameYr = s.d2.slice(0,4) === this.TODAY.slice(0,4);
+    const seg = on => ({ bg: on ? "#fffdf8" : "transparent", ink: on ? "#0f4438" : "#5d5546" });
+    const h = seg(s.place3 === "health"), a = seg(s.place3 === "actions");
+    return {
+      trackX: "translateX(" + x + "px)",
+      trackTransition: s.drag3 != null ? "none" : "transform .38s cubic-bezier(.22,.8,.24,1)",
+      stripOpacity: p,
+      heroBtnOpacity: Math.max(0, 1 - p * 2.5),
+      heroBtnEvents: p > 0.05 ? "none" : "auto",
+      heroMask: p > 0 ? (() => {
+        const W = 56, stops = ["#000 0", "#000 calc(100% - " + W + "px)"];
+        for (let i = 1; i <= 12; i++) {
+          const t = i / 12, e = t * t * (3 - 2 * t);
+          stops.push("rgba(0,0,0," + (1 - p * e).toFixed(3) + ") calc(100% - " + (W * (1 - t)).toFixed(1) + "px)");
+        }
+        return "linear-gradient(to right," + stops.join(",") + ")";
+      })() : "none",
+      stripEvents: p > 0.5 ? "auto" : "none",
+      viewRadius: s.leafOn ? "30px 0 0 0" : "30px 30px 0 0",
+      openLeaf3: () => this.setState({ open3: true }),
+      closeLeaf3: () => this.setState({ open3: false, cal3: false }),
+      date3Label: this.fmtNoYear(s.d2),
+      date3Rel: sameYr ? this.relLabel(s.d2) : s.d2.slice(0,4),
+      cal3: s.cal3,
+      openCal3: () => this.setState({ cal3: true, calMonth: s.d2.slice(0,7) }),
+      closeCal3: () => this.setState({ cal3: false }),
+      pd3: e => {
+        if (!this.state.leafOn) return;
+        this._sx = e.clientX; this._sy = e.clientY; this._drag = false;
+        this._base = this.state.open3 ? -W : 0;
+      },
+      pm3: e => {
+        if (this._sx == null) return;
+        const dx = e.clientX - this._sx, dy = e.clientY - this._sy;
+        if (!this._drag) {
+          if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+            this._drag = true;
+            try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+          } else if (Math.abs(dy) > 8) this._sx = null;
+          return;
+        }
+        this.setState({ drag3: Math.max(-W, Math.min(0, this._base + dx)) });
+      },
+      pu3: () => {
+        if (this._sx == null) return;
+        this._sx = null;
+        if (!this._drag) return;
+        this._drag = false; this._sup = true;
+        setTimeout(() => { this._sup = false; }, 0);
+        const cur = this.state.drag3 ?? this._base;
+        const open = this._base === 0 ? cur < -50 : cur < -W + 50;
+        this.setState({ drag3: null, open3: open, cal3: open ? this.state.cal3 : false });
+      },
+      clickCap3: e => { if (this._sup) { e.stopPropagation(); e.preventDefault(); this._sup = false; } },
+      placeHealth: s.place3 === "health",
+      placeActions: s.place3 === "actions",
+      setPlaceHealth: () => this.setState({ place3: "health" }),
+      setPlaceActions: () => this.setState({ place3: "actions" }),
+      tabHealthBg: h.bg, tabHealthInk: h.ink, tabActBg: a.bg, tabActInk: a.ink,
+      sheet3Open: !!s.sheet3,
+      sheetEdit: !!s.sheet3 && s.sheet3.mode === "edit",
+      sheetTitle: s.sheet3 && s.sheet3.mode === "edit" ? "Edit leaf" : "New leaf",
+      sheetDateLabel: ({ "0": "Today", "-1": "Yesterday", "1": "Tomorrow" })[String(this.diff(this.TODAY, s.d2))] || this.fmt(s.d2),
+      saveLabel: s.sheet3 && s.sheet3.mode === "edit" ? "Save" : "Add",
+      confirm3: s.confirm3,
+      confirmDateLabel: s.sheet3 && s.sheet3.orig ? this.fmt(s.sheet3.orig) : "",
+      openAdd3: () => this.setState({ sheet3: { mode: "add" }, d2: this.TODAY, calMonth: this.TODAY.slice(0,7), confirm3: false }),
+      closeSheet3: () => this.setState({ sheet3: null, confirm3: false }),
+      saveSheet3: () => {
+        const sh = this.state.sheet3; if (!sh) return;
+        const d = this.state.d2;
+        if (sh.mode === "add") {
+          clearTimeout(this._t2);
+          this.setState(st => ({ leaves: st.leaves.concat([d]).sort(), toast2: { date: d, text: "Leaf recorded " + this.relLabel(d) }, sheet3: null, d2: this.TODAY }));
+          this._t2 = setTimeout(() => this.setState({ toast2: null }), 4000);
+        } else {
+          this.setState(st => {
+            const next = st.leaves.slice(); const k = next.lastIndexOf(sh.orig);
+            if (k > -1) next.splice(k, 1);
+            return { leaves: next.concat([d]).sort(), sheet3: null, d2: this.TODAY };
+          });
+        }
+      },
+      askDelete3: () => this.setState({ confirm3: true }),
+      cancelDelete3: () => this.setState({ confirm3: false }),
+      confirmDelete3: () => this.setState(st => {
+        const sh = st.sheet3; if (!sh) return { confirm3: false };
+        const next = st.leaves.slice(); const k = next.lastIndexOf(sh.orig);
+        if (k > -1) next.splice(k, 1);
+        return { leaves: next, sheet3: null, confirm3: false, d2: this.TODAY };
+      }),
+      months12: (() => {
+        const t = this.parse(this.TODAY), rows = [];
+        for (let k = 0; k < 12; k++) {
+          const d = new Date(t.getFullYear(), t.getMonth() - k, 1);
+          const key = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0");
+          rows.push({ label: this.MON[d.getMonth()], c: s.leaves.filter(x => x.slice(0,7) === key).length });
+        }
+        const max = Math.max(1, ...rows.map(x => x.c));
+        return rows.map(x => ({ label: x.label, count: x.c ? String(x.c) : "", pct: x.c ? Math.max(14, Math.round(x.c / max * 100)) : 0,
+          labelInk: x.c ? "var(--lg-mlab,#201e1d)" : "var(--lg-mlab0,#8a8071)", countInk: "var(--lg-mcount,#4a453c)" }));
+      })(),
+      ...["none","one","new","year","mature"].reduce((o, k) => {
+        o["setD_" + k] = () => this.setDensity(k);
+        o["dBg_" + k] = s.density === k ? "#fffdf8" : "transparent";
+        o["dInk_" + k] = s.density === k ? "#0f4438" : "#5d5546";
+        return o;
+      }, {}),
+      tip3: !!s.tip3,
+      toggleTip3: () => { clearTimeout(this._tt3); this.setState(st => ({ tip3: !st.tip3 })); this._tt3 = setTimeout(() => this.setState({ tip3: false }), 4000); },
+      toggleLeafStop: e => { e.stopPropagation(); this.setState(st => ({ leafOn: !st.leafOn, open3: false, cal3: false, sheet3: null, confirm3: false })); },
+      miniTrack: s.leafOn ? "var(--lg-trackon,#0f4438)" : "var(--lg-trackoff,#d8ccb6)",
+      miniJustify: s.leafOn ? "flex-end" : "flex-start"
+    };
+  }
+
+  historyLabel(days){
+    if(days === null) return "--";
+    if(days < 60) return days + " days";
+    const mo = days/30.44;
+    if(mo < 12) return Math.round(mo) + " mo";
+    const y = Math.round(mo/12*10)/10;
+    return y + (y === 1 ? " yr" : " yrs");
+  }
+
+  vals2(leaves, grow, fut, bars){
+    const n = leaves.length;
+    const desc = leaves.slice().reverse();
+    const spine2 = desc.map((date, i) => {
+      const prev = desc[i+1];
+      const gd = prev ? this.diff(prev, date) : null;
+      // Year lines sit where Jan 1 actually falls inside the gap, labelled with the year below them.
+      const years = [];
+      if (prev) {
+        for (let yr = +date.slice(0,4); yr > +prev.slice(0,4); yr--) {
+          const frac = this.diff(yr + "-01-01", date) / gd;
+          years.push({ label: String(yr - 1), top: Math.round(Math.min(.92, Math.max(.08, frac)) * 1000) / 10 });
+        }
+      }
+      let pillTop = 50;
+      const near = years.find(y => Math.abs(y.top - 50) < 22);
+      if (near) pillTop = near.top < 50 ? 74 : 26;
+      return {
+        dateLabel: this.fmt(date),
+        topLineBg: i === 0 ? "transparent" : "var(--lg-rail,#e6dbc7)",
+        bottomLineBg: prev ? "var(--lg-rail,#e6dbc7)" : "transparent",
+        dotBg: i === 0 ? "var(--lg-grow," + grow + ")" : "var(--lg-dot,#8fb79c)",
+        ringColor: i === 0 ? grow : "#cfe0d5",
+        hasGap: !!prev,
+        // 30px floor holds the pill; linear at 1.4px/day to 120 days so 19 vs 37 reads clearly,
+        // then 0.4px/day so a winter gap stays long without swallowing the card.
+        gapPx: gd === null ? 0 : Math.max(years.length ? 70 : 0, Math.round(30 + Math.min(gd, 120) * 1.4 + Math.max(0, gd - 120) * 0.4)),
+        gapLabel: gd === null ? "" : gd + (gd === 1 ? " day" : " days"),
+        gapShort: gd === null ? "" : gd + "d",
+        showHeader: i === 0,
+        headerYear: date.slice(0,4),
+        years: years,
+        pillTop: pillTop,
+        edit: () => this.setState({ sheet3: { mode: "edit", orig: date }, d2: date, calMonth: date.slice(0,7), confirm3: false })
+      };
+    });
+    const first = n ? leaves[0] : null;
+    const fd = first ? this.parse(first) : null;
+
+    const cm = this.state.calMonth.split("-");
+    const y = +cm[0], m = +cm[1]-1;
+    const start = new Date(y, m, 1);
+    const lead = start.getDay();
+    const dim = new Date(y, m+1, 0).getDate();
+    const total = Math.ceil((lead + dim)/7)*7;
+    const has = {};
+    leaves.forEach(l => { has[l] = true; });
+    const calCells = [];
+    for(let k = 0; k < total; k++){
+      const d = new Date(y, m, 1 - lead + k);
+      const s = this.iso(d);
+      const inMonth = d.getMonth() === m;
+      const ahead = this.diff(this.TODAY, s);
+      const blocked = ahead > fut;
+      const sel = s === this.state.d2;
+      const today = s === this.TODAY;
+      calCells.push({
+        num: d.getDate(),
+        fs: inMonth ? "13.5px" : "13px",
+        fw: sel ? 800 : 700,
+        ink: sel ? "var(--lg-selink,#fff)" : (inMonth ? "var(--lg-calink,#201e1d)" : "var(--lg-calout,#b8ac97)"),
+        bg: sel ? "var(--lg-grow," + grow + ")" : (inMonth ? "var(--lg-calbg,#fffdf8)" : "var(--lg-caloutbg,#f7eeda)"),
+        shadow: sel ? "none" : (today ? "inset 0 0 0 1.5px var(--lg-grow," + grow + ")" : (inMonth ? "var(--lg-calsh,0 1px 2px rgba(46,43,37,.14))" : "none")),
+        opacity: blocked ? 0.38 : 1,
+        cursor: blocked ? "default" : "pointer",
+        dotBg: has[s] ? (sel ? "var(--lg-seldot,#c8f2d9)" : "var(--lg-grow," + grow + ")") : "transparent",
+        pick: () => { if(!blocked) this.setState({ d2: s, cal2: false, cal3: false }); }
+      });
+    }
+    const limitMonth = this.addDays(this.TODAY, fut).slice(0,7);
+    const shiftMonth = k => {
+      const d = new Date(y, m + k, 1);
+      return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0");
+    };
+
+    return {
+      closed2: !this.state.open2,
+      open2: this.state.open2,
+      open2Fn: () => this.setState({ open2: true, d2: this.TODAY }),
+      close2: () => this.setState({ open2: false, cal2: false }),
+      dec2: () => this.step("d2", -1, fut),
+      inc2: () => this.step("d2", 1, fut),
+      fwd2Opacity: this.diff(this.TODAY, this.state.d2) >= fut ? 0.35 : 1,
+      date2Label: this.fmt(this.state.d2),
+      date2Rel: this.relLabel(this.state.d2),
+      save2: () => { this.record(this.state.d2, false); this.setState({ open2: false }); },
+      add2: () => {
+        const d = this.state.d2;
+        clearTimeout(this._t2);
+        this.setState(st => ({ leaves: st.leaves.concat([d]).sort(), toast2: { date: d, text: "Leaf recorded " + this.relLabel(d) }, d2: this.TODAY }));
+        this._t2 = setTimeout(() => this.setState({ toast2: null }), 4000);
+      },
+      toast2Open: !!this.state.toast2,
+      toast2Text: this.state.toast2 ? this.state.toast2.text : "",
+      undo2: () => {
+        clearTimeout(this._t2);
+        this.setState(st => {
+          if (!st.toast2) return {};
+          const next = st.leaves.slice();
+          const k = next.lastIndexOf(st.toast2.date);
+          if (k > -1) next.splice(k, 1);
+          return { leaves: next, toast2: null };
+        });
+      },
+      cal2: this.state.cal2,
+      openCal2: () => this.setState({ cal2: true, calMonth: this.state.d2.slice(0,7) }),
+      closeCal2: () => this.setState({ cal2: false }),
+      stop: e => e.stopPropagation(),
+      calTitle: ["January","February","March","April","May","June","July","August","September","October","November","December"][m] + " " + y,
+      calPrev: () => this.setState({ calMonth: shiftMonth(-1) }),
+      calNext: () => { if(this.state.calMonth < limitMonth) this.setState({ calMonth: shiftMonth(1) }); },
+      calNextOpacity: this.state.calMonth < limitMonth ? 1 : 0.35,
+      calCells: calCells,
+      spine2: spine2,
+      empty2: n === 0,
+      firstDay: fd ? (fd.getMonth()+1) + "/" + fd.getDate() + "/" + String(fd.getFullYear()).slice(2) : "--",
+      firstYear: fd ? String(fd.getFullYear()) : "",
+      historyVal: this.historyLabel(first ? this.diff(first, this.TODAY) : null),
+      graphRange2: "Last " + bars.length + " months",
+      leafOn: this.state.leafOn,
+      leafOff: !this.state.leafOn,
+      toggleLeaf: () => this.setState(s => ({ leafOn: !s.leafOn, open3: false, cal3: false })),
+      trackBg: this.state.leafOn ? "#0f4438" : "#d8ccb6",
+      thumbX: this.state.leafOn ? "translateX(18px)" : "translateX(0)",
+      hasLeaves: this.state.leafOn && n > 0,
+      leafWord: n === 1 ? "1 leaf recorded" : n + " leaves recorded"
+    };
+  }
+
+  parse(s){ const p = s.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+  iso(d){
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    return d.getFullYear()+"-"+m+"-"+day;
+  }
+  addDays(s,n){ const d=this.parse(s); d.setDate(d.getDate()+n); return this.iso(d); }
+  diff(a,b){ return Math.round((this.parse(b)-this.parse(a))/86400000); }
+  fmt(s){ const d=this.parse(s); return this.MON[d.getMonth()]+" "+d.getDate()+", "+d.getFullYear(); }
+  fmtNoYear(s){ const d=this.parse(s); return this.MON[d.getMonth()]+" "+d.getDate(); }
+  fmtLong(s){ const d=this.parse(s); return this.DOW[d.getDay()]+" "+d.getDate()+" "+this.MON[d.getMonth()]; }
+
+  humanDays(n){
+    if(n===null) return "not yet";
+    if(n < 14) return "about every " + n + " days";
+    const w = Math.round(n/7);
+    if(w < 9) return "about every " + w + " weeks";
+    const mo = n/30.44;
+    return "about every " + (Math.round(mo*10)/10) + " months";
+  }
+  spanHuman(days){
+    if(days === null) return "";
+    if(days < 60) return days + " days of history";
+    const mo = days/30.44;
+    if(mo < 22) return Math.round(mo) + " months of history";
+    return (Math.round(mo/12*10)/10) + " years of history";
+  }
+  relLabel(s){
+    const n = this.diff(this.TODAY, s);
+    if(n === 0) return "today";
+    if(n === 1) return "tomorrow";
+    if(n === -1) return "yesterday";
+    if(n > 0) return "in " + n + " days";
+    return (-n) + " days ago";
+  }
+
+  setDensity(k){
+    this.setState({ density:k, leaves:this.SEEDS[k].slice(), toast:null, open1a:false, pick1b:false, open2:false, cal2:false, d2:this.TODAY, toast2:null, sheet3:null, confirm3:false,
+      d1a:this.TODAY, d1b:this.TODAY, d1c:this.TODAY });
+  }
+  record(date, toast){
+    this.setState(s => {
+      const next = s.leaves.concat([date]).sort();
+      return { leaves: next, toast: toast ? { date: date, text: "Leaf recorded " + this.relLabel(date) } : s.toast };
+    });
+  }
+  undo(){
+    this.setState(s => {
+      if(!s.toast) return { toast:null };
+      const i = s.leaves.lastIndexOf(s.toast.date);
+      const next = s.leaves.slice();
+      if(i > -1) next.splice(i,1);
+      return { leaves: next, toast: null };
+    });
+  }
+  step(key, n, max){
+    this.setState(s => {
+      const cur = s[key];
+      const next = this.addDays(cur, n);
+      if(this.diff(this.TODAY, next) > max) return {};
+      const o = {}; o[key] = next; return o;
+    });
+  }
+
+  renderVals(){
+    const fut = this.props.futureWindowDays ?? 7;
+    const showGraph = this.props.showGraph ?? true;
+    const grow = this.props.growthColor ?? "#2f7d52";
+    const leaves = this.state.leaves;
+    const n = leaves.length;
+    const first = n ? leaves[0] : null;
+    const last = n ? leaves[n-1] : null;
+    const spanDays = n > 1 ? this.diff(first, last) : null;
+    const avg = n > 1 ? Math.round(spanDays/(n-1)) : null;
+    const since = n ? this.diff(last, this.TODAY) : null;
+
+    const desc = leaves.slice().reverse();
+
+    // 1a: spacing proportional to elapsed time, clamped so labels stay legible
+    const spine = desc.map((date, i) => {
+      const prev = desc[i+1];
+      const gapDays = prev ? this.diff(prev, date) : null;
+      const gapPx = gapDays === null ? 6 : Math.max(20, Math.min(90, Math.round(gapDays * 1.1)));
+      return {
+        dateLabel: this.fmt(date),
+        gapLabel: gapDays === null ? "first recorded" : gapDays + " days after the one below",
+        gapPx: gapPx,
+        dotBg: i === 0 ? grow : "#8fb79c",
+        ringColor: i === 0 ? grow : "#cfe0d5"
+      };
+    });
+
+    // 1b: one equal row per leaf
+    const ledger = desc.map((date, i) => {
+      const prev = desc[i+1];
+      const gapDays = prev ? this.diff(prev, date) : null;
+      return {
+        num: n - i,
+        dateLabel: this.fmt(date),
+        gapShort: gapDays === null ? "first" : "+" + gapDays + "d",
+        dotBg: i === 0 ? grow : "#8fb79c"
+      };
+    });
+
+    // 1c: every calendar month from the first leaf, quiet months included
+    const months = [];
+    if(n){
+      const f = this.parse(first), t = this.parse(this.TODAY);
+      const total = (t.getFullYear()-f.getFullYear())*12 + (t.getMonth()-f.getMonth());
+      for(let k = total; k >= 0; k--){
+        const d = new Date(f.getFullYear(), f.getMonth()+k, 1);
+        const key = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+        const c = leaves.filter(x => x.slice(0,7) === key).length;
+        months.push({
+          label: this.MON[d.getMonth()] + " " + String(d.getFullYear()).slice(2),
+          dots: Array.from({length:c}, (_,j) => ({ i:j })),
+          empty: c === 0,
+          countLabel: c === 0 ? "" : String(c),
+          labelInk: c === 0 ? "#a09684" : "#4a453c",
+          countInk: c === 0 ? "#a09684" : "#1c5436"
+        });
+      }
+    }
+
+    // shared chart: calendar months, zero months kept visible
+    const nMonths = Math.max(6, Math.min(12, (spanDays === null ? 0 : Math.round(spanDays/30.44)) + 1));
+    const t0 = this.parse(this.TODAY);
+    const raw = [];
+    for(let k = nMonths-1; k >= 0; k--){
+      const d = new Date(t0.getFullYear(), t0.getMonth()-k, 1);
+      const key = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+      raw.push({ d: d, c: leaves.filter(x => x.slice(0,7) === key).length });
+    }
+    const maxC = Math.max(1, ...raw.map(r => r.c));
+    const bars = raw.map(r => ({
+      label: this.MON[r.d.getMonth()].slice(0,1),
+      numLabel: r.c === 0 ? "" : String(r.c),
+      numInk: r.c === maxC ? "#1c5436" : "#6f6658",
+      fill: r.c === 0 ? "#e6dbc7" : grow,
+      h: r.c === 0 ? 2 : Math.max(7, Math.round(r.c/maxC*58))
+    }));
+    const graphRange = bars.length + " months to " + this.MON[t0.getMonth()];
+
+    // day strip for 1c
+    const strip = [];
+    for(let k = -10; k <= fut; k++){
+      const s = this.addDays(this.TODAY, k);
+      const d = this.parse(s);
+      const sel = s === this.state.d1c;
+      strip.push({
+        dow: this.DOW[d.getDay()].slice(0,1) + (k === 0 ? "" : ""),
+        dom: String(d.getDate()),
+        mon: this.MON[d.getMonth()],
+        bg: sel ? grow : "#f2ece0",
+        ink: sel ? "#f2fbf5" : (k > 0 ? "#8a8071" : "#4a453c"),
+        pick: () => this.setState({ d1c: s })
+      });
+    }
+
+    const sentence = n === 0
+      ? "Nothing recorded yet. Tap a day and add the first one."
+      : n === 1
+        ? "One leaf so far, on " + this.fmt(first) + ". A second gives the first interval."
+        : "Roughly one new leaf " + this.humanDays(avg).replace("about every ","every ") + ", across " + this.spanHuman(spanDays).replace(" of history","") + ".";
+
+    return {
+      ...this.vals2(leaves, grow, fut, bars),
+      ...this.vals3(),
+      count: n,
+      firstLabel: first ? this.fmt(first) : "not yet",
+      lastLabel: last ? this.fmtNoYear(last) : "not yet",
+      avgShort: avg === null ? "--" : avg + "d",
+      avgHuman: this.humanDays(avg),
+      sinceShort: since === null ? "--" : since + "d",
+      spanHuman: this.spanHuman(spanDays),
+      sentence: sentence,
+      spine: spine, ledger: ledger, months: months,
+      bars: bars, graphRange: graphRange, showGraph: showGraph,
+
+      tabNewBg: this.state.density === "new" ? "#fffdf8" : "transparent",
+      tabNewInk: this.state.density === "new" ? "#0f4438" : "#5d5546",
+      tabYearBg: this.state.density === "year" ? "#fffdf8" : "transparent",
+      tabYearInk: this.state.density === "year" ? "#0f4438" : "#5d5546",
+      tabMatureBg: this.state.density === "mature" ? "#fffdf8" : "transparent",
+      tabMatureInk: this.state.density === "mature" ? "#0f4438" : "#5d5546",
+      setNew: () => this.setDensity("new"),
+      setYear: () => this.setDensity("year"),
+      setMature: () => this.setDensity("mature"),
+
+      open1a: this.state.open1a,
+      closed1a: !this.state.open1a,
+      open1aFn: () => this.setState({ open1a:true, d1a:this.TODAY }),
+      close1a: () => this.setState({ open1a:false }),
+      date1aLabel: this.fmt(this.state.d1a),
+      date1aRel: this.relLabel(this.state.d1a),
+      fwd1aOpacity: this.diff(this.TODAY, this.state.d1a) >= fut ? 0.35 : 1,
+      inc1a: () => this.step("d1a", 1, fut),
+      dec1a: () => this.step("d1a", -1, fut),
+      save1a: () => { this.record(this.state.d1a, false); this.setState({ open1a:false }); },
+
+      quickAdd: () => this.record(this.TODAY, true),
+      pick1b: this.state.pick1b,
+      openPick1b: () => this.setState({ pick1b:true, d1b:this.TODAY, toast:null }),
+      close1b: () => this.setState({ pick1b:false }),
+      date1bLabel: this.fmt(this.state.d1b),
+      date1bRel: this.relLabel(this.state.d1b),
+      fwd1bOpacity: this.diff(this.TODAY, this.state.d1b) >= fut ? 0.35 : 1,
+      inc1b: () => this.step("d1b", 1, fut),
+      dec1b: () => this.step("d1b", -1, fut),
+      save1b: () => { this.record(this.state.d1b, true); this.setState({ pick1b:false }); },
+      toastOpen: !!this.state.toast,
+      toastText: this.state.toast ? this.state.toast.text : "",
+      undo: () => this.undo(),
+
+      strip: strip,
+      add1cLabel: "Record leaf on " + this.fmtLong(this.state.d1c),
+      add1c: () => this.record(this.state.d1c, false)
+    };
+  }
+}
+
+</script>
+</body>
+</html>
