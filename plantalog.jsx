@@ -1958,7 +1958,6 @@ const styles = `
 
   /* New Leaf / Edit Leaf popup. Reuses the app's calendar shell; the parts
      the design moves away from it are scoped to .leaf-cal. */
-  .leaf-cal{animation:panelDown .2s var(--ease-enter) both;}
   .dark .cal-popup.leaf-cal{background:#35302a;box-shadow:0 18px 50px rgba(0,0,0,.55);}
   .leaf-cal-head{text-align:center;margin-bottom:12px;}
   .leaf-cal-kicker{font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--text-muted);}
@@ -2551,6 +2550,7 @@ const styles = `
   @media (prefers-reduced-motion: reduce) {
     .modal-overlay::before, .modal-overlay > .modal,
     .modal-overlay.closing::before, .modal-overlay.closing > .modal { animation:none !important; }
+    .cal-popup-overlay, .cal-popup-overlay .cal-popup { animation:none !important; }
     .xfade-out { display:none !important; }
     .header-undo-btn { animation:none !important; }
     .celebration.all-done, .celebration.all-done .celebration-head { animation:none !important; }
@@ -2662,6 +2662,17 @@ const styles = `
   .cal-field-btn.placeholder{color:var(--text-muted);font-weight:500;}
   .cal-field-btn svg{flex-shrink:0;opacity:.55;}
   .cal-popup-overlay{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--col);background:rgba(28,25,20,.52);z-index:520;display:flex;align-items:center;justify-content:center;padding:22px;box-sizing:border-box;}
+  /* Calendar pickers fade in and out with their scrim (motion §4): 200ms on
+     the enter curve, 150ms on the exit curve, since exits run shorter. The
+     overlay carries the opacity for scrim and card together, so they cannot
+     drift apart; the card only adds a 6px drop on the way in. Opacity only on
+     the overlay: its transform is what centres it. */
+  .cal-popup-overlay{animation:scrimIn .2s var(--ease-enter) both;}
+  .cal-popup-overlay .cal-popup{animation:popDrop .2s var(--ease-enter) both;}
+  .cal-popup-overlay.closing{animation:scrimOut .15s var(--ease-exit) both;pointer-events:none;}
+  @keyframes scrimIn{from{opacity:0;}to{opacity:1;}}
+  @keyframes scrimOut{from{opacity:1;}to{opacity:0;}}
+  @keyframes popDrop{from{transform:translateY(-6px);}to{transform:none;}}
   .cal-popup{background:#f2e6d2;border-radius:var(--r-lg);padding:16px 14px;width:100%;box-shadow:0 18px 50px rgba(28,25,20,.42);}
   .cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
   .cal-nav-btn{background:var(--surface);border:none;color:var(--text);cursor:pointer;width:30px;height:30px;border-radius:var(--r-pill);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);flex-shrink:0;}
@@ -5177,7 +5188,15 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
       {showModal && (
         <PlantModal enter={sheetSwap?"swap":"slide"}
           plant={editPlant} rooms={rooms}
-          onSave={p=>{ if(editPlant) setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); else setPlants(ps=>[...ps,{...p,id:uid()}]); setShowModal(false); setEditPlant(null); setDetailPlant(null); }}
+          onSave={p=>{
+            // A new plant (Add, or a clone) gets its id here so View can open on it.
+            const saved = editPlant ? p : {...p, id:uid()};
+            setPlants(ps => editPlant ? ps.map(x=>x.id===saved.id?saved:x) : [...ps, saved]);
+            // Saved from View, an edit or a clone of the plant on show: back to
+            // View, on the plant just saved. Added from the + button: the list.
+            if (detailPlant) { beginSwap("modal", saved); setDetailPlant(saved); }
+            setShowModal(false); setEditPlant(null);
+          }}
           onDelete={editPlant?(dest)=>{
             const gone = editPlant;
             movePlantTo(setPlants, gone.id, dest);
@@ -5208,6 +5227,27 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
 // doesn't commit a selection until the picker loses focus, and clicking a
 // day from an adjacent month just re-navigates the calendar instead of
 // selecting it. Owning the whole UI sidesteps both.
+// Calendar pickers fade out before they unmount (motion §4: exits on the exit
+// curve, shorter than the entrance). leave(then) plays the exit, then runs
+// `then`, which closes the picker. Anything the tap commits, like a picked
+// date, is committed before leave() is called, so cutting the exit short can
+// never lose it. Reduced motion skips the wait entirely.
+const POPUP_EXIT_MS = 150;
+function usePopupExit() {
+  const [closing, setClosing] = useState(false);
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  function leave(then) {
+    if (closing) return;
+    const reduced = typeof matchMedia === "function" &&
+      matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) { then && then(); return; }
+    setClosing(true);
+    timer.current = setTimeout(() => { setClosing(false); then && then(); }, POPUP_EXIT_MS);
+  }
+  return [closing, leave];
+}
+
 function CalendarPopup({ value, onSelect, onClose, viewHint, label }) {
   // With no value of its own, open on viewHint's month if given (used so the
   // To picker starts where the From date is, rather than on today).
@@ -5225,9 +5265,10 @@ function CalendarPopup({ value, onSelect, onClose, viewHint, label }) {
     const d = new Date(viewYear, viewMonth + delta, 1);
     setViewYear(d.getFullYear()); setViewMonth(d.getMonth());
   }
+  const [closing, leave] = usePopupExit();
 
   return (
-    <div className="cal-popup-overlay" onClick={e => { e.stopPropagation(); onClose(); }}>
+    <div className={`cal-popup-overlay${closing?" closing":""}`} onClick={e => { e.stopPropagation(); leave(onClose); }}>
       <div className="cal-popup" onClick={e=>e.stopPropagation()}>
         <div className="cal-nav">
           <button className="cal-nav-btn" onClick={()=>nav(-1)} aria-label="Previous month">
@@ -5251,7 +5292,7 @@ function CalendarPopup({ value, onSelect, onClose, viewHint, label }) {
             return (
               <button key={i} type="button"
                 className={`cal-day${otherMonth?" other-month":""}${isSelected?" selected":""}${isToday && !isSelected?" today":""}`}
-                onClick={()=>onSelect(dStr)}>
+                onClick={()=>{ onSelect(dStr); leave(onClose); }}>
                 {d.getDate()}
               </button>
             );
@@ -5279,7 +5320,7 @@ function CalendarField({ value, onChange, placeholder="Select date", style, view
       </button>
       {open && (
         <CalendarPopup value={value} viewHint={viewHint} label={label}
-          onSelect={d=>{ onChange(d); setOpen(false); }}
+          onSelect={d=>onChange(d)}
           onClose={()=>setOpen(false)}
         />
       )}
@@ -6203,7 +6244,7 @@ function leafHeroMask(p) {
 // New Leaf / Edit Leaf. Full screen over the whole card, like the app's other
 // date fields, and portalled into .app so neither the track's transform nor
 // its overflow can reach it (and so dark mode still applies).
-function LeafDatePopup({ mode, value, leaves, onPick, onSubmit, onDelete, onClose }) {
+function LeafDatePopup({ mode, value, leaves, onPick, onSubmit, onDelete, onClose, closing=false }) {
   const today = fmt(getToday());
   const limit = addDaysStr(today, LEAF_FUTURE_DAYS);
   const init  = new Date(String(value).slice(0,10)+"T12:00:00");
@@ -6225,7 +6266,7 @@ function LeafDatePopup({ mode, value, leaves, onPick, onSubmit, onDelete, onClos
   const host = typeof document !== "undefined" && document.querySelector(".app");
   if (!host) return null;
   return ReactDOM.createPortal((
-    <div className="cal-popup-overlay" onClick={e => { e.stopPropagation(); onClose(); }}>
+    <div className={`cal-popup-overlay${closing?" closing":""}`} onClick={e => { e.stopPropagation(); onClose(); }}>
       <div className="cal-popup leaf-cal" onClick={e => e.stopPropagation()}>
         <div className="leaf-cal-head">
           <div className="leaf-cal-kicker">{mode==="edit" ? "Edit leaf" : "New leaf"}</div>
@@ -6275,6 +6316,10 @@ function LeafLogPanel({ leaves, open, onChange }) {
   const [sheet,   setSheet]   = useState(null);   // null | {mode:"add"} | {mode:"edit", orig}
   const [picked,  setPicked]  = useState(today);
   const [confirm, setConfirm] = useState(false);
+  // The picker's exit lives here rather than in the picker, because a
+  // confirmed delete closes it from the confirm dialog, outside it.
+  const [sheetClosing, leaveSheet] = usePopupExit();
+  const closeSheet = () => leaveSheet(() => { setSheet(null); setConfirm(false); });
 
   // Closing the panel (or switching Leaf Log off) takes its layers with it.
   useEffect(() => { if (!open) { setSheet(null); setConfirm(false); } }, [open]);
@@ -6284,7 +6329,7 @@ function LeafLogPanel({ leaves, open, onChange }) {
   const months = leafMonths12(leaves);
 
   function submit() {
-    if (!sheet) return;
+    if (!sheet || sheetClosing) return;
     if (sheet.mode === "add") {
       onChange([...leaves, picked].sort());
     } else {
@@ -6293,15 +6338,16 @@ function LeafLogPanel({ leaves, open, onChange }) {
       if (k > -1) next.splice(k, 1);
       onChange([...next, picked].sort());
     }
-    setSheet(null);
+    closeSheet();
   }
   function removeLeaf() {
-    if (!sheet || !sheet.orig) return;
+    if (!sheet || !sheet.orig || sheetClosing) return;
     const next = [...leaves];
     const k = next.lastIndexOf(sheet.orig);
     if (k > -1) next.splice(k, 1);
     onChange(next);
-    setConfirm(false); setSheet(null);
+    setConfirm(false);
+    closeSheet();
   }
 
   return (
@@ -6409,7 +6455,8 @@ function LeafLogPanel({ leaves, open, onChange }) {
           onPick={setPicked}
           onSubmit={submit}
           onDelete={()=>setConfirm(true)}
-          onClose={()=>{ setSheet(null); setConfirm(false); }}
+          onClose={closeSheet}
+          closing={sheetClosing}
         />
       )}
       {confirm && sheet && sheet.orig && (
@@ -7522,16 +7569,27 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
         <PlantDetail ghost plant={ghost.plant} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
           onClose={()=>{}} onEdit={()=>{}} />
       )}
+      {ghost && ghost.kind==="modal" && (
+        <PlantModal ghost plant={ghost.plant} rooms={rooms}
+          onSave={()=>{}} onDelete={null} onClose={()=>{}} onCancel={null} onClone={()=>{}} />
+      )}
+      {/* View stays held while Edit is open, so Save can return to it. X,
+          swipe and backdrop still leave both, as they always have here. */}
       {showModal && <PlantModal enter={sheetSwap?"swap":"slide"} plant={editPlant} rooms={rooms}
-        onSave={p=>{ if(editPlant) setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); else setPlants(ps=>[...ps,{...p,id:uid()}]); setShowModal(false); setEditPlant(null); }}
-        onDelete={editPlant?(dest)=>{ movePlantTo(setPlants, editPlant.id, dest); setShowModal(false); setEditPlant(null); }:null}
-        onClose={()=>{ setShowModal(false); setEditPlant(null); }}
+        onSave={p=>{
+          const saved = editPlant ? p : {...p, id:uid()};
+          setPlants(ps => editPlant ? ps.map(x=>x.id===saved.id?saved:x) : [...ps, saved]);
+          if (detailPlant) { beginSwap("modal", saved); setDetailPlant(saved); }
+          setShowModal(false); setEditPlant(null);
+        }}
+        onDelete={editPlant?(dest)=>{ movePlantTo(setPlants, editPlant.id, dest); setShowModal(false); setEditPlant(null); setDetailPlant(null); }:null}
+        onClose={()=>{ setShowModal(false); setEditPlant(null); setDetailPlant(null); }}
         onClone={()=>setEditPlant(null)}
       />}
-      {detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
+      {!showModal && detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
         <PlantDetail enter={sheetSwap?"swap":"slide"} plant={dp} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
           onClose={()=>setDetailPlant(null)}
-          onEdit={()=>{ beginSwap("detail", dp); setEditPlant(dp); setDetailPlant(null); setShowModal(true); }}
+          onEdit={()=>{ beginSwap("detail", dp); setEditPlant(dp); setShowModal(true); }}
         />
       );})()}
     </>
@@ -7685,16 +7743,27 @@ function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
         <PlantDetail ghost plant={ghost.plant} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
           onClose={()=>{}} onEdit={()=>{}} />
       )}
+      {ghost && ghost.kind==="modal" && (
+        <PlantModal ghost plant={ghost.plant} rooms={rooms}
+          onSave={()=>{}} onDelete={null} onClose={()=>{}} onCancel={null} onClone={()=>{}} />
+      )}
+      {/* View stays held while Edit is open, so Save can return to it. X,
+          swipe and backdrop still leave both, as they always have here. */}
       {showModal && <PlantModal enter={sheetSwap?"swap":"slide"} plant={editPlant} rooms={rooms}
-        onSave={p=>{ if(editPlant) setPlants(ps=>ps.map(x=>x.id===p.id?p:x)); else setPlants(ps=>[...ps,{...p,id:uid()}]); setShowModal(false); setEditPlant(null); }}
-        onDelete={editPlant?(dest)=>{ movePlantTo(setPlants, editPlant.id, dest); setShowModal(false); setEditPlant(null); }:null}
-        onClose={()=>{ setShowModal(false); setEditPlant(null); }}
+        onSave={p=>{
+          const saved = editPlant ? p : {...p, id:uid()};
+          setPlants(ps => editPlant ? ps.map(x=>x.id===saved.id?saved:x) : [...ps, saved]);
+          if (detailPlant) { beginSwap("modal", saved); setDetailPlant(saved); }
+          setShowModal(false); setEditPlant(null);
+        }}
+        onDelete={editPlant?(dest)=>{ movePlantTo(setPlants, editPlant.id, dest); setShowModal(false); setEditPlant(null); setDetailPlant(null); }:null}
+        onClose={()=>{ setShowModal(false); setEditPlant(null); setDetailPlant(null); }}
         onClone={()=>setEditPlant(null)}
       />}
-      {detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
+      {!showModal && detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
         <PlantDetail enter={sheetSwap?"swap":"slide"} plant={dp} rooms={rooms} plants={plants} setPlants={setPlants} user={user}
           onClose={()=>setDetailPlant(null)}
-          onEdit={()=>{ beginSwap("detail", dp); setEditPlant(dp); setDetailPlant(null); setShowModal(true); }}
+          onEdit={()=>{ beginSwap("detail", dp); setEditPlant(dp); setShowModal(true); }}
         />
       );})()}
     </>
