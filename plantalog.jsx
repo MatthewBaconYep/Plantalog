@@ -1846,7 +1846,7 @@ const styles = `
      just becomes the close target. */
   .leaf-strip-catch{position:absolute;inset:0;z-index:20;background:transparent;}
   .leaf-panel{position:relative;width:279px;flex-shrink:0;min-height:0;overflow:hidden;
-    display:flex;flex-direction:column;background:var(--ground);border-radius:0 35px 0 0;}
+    display:flex;flex-direction:column;background:var(--ground);border-radius:0 35px 35px 0;}
 
   .leaf-head{display:flex;align-items:center;gap:6px;padding:12px 10px 0 14px;}
   .leaf-head-title{font-family:var(--font-display);font-weight:400;font-size:30px;line-height:1.05;
@@ -2067,20 +2067,27 @@ const styles = `
   .dark .hero-accent-btn{background:#f2a13b;color:#3a1d05;}
   .dark .pm-save-btn{background:#f2a13b;color:#3a1d05;}
   .pm-save-btn{border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:13px;font-weight:800;padding:8px 20px;border-radius:var(--r-pill);cursor:pointer;flex-shrink:0;}
-  .pm-body{flex:1;overflow-y:auto;padding:9px 14px max(16px, env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;}
+  /* The scroll used to end 16px under the action row, which put the pills'
+     bottom corners on the screen edge. Enough to read as deliberate, and
+     clear of the home indicator on a Home Screen launch. */
+  .pm-body{flex:1;overflow-y:auto;padding:9px 14px max(24px, calc(env(safe-area-inset-bottom,0px) + 14px));display:flex;flex-direction:column;gap:6px;}
   .pm-got-card{padding:9px 12px 10px!important;}
   /* 6b centres both cards in this row vertically, not just the Got one. */
   .pm-name-card{display:flex;flex-direction:column;justify-content:center;gap:3px;}
   .pm-got-card{display:flex;flex-direction:column;justify-content:center;gap:3px;}
-  .notes-card{height:84px;flex:0 0 84px;overflow:hidden;}
-  /* 84px is the resting size in 6b. The editor (a 72px textarea plus its
-     delete/Save row) does not fit in it, so the card sizes to its content
-     while editing instead of clipping the bottom of the box and the buttons. */
-  .notes-card.editing{height:auto;flex:0 0 auto;overflow:visible;}
+  /* 84px is the resting size in 6b, but as a fixed height a one-line note
+     padded itself out to the same box as a three-line one and pushed the
+     action row below the fold. A cap instead: short notes condense, long ones
+     still clip at 84. */
+  .notes-card{max-height:84px;flex:0 0 auto;overflow:hidden;}
+  /* The editor (a 72px textarea plus its delete/Save row) does not fit in 84,
+     so the card sizes to its content while editing instead of clipping the
+     bottom of the box and the buttons. */
+  .notes-card.editing{max-height:none;overflow:visible;}
   .notes-lbl{margin-bottom:5px;}
   /* No notes yet: the label and the add button share one row, which frees
      the height the full-screen card needs to show Clone and Delete. */
-  .notes-card.no-notes{height:auto;flex:0 0 auto;display:flex;align-items:center;gap:12px;}
+  .notes-card.no-notes{display:flex;align-items:center;gap:12px;}
   .notes-card.no-notes .notes-lbl{margin-bottom:0;flex-shrink:0;}
   .pm-card{background:var(--surface);border-radius:var(--r-md);box-shadow:var(--shadow-sm);padding:9px 14px 10px;}
   .pm-lbl{font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--text-muted);}
@@ -2604,9 +2611,15 @@ const styles = `
 
   /* Detail */
   .modal.detail-sheet{max-height:calc(96vh / var(--zoom) - env(safe-area-inset-top,0px));max-height:calc(96dvh / var(--zoom) - env(safe-area-inset-top,0px));border-radius:35px;box-shadow:0 26px 0 var(--page-bg), 0 -10px 26px rgba(0,0,0,.40), 0 -28px 68px rgba(0,0,0,.34);}
-  .modal.detail-sheet.has-leaf{height:calc(96vh / var(--zoom) - env(safe-area-inset-top,0px));height:calc(96dvh / var(--zoom) - env(safe-area-inset-top,0px));border-top-right-radius:0;}
+  /* With Leaf Log on, View and the panel are one wide card sliding behind a
+     fixed window. The sheet is only the window: it still clips, but it stops
+     painting and stops rounding, so no corner stays pinned to the screen.
+     The halves carry the card's ends instead, and they travel with it. */
+  .modal.detail-sheet.has-leaf{height:calc(96vh / var(--zoom) - env(safe-area-inset-top,0px));height:calc(96dvh / var(--zoom) - env(safe-area-inset-top,0px));
+    border-radius:0;background:transparent;}
+  .detail-sheet.has-leaf .leaf-view-col{background:var(--page-bg);border-radius:35px 0 0 35px;}
+  /* Square where it meets the panel: that join is the middle of the card. */
   .detail-sheet.has-leaf .detail-hero{border-top-right-radius:0;}
-  .modal.detail-sheet, .detail-hero{transition:border-radius .2s;}
   .close-x-btn{position:absolute;top:8px;left:8px;background:rgba(255,255,255,.22);border:none;border-radius:50%;width:34px;height:34px;color:white;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;}
   .info-card .val{font-size:17px;font-weight:700;color:var(--leaf);}
   .info-card .key{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-top:1px;font-weight:500;}
