@@ -2611,17 +2611,25 @@ const styles = `
 
   /* Detail */
   .modal.detail-sheet{max-height:calc(96vh / var(--zoom) - env(safe-area-inset-top,0px));max-height:calc(96dvh / var(--zoom) - env(safe-area-inset-top,0px));border-radius:35px;box-shadow:0 26px 0 var(--page-bg), 0 -10px 26px rgba(0,0,0,.40), 0 -28px 68px rgba(0,0,0,.34);}
-  /* With Leaf Log on, View and the panel are one wide card sliding behind a
-     fixed window. The sheet is that window, and its radius is set inline from
-     the slide position: it has to match whichever of the card's rounded ends
-     is at the window edge, because the sheet's lift shadow is what darkens
-     the backdrop around the card, and an outer shadow only paints outside the
-     border box. A square window left the corner notch flat and unshaded. */
-  .modal.detail-sheet.has-leaf{height:calc(96vh / var(--zoom) - env(safe-area-inset-top,0px));height:calc(96dvh / var(--zoom) - env(safe-area-inset-top,0px));}
-  .detail-sheet.has-leaf .leaf-view-col{border-radius:35px 0 0 35px;}
+  /* With Leaf Log on, View and the panel are one wide card, and the card is
+     the track: it owns its rounded ends, its background and its lift shadow,
+     and slides as one rigid piece. Earlier versions kept the shape on the
+     sheet and faked the card's corners from it; any corner that changed state
+     then lagged the content, showed cream behind the hero's curve, or let the
+     panel slide under an outline that belonged to the window.
+     The sheet is now shapeless. It only hides what is off to the sides, and
+     it does that with clip-path rather than overflow, because overflow would
+     also cut off the shadow above the card. The vertical allowance is huge so
+     nothing fixed inside the sheet, like the confirm dialogs, is ever cut. */
+  .modal.detail-sheet.has-leaf{height:calc(96vh / var(--zoom) - env(safe-area-inset-top,0px));height:calc(96dvh / var(--zoom) - env(safe-area-inset-top,0px));
+    background:transparent;border-radius:0;box-shadow:none;clip-path:inset(-100vh 0 -100vh 0);}
+  .detail-sheet.has-leaf .leaf-track{width:calc(100% + 279px);background:var(--page-bg);
+    border-radius:35px;overflow:hidden;
+    box-shadow:0 26px 0 var(--page-bg), 0 -10px 26px rgba(0,0,0,.40), 0 -28px 68px rgba(0,0,0,.34);}
+  /* View is the window's width; the panel takes the remaining 279px. */
+  .detail-sheet.has-leaf .leaf-view-col{width:auto;flex:1 1 0;min-width:0;}
   /* Square where it meets the panel: that join is the middle of the card. */
   .detail-sheet.has-leaf .detail-hero{border-top-right-radius:0;}
-  .modal.detail-sheet, .detail-hero{transition:border-radius .2s;}
   .close-x-btn{position:absolute;top:8px;left:8px;background:rgba(255,255,255,.22);border:none;border-radius:50%;width:34px;height:34px;color:white;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;}
   .info-card .val{font-size:17px;font-weight:700;color:var(--leaf);}
   .info-card .key{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-top:1px;font-weight:500;}
@@ -6455,11 +6463,6 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
   const swipe = useRef({ x:null, y:0, base:0, moved:false, suppress:false });
   const trackX = leafDrag !== null ? leafDrag : (leafOpen ? -LEAF_PANEL_W : 0);
   const p = leafOn ? Math.min(1, Math.max(0, -trackX / LEAF_PANEL_W)) : 0;
-  // The window's corners match whichever rounded end of the card is at its
-  // edge: View's when closed, the panel's when open, neither mid-slide, where
-  // the window cuts straight through the card. See .detail-sheet.has-leaf.
-  const cutL = trackX === 0 ? 35 : 0, cutR = trackX === -LEAF_PANEL_W ? 35 : 0;
-  const sheetRadius = leafOn ? `${cutL}px ${cutR}px ${cutR}px ${cutL}px` : undefined;
 
   // Switching Leaf Log off in Edit while the panel is open puts the card back.
   useEffect(() => { if (!leafOn) { setLeafOpen(false); setLeafDrag(null); } }, [leafOn]);
@@ -6580,10 +6583,10 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
       onClick={ghost?undefined:dismissDetail}
       style={drag.dy>0?{"--veil-k":drag.veil}:undefined}>
       <div className={`modal detail-sheet${leafOn?" has-leaf":""}`} ref={drag.sheetRef} {...sheetHandlers}
-        style={{padding:0,overflow:"hidden",display:"flex",flexDirection:"column",
+        style={{padding:0,overflow:leafOn?"visible":"hidden",display:"flex",flexDirection:"column",
           transform:drag.dy?`translateY(${drag.dy}px)`:undefined,
-          transition:drag.dragging?"none":"transform .24s var(--ease-enter), border-radius .2s",
-          borderRadius:sheetRadius, touchAction:"pan-y"}}
+          transition:drag.dragging?"none":"transform .24s var(--ease-enter)",
+          touchAction:"pan-y"}}
         onClick={e=>e.stopPropagation()}>
 
         {/* View card + Leaf Log panel on one track. The square top-right
