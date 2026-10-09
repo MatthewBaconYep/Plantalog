@@ -1835,6 +1835,214 @@ const styles = `
   .detail-hero-room-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
   .detail-hero-room span:last-child{font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#fbd9ad;}
   .hero-pill.filled{color:#f2fbf5;}
+
+  /* ── Leaf Log (design_handoff_leaf_log) ─────────────────────────────────
+     The View card and the Leaf Log panel ride one horizontal track inside
+     the detail sheet, which already clips. The panel is a fixed 279px, so a
+     372px phone keeps 93px of View on screen when it is open. */
+  .leaf-track{display:flex;flex:1;min-height:0;width:100%;touch-action:pan-y;}
+  .leaf-view-col{position:relative;width:100%;flex-shrink:0;min-height:0;display:flex;flex-direction:column;}
+  /* Open: the strip of View still on screen is not dimmed or blurred, it
+     just becomes the close target. */
+  .leaf-strip-catch{position:absolute;inset:0;z-index:20;background:transparent;}
+  .leaf-panel{position:relative;width:279px;flex-shrink:0;min-height:0;overflow:hidden;
+    display:flex;flex-direction:column;background:var(--ground);border-radius:0 35px 0 0;}
+
+  .leaf-head{display:flex;align-items:center;gap:6px;padding:12px 10px 0 14px;}
+  .leaf-head-title{font-family:var(--font-display);font-weight:400;font-size:30px;line-height:1.05;
+    color:var(--text);white-space:nowrap;}
+  .leaf-new-slot{width:104px;flex-shrink:0;margin-left:auto;}
+  .leaf-new-btn{width:100%;height:36px;border:none;border-radius:var(--r-pill);cursor:pointer;
+    background:var(--primary);color:var(--primary-ink);box-shadow:var(--shadow-sm);
+    font-family:var(--font-ui);font-size:13px;font-weight:800;white-space:nowrap;
+    display:flex;align-items:center;justify-content:center;gap:4px;}
+  .leaf-new-btn:hover{background:var(--leaf-light);}
+  .dark .leaf-new-btn{background:#2f7d52;color:#fff;}
+  .dark .leaf-new-btn:hover{background:#37905f;}
+
+  .leaf-body{flex:1;min-height:0;display:flex;align-items:stretch;gap:6px;padding:10px 10px 12px;}
+
+  /* Timeline */
+  .leaf-timeline{flex:1;min-width:0;display:flex;flex-direction:column;
+    background:var(--surface);border:1.5px solid #7a8a5e;border-radius:var(--r-md);padding:10px 4px 10px 2px;}
+  .dark .leaf-timeline{border-color:#8fa070;}
+  .leaf-timeline-title{font-family:var(--font-display);font-weight:400;font-size:15px;color:var(--text);padding:0 8px;}
+  .leaf-timeline-empty{margin:8px 8px 0;font-size:12px;font-weight:600;line-height:1.5;color:var(--text-muted);}
+  .leaf-scroll{flex:1;min-height:0;overflow-y:auto;margin-top:8px;padding-bottom:12px;scrollbar-width:none;}
+  .leaf-scroll::-webkit-scrollbar{display:none;}
+
+  .leaf-year-row{display:flex;align-items:center;gap:6px;height:20px;margin-bottom:4px;padding-left:4px;}
+  .leaf-year-rule{flex:1;height:1.5px;background:#e6dbc7;display:block;}
+  .dark .leaf-year-rule{background:#6e665a;}
+  .leaf-year-lbl{font-size:10px;font-weight:800;letter-spacing:1.1px;color:var(--text-muted);}
+
+  .leaf-row{display:flex;align-items:center;min-height:26px;}
+  .leaf-rail{width:52px;flex-shrink:0;align-self:stretch;position:relative;
+    display:flex;align-items:center;justify-content:center;}
+  .leaf-rail-top,.leaf-rail-bot{position:absolute;left:25px;width:2px;display:block;background:#e6dbc7;}
+  .dark .leaf-rail-top,.dark .leaf-rail-bot{background:#6e665a;}
+  .leaf-rail-top{top:0;height:50%;}
+  .leaf-rail-bot{top:50%;bottom:0;}
+  /* The rail stops at the newest leaf above and the oldest leaf below. */
+  .leaf-rail-top.off,.leaf-rail-bot.off,.dark .leaf-rail-top.off,.dark .leaf-rail-bot.off{background:transparent;}
+  /* The circle is filled with the card so it masks the rail behind it. */
+  .leaf-mark{position:relative;width:20px;height:20px;border-radius:var(--r-pill);background:var(--surface);
+    display:flex;align-items:center;justify-content:center;}
+  .leaf-mark.newest{color:#2f7d52;}
+  .leaf-mark.older{color:#8fb79c;}
+  .dark .leaf-mark.newest{color:#5fbf8a;}
+  .dark .leaf-mark.older{color:#5f8a6e;}
+  .leaf-date-btn{border:none;background:none;padding:3px 6px;margin-left:-6px;border-radius:8px;
+    font-family:var(--font-ui);font-size:13px;font-weight:800;color:var(--text);line-height:1.3;
+    white-space:nowrap;cursor:pointer;}
+  .leaf-date-btn:hover{background:#f2ece0;}
+  .dark .leaf-date-btn:hover{background:#3b362f;}
+
+  .leaf-gap{position:relative;}
+  .leaf-gap-rail{position:absolute;left:25px;width:2px;top:0;bottom:0;background:#e6dbc7;display:block;}
+  .dark .leaf-gap-rail{background:#6e665a;}
+  /* Day count, centred on the rail. The 1.5px top padding optically centres
+     Figtree digits inside the 20px pill. */
+  .leaf-gap-pill{position:absolute;left:26px;transform:translate(-50%,-50%);white-space:nowrap;
+    height:20px;padding:1.5px 8px 0;border-radius:var(--r-pill);border:2px solid var(--surface);
+    background:#f2ece0;color:#4a453c;font-size:11.5px;font-weight:800;line-height:1;
+    display:flex;align-items:center;}
+  .dark .leaf-gap-pill{background:#3b362f;color:#e8dfcd;}
+  /* Jan 1 inside a gap. The patch interrupts the rail so the rule never
+     crosses it. */
+  .leaf-year-break{position:absolute;left:4px;right:0;transform:translateY(-50%);z-index:1;
+    display:flex;align-items:center;gap:6px;}
+  .leaf-year-patch{position:absolute;left:17px;top:50%;width:10px;height:16px;transform:translateY(-50%);
+    background:var(--surface);display:block;}
+  .leaf-year-break .leaf-year-rule,.leaf-year-break .leaf-year-lbl{position:relative;}
+  .leaf-year-break .leaf-year-lbl{background:var(--surface);}
+
+  /* Stat tiles + graph */
+  .leaf-side{width:104px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;}
+  .leaf-tile{height:58px;flex-shrink:0;padding:9px 10px;border-radius:var(--r-md);
+    background:#e3f2e6;border:1.5px solid #9ccaa9;
+    display:flex;flex-direction:column;justify-content:space-between;}
+  .dark .leaf-tile{background:#143a2c;border-color:#2a6a4c;}
+  .leaf-tile-val{font-family:var(--font-display);font-weight:400;font-size:19px;line-height:1.1;
+    color:#1c5436;white-space:nowrap;}
+  .dark .leaf-tile-val{color:#b6e3c6;}
+  .leaf-tile-lbl{font-size:8.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+    line-height:1.25;color:#3f6b4e;white-space:nowrap;}
+  .dark .leaf-tile-lbl{color:#8fc4a3;}
+  .leaf-tile-lbl.tight{letter-spacing:.3px;}
+
+  .leaf-graph{flex:1;min-height:0;overflow:hidden;background:var(--surface);
+    border:1.5px solid #7a8a5e;border-radius:var(--r-md);padding:10px 9px 10px 10px;
+    display:flex;flex-direction:column;gap:8px;}
+  .dark .leaf-graph{border-color:#8fa070;}
+  .leaf-graph-title{font-size:8.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+    line-height:1.25;color:#6f6658;}
+  .dark .leaf-graph-title{color:#a99e8c;}
+  .leaf-graph-rows{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:space-between;}
+  .leaf-graph-row{display:flex;align-items:center;gap:5px;height:15px;}
+  .leaf-graph-mon{width:24px;flex-shrink:0;font-size:9.5px;font-weight:800;color:#201e1d;}
+  .leaf-graph-mon.quiet{color:#8a8071;}
+  .dark .leaf-graph-mon{color:#f0e9dc;}
+  .dark .leaf-graph-mon.quiet{color:#7d7464;}
+  .leaf-graph-track{flex:1;min-width:0;height:8px;border-radius:var(--r-pill);background:#efe4cd;
+    position:relative;overflow:hidden;display:block;}
+  .dark .leaf-graph-track{background:#3b362f;}
+  .leaf-graph-fill{position:absolute;left:0;top:0;bottom:0;border-radius:var(--r-pill);
+    background:#7a8a5e;display:block;}
+  .dark .leaf-graph-fill{background:#8fa070;}
+  .leaf-graph-count{width:9px;flex-shrink:0;text-align:right;font-size:9.5px;font-weight:800;color:#4a453c;}
+  .dark .leaf-graph-count{color:#d8cfbf;}
+
+  /* Confirmation toast, inside the panel. No Undo. */
+  .leaf-toast{position:absolute;left:10px;right:10px;bottom:12px;z-index:30;
+    background:var(--text);color:var(--ground);border-radius:var(--r-sm);padding:11px 13px;
+    font-size:12.5px;font-weight:600;line-height:1.35;box-shadow:0 12px 32px rgba(46,43,37,.22);
+    animation:toastUp .22s var(--ease-arrive) both;}
+  .dark .leaf-toast{box-shadow:0 12px 32px rgba(0,0,0,.45);}
+  @keyframes toastUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes panelDown{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+
+  /* New Leaf / Edit Leaf popup. Reuses the app's calendar shell; the parts
+     the design moves away from it are scoped to .leaf-cal. */
+  .leaf-cal{animation:panelDown .2s var(--ease-enter) both;}
+  .dark .cal-popup.leaf-cal{background:#35302a;box-shadow:0 18px 50px rgba(0,0,0,.55);}
+  .leaf-cal-head{text-align:center;margin-bottom:12px;}
+  .leaf-cal-kicker{font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--text-muted);}
+  .leaf-cal-date{font-family:var(--font-display);font-weight:400;font-size:19px;line-height:1.15;color:var(--text);margin-top:3px;}
+  .leaf-cal .cal-nav-title{font-family:var(--font-ui);font-size:13px;font-weight:800;margin-top:0;}
+  .leaf-cal .cal-nav-btn{color:#474238;}
+  .dark .leaf-cal .cal-nav-btn{background:#3b362f;color:#e8dfcd;}
+  .leaf-cal .cal-nav-btn:disabled{opacity:.35;cursor:default;}
+  .dark .leaf-cal .cal-day{background:#3b362f;box-shadow:none;}
+  .dark .leaf-cal .cal-day.other-month{background:#2b2823;color:var(--text-muted);}
+  .leaf-cal .cal-day{position:relative;}
+  .leaf-cal .cal-day.today{box-shadow:var(--shadow-sm),inset 0 0 0 1.5px #2f7d52;}
+  .dark .leaf-cal .cal-day.today{box-shadow:inset 0 0 0 1.5px #5fbf8a;}
+  .leaf-cal .cal-day.selected{background:#2f7d52;color:#fff;box-shadow:none;}
+  .dark .leaf-cal .cal-day.selected{background:#5fbf8a;color:#04210f;}
+  .leaf-cal .cal-day.blocked{opacity:.38;cursor:default;}
+  .leaf-cal .cal-day:hover{background:var(--surface);}
+  .dark .leaf-cal .cal-day:hover{background:#3b362f;color:var(--text);}
+  .leaf-cal .cal-day.selected:hover{background:#2f7d52;color:#fff;}
+  .dark .leaf-cal .cal-day.selected:hover{background:#5fbf8a;color:#04210f;}
+  .leaf-cal .cal-day.other-month:hover{background:#f7eeda;}
+  .leaf-day-dot{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);
+    width:4px;height:4px;border-radius:50%;background:#2f7d52;display:block;}
+  .dark .leaf-day-dot{background:#5fbf8a;}
+  .cal-day.selected .leaf-day-dot{background:#c8f2d9;}
+  .dark .cal-day.selected .leaf-day-dot{background:#04210f;}
+  .leaf-cal-actions{display:flex;gap:6px;margin-top:12px;}
+  .leaf-cal-btn{flex:1;min-height:40px;border:none;border-radius:var(--r-pill);cursor:pointer;
+    font-family:var(--font-ui);font-size:13px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;}
+  .leaf-cal-btn.del{background:#f6d6d0;color:#a32e22;border:1.5px solid #a32e22;}
+  .dark .leaf-cal-btn.del{background:#4a1f1a;color:#ffb3a8;border-color:#ffb3a8;}
+  .leaf-cal-btn.cancel{background:var(--surface);color:#201e1d;border:1.5px solid #c9bda6;}
+  .dark .leaf-cal-btn.cancel{background:transparent;color:#e8dfcd;border-color:#5a5346;}
+  .leaf-cal-btn.go{background:#0f4438;color:#f2f0d8;}
+  .dark .leaf-cal-btn.go{background:#3f9d6d;color:#04210f;}
+
+  /* Delete confirmation, over the popup */
+  .leaf-del-overlay{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);
+    width:100%;max-width:var(--col);background:rgba(28,25,20,.4);z-index:540;
+    display:flex;align-items:center;justify-content:center;padding:22px;box-sizing:border-box;}
+  .leaf-del-card{width:100%;background:var(--surface);border-radius:var(--r-lg);padding:16px 14px 13px;
+    box-shadow:0 18px 50px rgba(28,25,20,.42);animation:panelDown .2s var(--ease-enter) both;}
+  .dark .leaf-del-card{background:#35302a;box-shadow:0 18px 50px rgba(0,0,0,.55);}
+  .leaf-del-title{font-family:var(--font-display);font-weight:400;font-size:18px;line-height:1.15;color:var(--text);}
+  .leaf-del-sub{font-size:12.5px;font-weight:600;color:var(--text-muted);margin-top:4px;}
+  .leaf-cal-btn.cancel-solid{background:#e9dcc3;color:#201e1d;}
+  .dark .leaf-cal-btn.cancel-solid{background:transparent;color:#e8dfcd;border:1.5px solid #5a5346;}
+  .leaf-cal-btn.danger{background:#a32e22;color:#fff;}
+  .dark .leaf-cal-btn.danger{background:#7d2e24;color:#ffd5cc;}
+
+  /* Edit Plant action-row switch + its tooltip */
+  .leaf-switch-wrap{flex:1.25;position:relative;display:flex;}
+  .leaf-switch-pill{flex:1;min-height:44px;padding:0 10px;border-radius:var(--r-pill);cursor:pointer;
+    background:#e3f2e6;color:#1c5436;font-family:var(--font-ui);font-size:13px;font-weight:800;
+    white-space:nowrap;user-select:none;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .dark .leaf-switch-pill{background:#143a2c;color:#b6e3c6;}
+  .leaf-switch{width:34px;height:19px;border-radius:var(--r-pill);padding:2px;flex-shrink:0;
+    background:#d8ccb6;display:flex;align-items:center;justify-content:flex-start;transition:background .15s;}
+  .leaf-switch.on{background:#0f4438;justify-content:flex-end;}
+  .dark .leaf-switch{background:#544e43;}
+  .dark .leaf-switch.on{background:#3f9d6d;}
+  .leaf-switch span{width:15px;height:15px;border-radius:50%;background:#fff;display:block;}
+  .leaf-tip{position:absolute;left:0;bottom:calc(100% + 9px);width:214px;z-index:6;
+    background:#201e1d;color:#f5ead8;border-radius:14px;padding:10px 12px;
+    box-shadow:0 12px 32px rgba(46,43,37,.28);display:flex;align-items:flex-start;gap:9px;
+    font-size:12.5px;font-weight:600;line-height:1.45;white-space:normal;text-align:left;
+    animation:toastUp .2s var(--ease-arrive) both;}
+  .dark .leaf-tip{background:#f0e9dc;color:#201e1d;}
+  .leaf-tip-icon{color:#8fd6ac;margin-top:2px;display:flex;flex-shrink:0;}
+  .dark .leaf-tip-icon{color:#15644a;}
+  .leaf-tip-caret{position:absolute;left:28px;bottom:-5px;width:10px;height:10px;
+    background:#201e1d;transform:rotate(45deg);border-radius:2px;display:block;}
+  .dark .leaf-tip-caret{background:#f0e9dc;}
+
+  /* Home card badge (2a) */
+  .leaf-card-badge{width:16px;height:16px;border-radius:50%;background:#e3f2e6;color:#2f7d52;
+    flex-shrink:0;display:flex;align-items:center;justify-content:center;}
   /* ── Add/Edit Plant form (6a/6b) ─────────────────────────────────────────── */
   /* Full screen with square corners, so a plant with no notes shows Delete
      and Clone without scrolling. The header runs up under the status bar. */
@@ -1842,9 +2050,17 @@ const styles = `
   .pm-header{background:var(--primary);color:var(--primary-ink);padding:max(12px, env(safe-area-inset-top,0px)) 16px 13px;flex-shrink:0;display:flex;align-items:center;gap:12px;}
   .pm-icon-btn{border:none;width:32px;height:32px;border-radius:var(--r-pill);background:rgba(242,240,216,.16);color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .pm-title{font-family:var(--font-display);font-weight:400;font-size:21px;line-height:1;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  /* 32px is the drawn height; these are flex boxes, where the line box runs
+     taller than a plain block button's, so it is set outright. The touch pass
+     below then lifts both of these to 36px. */
   .hero-accent-btn{border:none;background:var(--accent);color:#fff;border-radius:var(--r-pill);
-    padding:8px 20px;min-width:44px;height:30px;display:flex;align-items:center;justify-content:center;
-    font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;}
+    padding:8px 20px;min-width:44px;height:32px;display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-ui);font-size:13px;font-weight:800;line-height:normal;cursor:pointer;}
+  /* Leaf Log sits left of Edit on the hero. */
+  .leaf-hero-btn{border:none;background:#2f7d52;color:#f2fbf5;border-radius:var(--r-pill);
+    padding:8px 16px;height:32px;display:flex;align-items:center;justify-content:center;white-space:nowrap;
+    font-family:var(--font-ui);font-size:13px;font-weight:800;line-height:normal;cursor:pointer;}
+  .dark .leaf-hero-btn{color:#fff;}
   .dark .hero-accent-btn{background:#f2a13b;color:#3a1d05;}
   .dark .pm-save-btn{background:#f2a13b;color:#3a1d05;}
   .pm-save-btn{border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:13px;font-weight:800;padding:8px 20px;border-radius:var(--r-pill);cursor:pointer;flex-shrink:0;}
@@ -2385,6 +2601,9 @@ const styles = `
 
   /* Detail */
   .modal.detail-sheet{max-height:calc(96vh / var(--zoom) - env(safe-area-inset-top,0px));max-height:calc(96dvh / var(--zoom) - env(safe-area-inset-top,0px));border-radius:35px;box-shadow:0 26px 0 var(--page-bg), 0 -10px 26px rgba(0,0,0,.40), 0 -28px 68px rgba(0,0,0,.34);}
+  .modal.detail-sheet.has-leaf{height:calc(96vh / var(--zoom) - env(safe-area-inset-top,0px));height:calc(96dvh / var(--zoom) - env(safe-area-inset-top,0px));border-top-right-radius:0;}
+  .detail-sheet.has-leaf .detail-hero{border-top-right-radius:0;}
+  .modal.detail-sheet, .detail-hero{transition:border-radius .2s;}
   .close-x-btn{position:absolute;top:8px;left:8px;background:rgba(255,255,255,.22);border:none;border-radius:50%;width:34px;height:34px;color:white;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;}
   .info-card .val{font-size:17px;font-weight:700;color:var(--leaf);}
   .info-card .key{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-top:1px;font-weight:500;}
@@ -2657,10 +2876,10 @@ const styles = `
         its hit box to at least 44x44 around its centre; what you see does
         not change. (close-x-btn and the photo-strip remove button are
         already absolutely positioned, so they skip position:relative.) */
-  .tab-btn, .tab-add-btn, .check-btn, .freq-inc-btn, .hero-accent-btn, .cal-nav-btn,
+  .tab-btn, .tab-add-btn, .check-btn, .freq-inc-btn, .hero-accent-btn, .leaf-hero-btn, .cal-nav-btn,
   .cal-field-btn, .cal-day, .pm-step, .pm-icon-btn, .pm-save-btn, .room-bar-edit, .room-drag,
   .room-edit-cancel, .room-swatch, .seg-tab, .tip-q, .util-btn, .notes-add-btn{position:relative;}
-  .tab-btn::after, .tab-add-btn::after, .check-btn::after, .freq-inc-btn::after, .hero-accent-btn::after,
+  .tab-btn::after, .tab-add-btn::after, .check-btn::after, .freq-inc-btn::after, .hero-accent-btn::after, .leaf-hero-btn::after,
   .cal-nav-btn::after, .cal-field-btn::after, .cal-day::after, .pm-step::after, .pm-icon-btn::after,
   .pm-save-btn::after, .room-bar-edit::after, .room-drag::after, .room-edit-cancel::after,
   .room-swatch::after, .seg-tab::after, .tip-q::after, .util-btn::after, .notes-add-btn::after,
@@ -2678,7 +2897,7 @@ const styles = `
   .tab-add-btn{width:40px;height:40px;}
   .check-btn, .freq-inc-btn{width:40px;height:40px;}
   .close-x-btn{width:36px;height:36px;}
-  .hero-accent-btn{height:36px;}
+  .hero-accent-btn, .leaf-hero-btn{height:36px;}
   .cal-day{height:40px;}
   .cal-nav-btn{width:36px;height:36px;}
   .pm-step{width:36px;height:36px;}
@@ -4582,7 +4801,15 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
       <div className="plant-name-col">
         <div className="plant-name">{plant.name}</div>
         {showAgeSub && (
-          <div className="plant-age-sub">{plantAgeDecimal(plant.obtainedDate, ageAsOf(plant))}</div>
+          <div style={{display:"flex",alignItems:"center",gap:5,marginTop:1}}>
+            <span className="plant-age-sub" style={{marginTop:0}}>{plantAgeDecimal(plant.obtainedDate, ageAsOf(plant))}</span>
+            {plant.leafLog && leafDatesOf(plant).length > 0 && (
+              <span className="leaf-card-badge"
+                title={`${leafDatesOf(plant).length} ${leafDatesOf(plant).length===1?"leaf":"leaves"} recorded`}>
+                <LeafIcon size={10} stroke={3}/>
+              </span>
+            )}
+          </div>
         )}
         {mode==="water" && (
           <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2}}>
@@ -5827,6 +6054,379 @@ function useSheetDrag(onCommit, enabled = true, dragZone = null) {
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel:onPointerUp } };
 }
 
+// ─── Leaf Log ─────────────────────────────────────────────────────────────────
+// A per-plant record of when each new leaf appeared, meant for climbing and
+// upright plants (design_handoff_leaf_log). Off by default; the switch in Edit
+// Plant is what puts the Leaf Log button on the View card.
+//
+// Stored on the plant as `leafLog` (boolean) and `leaves` (ISO dates, sorted
+// ascending, duplicates allowed). Plants already save as one JSON record, so
+// there is no schema change and no migration.
+
+const LEAF_PANEL_W   = 279;   // the panel's fixed width, and the open offset
+const LEAF_FUTURE_DAYS = 7;   // how far ahead of today a leaf may be dated
+
+function LeafIcon({ size = 14, stroke = 2.75 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+      <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+      <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+    </svg>
+  );
+}
+
+const leafDatesOf = p => (Array.isArray(p && p.leaves) ? p.leaves : []);
+
+function leafLongDate(s) {   // Sep 6, 2026
+  const d = new Date(String(s).slice(0,10)+"T12:00:00");
+  return `${MONTH_NAMES[d.getMonth()].slice(0,3)} ${d.getDate()}, ${d.getFullYear()}`;
+}
+function leafShortDate(s) {  // 3/4/24, no leading zeros
+  const d = new Date(String(s).slice(0,10)+"T12:00:00");
+  return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
+}
+// Days of history, read as days, then months, then years.
+function leafHistoryLabel(days) {
+  if (days === null) return "--";
+  if (days < 60) return `${days} days`;
+  const mo = days / 30.44;
+  if (mo < 12) return `${Math.round(mo)} mo`;
+  const y = Math.round(mo/12*10)/10;
+  return `${y} ${y===1?"yr":"yrs"}`;
+}
+// Today / Yesterday / Tomorrow, else a date. The popup header wants the full
+// date behind it, the toast only the month and day.
+function leafRelDate(s, { cap=false, noYear=false } = {}) {
+  const n = daysBetween(fmt(getToday()), s);
+  const word = n===0 ? "today" : n===1 ? "tomorrow" : n===-1 ? "yesterday" : null;
+  if (!word) {
+    if (!noYear) return leafLongDate(s);
+    const d = new Date(String(s).slice(0,10)+"T12:00:00");
+    return `${MONTH_NAMES[d.getMonth()].slice(0,3)} ${d.getDate()}`;
+  }
+  return cap ? word.charAt(0).toUpperCase()+word.slice(1) : word;
+}
+
+function leafStats(leaves) {
+  const n = leaves.length, today = fmt(getToday());
+  const first = n ? leaves[0] : null, last = n ? leaves[n-1] : null;
+  const avg   = n > 1 ? Math.round(daysBetween(first, last) / (n-1)) : null;
+  const since = n ? daysBetween(last, today) : null;
+  return {
+    count:   String(n),
+    avg:     avg   === null ? "--" : `${avg}d`,
+    since:   since === null ? "--" : `${since}d`,
+    first:   first ? leafShortDate(first) : "--",
+    history: leafHistoryLabel(first ? daysBetween(first, today) : null),
+  };
+}
+
+// Newest first. Each row carries the gap below it: how tall it is, the day
+// count that sits on the rail, and any Jan 1 the gap crosses.
+function leafSpine(leaves) {
+  const desc = [...leaves].reverse();
+  return desc.map((date, i) => {
+    const prev = desc[i+1];
+    const gd = prev ? daysBetween(prev, date) : null;
+    // A year rule sits where Jan 1 actually falls inside the gap, labelled
+    // with the year that ended there.
+    const years = [];
+    if (prev) {
+      for (let yr = +date.slice(0,4); yr > +prev.slice(0,4); yr--) {
+        const frac = daysBetween(`${yr}-01-01`, date) / gd;
+        years.push({ label:String(yr-1), top: Math.round(Math.min(.92, Math.max(.08, frac))*1000)/10 });
+      }
+    }
+    // The day pill sits mid-gap unless a year rule is already sitting there.
+    let pillTop = 50;
+    const near = years.find(y => Math.abs(y.top - 50) < 22);
+    if (near) pillTop = near.top < 50 ? 74 : 26;
+    return {
+      date, newest: i===0, hasGap: !!prev, years, pillTop,
+      // 30px floor holds the pill; 1.4px a day out to 120 days so 19 against
+      // 37 reads clearly, then 0.4px a day so a winter gap stays long without
+      // swallowing the card.
+      gapPx: gd === null ? 0 : Math.max(years.length ? 70 : 0,
+        Math.round(30 + Math.min(gd,120)*1.4 + Math.max(0, gd-120)*0.4)),
+      gapLabel: gd === null ? "" : `${gd}d`,
+    };
+  });
+}
+
+// Current month first, eleven back. Bars are relative to the busiest month.
+function leafMonths12(leaves) {
+  const t = getToday(), rows = [];
+  for (let k = 0; k < 12; k++) {
+    const d = new Date(t.getFullYear(), t.getMonth()-k, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+    rows.push({ label: MONTH_NAMES[d.getMonth()].slice(0,3),
+      count: leaves.filter(x => String(x).slice(0,7) === key).length });
+  }
+  const max = Math.max(1, ...rows.map(r => r.count));
+  // A month with one leaf still needs a visible stub, hence the 14% floor.
+  return rows.map(r => ({ ...r, pct: r.count ? Math.max(14, Math.round(r.count/max*100)) : 0 }));
+}
+
+// The hero's right edge dissolves as the panel comes out. A 12-stop smoothstep
+// ramp, not an overlay gradient, which left a visible seam over the photo.
+function leafHeroMask(p) {
+  if (p <= 0) return undefined;
+  const W = 56, stops = ["#000 0", `#000 calc(100% - ${W}px)`];
+  for (let i = 1; i <= 12; i++) {
+    const t = i/12, e = t*t*(3-2*t);
+    stops.push(`rgba(0,0,0,${(1-p*e).toFixed(3)}) calc(100% - ${(W*(1-t)).toFixed(1)}px)`);
+  }
+  return `linear-gradient(to right,${stops.join(",")})`;
+}
+
+// New Leaf / Edit Leaf. Full screen over the whole card, like the app's other
+// date fields, and portalled into .app so neither the track's transform nor
+// its overflow can reach it (and so dark mode still applies).
+function LeafDatePopup({ mode, value, leaves, onPick, onSubmit, onDelete, onClose }) {
+  const today = fmt(getToday());
+  const limit = addDaysStr(today, LEAF_FUTURE_DAYS);
+  const init  = new Date(String(value).slice(0,10)+"T12:00:00");
+  const [viewYear,  setViewYear]  = useState(init.getFullYear());
+  const [viewMonth, setViewMonth] = useState(init.getMonth());
+
+  const lead  = new Date(viewYear, viewMonth, 1).getDay();
+  const dim   = new Date(viewYear, viewMonth+1, 0).getDate();
+  const cells = Array.from({length: Math.ceil((lead+dim)/7)*7},
+    (_,i) => new Date(viewYear, viewMonth, 1 - lead + i));
+  const has = {}; leaves.forEach(l => { has[l] = true; });
+  const atLimit = `${viewYear}-${String(viewMonth+1).padStart(2,"0")}` >= limit.slice(0,7);
+
+  function nav(delta) {
+    const d = new Date(viewYear, viewMonth+delta, 1);
+    setViewYear(d.getFullYear()); setViewMonth(d.getMonth());
+  }
+
+  const host = typeof document !== "undefined" && document.querySelector(".app");
+  if (!host) return null;
+  return ReactDOM.createPortal((
+    <div className="cal-popup-overlay" onClick={e => { e.stopPropagation(); onClose(); }}>
+      <div className="cal-popup leaf-cal" onClick={e => e.stopPropagation()}>
+        <div className="leaf-cal-head">
+          <div className="leaf-cal-kicker">{mode==="edit" ? "Edit leaf" : "New leaf"}</div>
+          <div className="leaf-cal-date">{leafRelDate(value, { cap:true })}</div>
+        </div>
+        <div className="cal-nav">
+          <button className="cal-nav-btn" onClick={()=>nav(-1)} aria-label="Previous month">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <div className="cal-nav-titles">
+            <div className="cal-nav-title">{MONTH_NAMES[viewMonth]} {viewYear}</div>
+          </div>
+          <button className="cal-nav-btn" onClick={()=>nav(1)} disabled={atLimit} aria-label="Next month">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <div className="cal-weekdays">{["S","M","T","W","T","F","S"].map((d,i)=><span key={i}>{d}</span>)}</div>
+        <div className="cal-grid">
+          {cells.map((d,i) => {
+            const dStr = fmt(d);
+            const blocked = daysBetween(today, dStr) > LEAF_FUTURE_DAYS;
+            const selected = dStr === value;
+            return (
+              <button key={i} type="button" disabled={blocked}
+                className={`cal-day${d.getMonth()!==viewMonth?" other-month":""}${selected?" selected":""}${dStr===today && !selected?" today":""}${blocked?" blocked":""}`}
+                onClick={()=>{ if(!blocked) onPick(dStr); }}>
+                {d.getDate()}
+                {has[dStr] && <span className="leaf-day-dot"/>}
+              </button>
+            );
+          })}
+        </div>
+        <div className="leaf-cal-actions">
+          {mode==="edit" && <button type="button" className="leaf-cal-btn del" onClick={onDelete}>Delete</button>}
+          <button type="button" className="leaf-cal-btn cancel" onClick={onClose}>Cancel</button>
+          <button type="button" className="leaf-cal-btn go" onClick={onSubmit}>{mode==="edit" ? "Save" : "Add"}</button>
+        </div>
+      </div>
+    </div>
+  ), host);
+}
+
+// The panel itself, plus the popup and delete confirmation it opens. `open`
+// only tells it whether to shut its layers; the slide is the track's job.
+function LeafLogPanel({ leaves, open, onChange }) {
+  const today = fmt(getToday());
+  const [sheet,   setSheet]   = useState(null);   // null | {mode:"add"} | {mode:"edit", orig}
+  const [picked,  setPicked]  = useState(today);
+  const [confirm, setConfirm] = useState(false);
+  const [toast,   setToast]   = useState(null);
+  const toastT = useRef(null);
+
+  // Closing the panel (or switching Leaf Log off) takes its layers with it.
+  useEffect(() => { if (!open) { setSheet(null); setConfirm(false); } }, [open]);
+  useEffect(() => () => clearTimeout(toastT.current), []);
+
+  const stats  = leafStats(leaves);
+  const spine  = leafSpine(leaves);
+  const months = leafMonths12(leaves);
+
+  function showToast(date) {
+    clearTimeout(toastT.current);
+    setToast(`Leaf recorded ${leafRelDate(date, { noYear:true })}`);
+    toastT.current = setTimeout(()=>setToast(null), 4000);
+  }
+  function submit() {
+    if (!sheet) return;
+    if (sheet.mode === "add") {
+      onChange([...leaves, picked].sort());
+      showToast(picked);
+    } else {
+      const next = [...leaves];
+      const k = next.lastIndexOf(sheet.orig);
+      if (k > -1) next.splice(k, 1);
+      onChange([...next, picked].sort());
+    }
+    setSheet(null);
+  }
+  function removeLeaf() {
+    if (!sheet || !sheet.orig) return;
+    const next = [...leaves];
+    const k = next.lastIndexOf(sheet.orig);
+    if (k > -1) next.splice(k, 1);
+    onChange(next);
+    setConfirm(false); setSheet(null);
+  }
+
+  return (
+    <div className="leaf-panel">
+      <div className="leaf-head">
+        <div className="leaf-head-title">Leaf Log</div>
+        <div className="leaf-new-slot">
+          <button type="button" className="leaf-new-btn"
+            onClick={()=>{ setPicked(today); setSheet({mode:"add"}); }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            New Leaf
+          </button>
+        </div>
+      </div>
+
+      <div className="leaf-body">
+        <div className="leaf-timeline">
+          <span className="leaf-timeline-title">Timeline</span>
+          {leaves.length === 0 && (
+            <p className="leaf-timeline-empty">No leaves recorded yet. Tap New Leaf to record the first one.</p>
+          )}
+          <div className="leaf-scroll">
+            {spine.map((row, i) => (
+              <div key={`${row.date}-${i}`} style={{display:"flex",flexDirection:"column"}}>
+                {row.newest && (
+                  <div className="leaf-year-row">
+                    <span className="leaf-year-rule"/>
+                    <span className="leaf-year-lbl">{row.date.slice(0,4)}</span>
+                    <span className="leaf-year-rule"/>
+                  </div>
+                )}
+                <div className="leaf-row">
+                  <div className="leaf-rail">
+                    <span className={`leaf-rail-top${row.newest?" off":""}`}/>
+                    <span className={`leaf-rail-bot${row.hasGap?"":" off"}`}/>
+                    <span className={`leaf-mark ${row.newest?"newest":"older"}`}><LeafIcon/></span>
+                  </div>
+                  <button type="button" className="leaf-date-btn"
+                    onClick={()=>{ setPicked(row.date); setSheet({mode:"edit", orig:row.date}); }}>
+                    {leafLongDate(row.date)}
+                  </button>
+                </div>
+                {row.hasGap && (
+                  <div className="leaf-gap" style={{height:row.gapPx}}>
+                    {row.years.map((y,k) => (
+                      <div key={k} className="leaf-year-break" style={{top:`${y.top}%`}}>
+                        <span className="leaf-year-patch"/>
+                        <span className="leaf-year-rule"/>
+                        <span className="leaf-year-lbl">{y.label}</span>
+                        <span className="leaf-year-rule"/>
+                      </div>
+                    ))}
+                    <span className="leaf-gap-rail"/>
+                    <span className="leaf-gap-pill" style={{top:`${row.pillTop}%`}}>{row.gapLabel}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="leaf-side">
+          <div className="leaf-tile">
+            <div className="leaf-tile-val">{stats.count}</div>
+            <div className="leaf-tile-lbl tight">Leaves Recorded</div>
+          </div>
+          <div className="leaf-tile">
+            <div className="leaf-tile-val">{stats.avg}</div>
+            <div className="leaf-tile-lbl">Average gap</div>
+          </div>
+          <div className="leaf-tile">
+            <div className="leaf-tile-val">{stats.since}</div>
+            <div className="leaf-tile-lbl">Since last</div>
+          </div>
+          <div className="leaf-tile">
+            <div className="leaf-tile-val">{stats.first}</div>
+            <div className="leaf-tile-lbl">First recorded</div>
+          </div>
+          <div className="leaf-tile">
+            <div className="leaf-tile-val">{stats.history}</div>
+            <div className="leaf-tile-lbl">History</div>
+          </div>
+          <div className="leaf-graph">
+            <div className="leaf-graph-title">Last Year</div>
+            <div className="leaf-graph-rows">
+              {months.map((m,i) => (
+                <div className="leaf-graph-row" key={i}>
+                  <span className={`leaf-graph-mon${m.count?"":" quiet"}`}>{m.label}</span>
+                  <span className="leaf-graph-track">
+                    {m.pct > 0 && <span className="leaf-graph-fill" style={{width:`${m.pct}%`}}/>}
+                  </span>
+                  <span className="leaf-graph-count">{m.count || ""}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {toast && <div className="leaf-toast">{toast}</div>}
+
+      {sheet && (
+        <LeafDatePopup
+          mode={sheet.mode}
+          value={picked}
+          leaves={leaves}
+          onPick={setPicked}
+          onSubmit={submit}
+          onDelete={()=>setConfirm(true)}
+          onClose={()=>{ setSheet(null); setConfirm(false); }}
+        />
+      )}
+      {confirm && sheet && sheet.orig && (
+        <LeafDeleteConfirm date={sheet.orig} onCancel={()=>setConfirm(false)} onDelete={removeLeaf}/>
+      )}
+    </div>
+  );
+}
+
+function LeafDeleteConfirm({ date, onCancel, onDelete }) {
+  const host = typeof document !== "undefined" && document.querySelector(".app");
+  if (!host) return null;
+  return ReactDOM.createPortal((
+    <div className="leaf-del-overlay" onClick={e => { e.stopPropagation(); onCancel(); }}>
+      <div className="leaf-del-card" onClick={e => e.stopPropagation()}>
+        <div className="leaf-del-title">Delete this leaf log?</div>
+        <div className="leaf-del-sub">{leafLongDate(date)}</div>
+        <div className="leaf-cal-actions">
+          <button type="button" className="leaf-cal-btn cancel-solid" onClick={onCancel}>Cancel</button>
+          <button type="button" className="leaf-cal-btn danger" onClick={onDelete}>Delete</button>
+        </div>
+      </div>
+    </div>
+  ), host);
+}
+
 function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, variant="active", onRestore, onSendToDeleted, enter="slide", ghost=false }) {
   useScrollLock();
   const [confirm, setConfirm] = useState(null);   // "restore" | "delete"
@@ -5841,6 +6441,75 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
   // the viewer should ever be able to dismiss the card underneath it.
   const drag = useSheetDrag(() => dismissDetail({ instant:true }), !ghost && lightboxIdx === null, ".detail-panel");
   const [openMenuIdx, setOpenMenuIdx] = useState(null);
+
+  // ── Leaf Log ──────────────────────────────────────────────────────────────
+  // The View card and the Leaf Log panel ride one horizontal track inside this
+  // sheet, which already clips. `leafDrag` is the live finger position in px
+  // (null when no drag is running); `p` is how far open the panel is, 0 to 1,
+  // which the hero mask and the header buttons both read.
+  const leafOn = variant === "active" && !!plant.leafLog;
+  const leaves = leafDatesOf(plant);
+  const [leafOpen, setLeafOpen] = useState(false);
+  const [leafDrag, setLeafDrag] = useState(null);
+  const swipe = useRef({ x:null, y:0, base:0, moved:false, suppress:false });
+  const trackX = leafDrag !== null ? leafDrag : (leafOpen ? -LEAF_PANEL_W : 0);
+  const p = leafOn ? Math.min(1, Math.max(0, -trackX / LEAF_PANEL_W)) : 0;
+
+  // Switching Leaf Log off in Edit while the panel is open puts the card back.
+  useEffect(() => { if (!leafOn) { setLeafOpen(false); setLeafDrag(null); } }, [leafOn]);
+
+  // Horizontal swipe. It shares pointer events with the sheet's own
+  // drag-to-dismiss, so the first 8px decide which gesture this is: 8px
+  // sideways makes it a track drag and hands the sheet drag off, 8px
+  // vertically leaves it alone to scroll or dismiss as it always has.
+  function leafDown(e) {
+    if (!leafOn) return;
+    swipe.current = { x:e.clientX, y:e.clientY, base: leafOpen ? -LEAF_PANEL_W : 0,
+      moved:false, suppress:swipe.current.suppress };
+  }
+  function leafMove(e) {
+    const c = swipe.current;
+    if (c.x === null) return;
+    const dx = e.clientX - c.x, dy = e.clientY - c.y;
+    if (!c.moved) {
+      if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+        c.moved = true;
+        drag.handlers.onPointerUp();                 // the sheet lets go
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+      } else if (Math.abs(dy) > 8) {
+        c.x = null;
+      }
+      return;
+    }
+    setLeafDrag(Math.max(-LEAF_PANEL_W, Math.min(0, c.base + dx)));
+  }
+  function leafUp() {
+    const c = swipe.current;
+    if (c.x === null) return;
+    c.x = null;
+    if (!c.moved) return;
+    c.moved = false;
+    c.suppress = true;                               // eat the click a drag ends with
+    setTimeout(() => { swipe.current.suppress = false; }, 0);
+    const cur = leafDrag === null ? c.base : leafDrag;
+    // 50px opens from closed; from open it takes 50px back to close again.
+    setLeafOpen(c.base === 0 ? cur < -50 : cur < -LEAF_PANEL_W + 50);
+    setLeafDrag(null);
+  }
+  function leafClickCapture(e) {
+    if (!swipe.current.suppress) return;
+    e.stopPropagation(); e.preventDefault(); swipe.current.suppress = false;
+  }
+
+  // A pull that starts inside the panel scrolls the timeline. It must never
+  // drag the whole card away.
+  const sheetHandlers = {
+    ...drag.handlers,
+    onPointerDown: e => {
+      if (e.target.closest && e.target.closest(".leaf-panel")) return;
+      drag.handlers.onPointerDown(e);
+    },
+  };
 
   const daysSince = daysBetween(plant.lastWatered, fmt(getToday()));
   const daysLeft  = plant.waterFreqDays - daysSince;
@@ -5904,25 +6573,41 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
     <div className={`modal-overlay${detailClosing?" closing":""}${enter==="swap"?" swap":""}${ghost?" ghost":""}`}
       onClick={ghost?undefined:dismissDetail}
       style={drag.dy>0?{"--veil-k":drag.veil}:undefined}>
-      <div className="modal detail-sheet" ref={drag.sheetRef} {...drag.handlers}
+      <div className={`modal detail-sheet${leafOn?" has-leaf":""}`} ref={drag.sheetRef} {...sheetHandlers}
         style={{padding:0,overflow:"hidden",display:"flex",flexDirection:"column",
           transform:drag.dy?`translateY(${drag.dy}px)`:undefined,
           transition:drag.dragging?"none":"transform .24s var(--ease-enter)",
           touchAction:"pan-y"}}
         onClick={e=>e.stopPropagation()}>
+
+        {/* View card + Leaf Log panel on one track. The square top-right
+            corner reads as the card continuing off screen to the right. */}
+        <div className="leaf-track"
+          onPointerDown={leafDown} onPointerMove={leafMove} onPointerUp={leafUp}
+          onPointerCancel={leafUp} onClickCapture={leafClickCapture}
+          style={{transform:`translateX(${trackX}px)`,
+            transition:leafDrag!==null?"none":"transform .38s cubic-bezier(.22,.8,.24,1)"}}>
+        <div className="leaf-view-col">
         {/* The only affordance saying this can be dragged (§9) */}
         <div className="sheet-grab"><span/></div>
 
         {/* Header — health color */}
         <div className={`detail-hero${heroPhoto?" has-photo":""}`}
-          style={heroPhoto?{backgroundImage:`url(${heroPhoto})`}:undefined}>
+          style={{...(heroPhoto?{backgroundImage:`url(${heroPhoto})`}:null),
+            maskImage:leafHeroMask(p), WebkitMaskImage:leafHeroMask(p)}}>
           {heroPhoto && <div className="detail-hero-scrim"/>}
           <button className="close-x-btn" onClick={e=>{e.stopPropagation();dismissDetail();}} style={{zIndex:10,background:"rgba(255,255,255,.22)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",color:"#fff"}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
-          <button onClick={e=>{e.stopPropagation(); if(variant==="active") onEdit(); else setConfirm("restore");}} className="hero-accent-btn" style={{position:"absolute",top:16,right:16,zIndex:10}}>
-            {variant==="graveyard" ? "Revive" : variant==="deleted" ? "Restore" : "Edit"}
-          </button>
+          <div style={{position:"absolute",top:24,right:16,zIndex:10,display:"flex",alignItems:"center",gap:6,
+            opacity:Math.max(0, 1 - p*2.5), pointerEvents:p>0.05?"none":"auto", transition:"opacity .2s"}}>
+            {leafOn && (
+              <button className="leaf-hero-btn" onClick={e=>{e.stopPropagation(); setLeafOpen(true);}}>Leaf Log</button>
+            )}
+            <button onClick={e=>{e.stopPropagation(); if(variant==="active") onEdit(); else setConfirm("restore");}} className="hero-accent-btn">
+              {variant==="graveyard" ? "Revive" : variant==="deleted" ? "Restore" : "Edit"}
+            </button>
+          </div>
           <div className="detail-hero-content">
             {room && (
               <div className="detail-hero-room">
@@ -6003,6 +6688,20 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
             <button className="btn btn-danger" style={{width:"100%",marginTop:4}}
               onClick={()=>setConfirm("delete")}>Delete</button>
           )}
+        </div>
+
+        {/* The strip of View still on screen is not dimmed or blurred, it
+            just becomes the close target once the panel is mostly out. */}
+        {leafOn && (
+          <div className="leaf-strip-catch" style={{pointerEvents:p>0.5?"auto":"none"}}
+            onClick={e=>{e.stopPropagation(); setLeafOpen(false);}}/>
+        )}
+        </div>
+
+        {leafOn && (
+          <LeafLogPanel leaves={leaves} open={leafOpen}
+            onChange={next=>setPlants(ps=>ps.map(x=>x.id===plant.id?{...x,leaves:next}:x))}/>
+        )}
         </div>
 
         {confirm==="restore" && variant==="graveyard" && (
@@ -6228,6 +6927,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
     roomId:rooms[0]?.id||"", name:"", obtainedDate:fmt(getToday()), pottedDate:fmt(getToday()),
     originalPot:true, potMonths:0, potYears:2, currentPotSize:6, nextPotSize:7,
     waterFreqDays:7, lastWatered:fmt(getToday()), health:3, photos:[], primaryPhoto:null, notes:"" ,
+    leafLog:false, leaves:[],
   };
   const [form,setForm] = useState(plant?{...plant}:blank);
   const [tipOpen,setTipOpen] = useState(false);   // 14d watering tip
@@ -6245,6 +6945,15 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
   const [editingNotes,setEditingNotes]=useState(false);
   const [notesDraft,setNotesDraft]=useState("");
   const [confirmDel,setConfirmDel]=useState(false);
+  // The Leaf Log pill explains itself on tap; only the switch inside it toggles.
+  const [leafTip,setLeafTip]=useState(false);
+  const leafTipT=useRef(null);
+  useEffect(()=>()=>clearTimeout(leafTipT.current),[]);
+  function toggleLeafTip(){
+    clearTimeout(leafTipT.current);
+    setLeafTip(t=>!t);
+    leafTipT.current=setTimeout(()=>setLeafTip(false),4000);
+  }
   const isDark = useIsDark();
   const [modalClosing, dismissModal] = useSheetDismiss(onClose);
 
@@ -6256,8 +6965,10 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
   // drops the id so Save creates a brand-new plant rather than overwriting
   // this one. No confirmation — it's non-destructive to the original.
   function handleClone(){
-    const { id, photos, photoDates, primaryPhoto, ...rest } = form;
-    const draft = { ...rest, photos:[], photoDates:[], primaryPhoto:null };
+    // `leaves` belong to this plant the way its photos do, so the clone keeps
+    // the Leaf Log setting but starts its own record.
+    const { id, photos, photoDates, primaryPhoto, leaves, ...rest } = form;
+    const draft = { ...rest, photos:[], photoDates:[], primaryPhoto:null, leaves:[] };
     setForm(draft);
     onClone && onClone();   // tells the parent this session is now "Add", not "Edit"
   }
@@ -6482,6 +7193,22 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
           {/* Clone + Delete sit together at the bottom (6b) */}
           {(onDelete || (plant && onClone)) && (
             <div style={{display:"flex",gap:8}}>
+              {plant && (
+                <div className="leaf-switch-wrap">
+                  <div className="leaf-switch-pill" onClick={toggleLeafTip}>
+                    Leaf Log
+                    <span className={`leaf-switch${form.leafLog?" on":""}`} role="switch" aria-checked={!!form.leafLog}
+                      onClick={e=>{e.stopPropagation(); set("leafLog", !form.leafLog);}}><span/></span>
+                  </div>
+                  {leafTip && (
+                    <div className="leaf-tip" onClick={toggleLeafTip}>
+                      <span className="leaf-tip-icon"><LeafIcon/></span>
+                      <span>Record new leaves. Best for climbing and upright plants.</span>
+                      <span className="leaf-tip-caret"/>
+                    </div>
+                  )}
+                </div>
+              )}
               {plant && onClone && (
                 <button type="button" className="pm-bottom-btn clone" onClick={handleClone}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
