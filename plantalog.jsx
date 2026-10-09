@@ -1954,7 +1954,6 @@ const styles = `
   .dark .leaf-graph-count{color:#d8cfbf;}
 
   @keyframes toastUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
-  @keyframes panelDown{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
 
   /* New Leaf / Edit Leaf popup. Reuses the app's calendar shell; the parts
      the design moves away from it are scoped to .leaf-cal. */
@@ -2000,7 +1999,7 @@ const styles = `
     width:100%;max-width:var(--col);background:rgba(28,25,20,.4);z-index:540;
     display:flex;align-items:center;justify-content:center;padding:22px;box-sizing:border-box;}
   .leaf-del-card{width:100%;background:var(--surface);border-radius:var(--r-lg);padding:16px 14px 13px;
-    box-shadow:0 18px 50px rgba(28,25,20,.42);animation:panelDown .2s var(--ease-enter) both;}
+    box-shadow:0 18px 50px rgba(28,25,20,.42);}
   .dark .leaf-del-card{background:#35302a;box-shadow:0 18px 50px rgba(0,0,0,.55);}
   .leaf-del-title{font-family:var(--font-display);font-weight:400;font-size:18px;line-height:1.15;color:var(--text);}
   .leaf-del-sub{font-size:12.5px;font-weight:600;color:var(--text-muted);margin-top:4px;}
@@ -2487,7 +2486,7 @@ const styles = `
   .modal-overlay::before{content:'';position:absolute;top:0;bottom:0;left:0;right:0;margin:0 auto;width:100%;max-width:var(--col);background:rgba(0,0,0,.48);animation:veilIn .26s var(--ease-enter) both;pointer-events:none;
     /* --veil-k lightens the dim as a drag pulls the sheet down (set inline
        by the drag); the transition covers the snap back and the slide out. */
-    opacity:var(--veil-k,1);transition:opacity .24s var(--ease-enter);}
+    opacity:var(--veil-k,1);transition:var(--veil-tx, opacity .24s var(--ease-enter));}
   .modal-overlay.closing::before{animation:veilOut .22s var(--ease-exit) both;}
   @keyframes sheetFade{ from { opacity:0; } to { opacity:1; } }
   @keyframes sheetFadeOut{ from { opacity:1; } to { opacity:0; } }
@@ -2550,7 +2549,7 @@ const styles = `
   @media (prefers-reduced-motion: reduce) {
     .modal-overlay::before, .modal-overlay > .modal,
     .modal-overlay.closing::before, .modal-overlay.closing > .modal { animation:none !important; }
-    .cal-popup-overlay, .cal-popup-overlay .cal-popup { animation:none !important; }
+    .fade-dialog, .fade-dialog > * { animation:none !important; }
     .xfade-out { display:none !important; }
     .header-undo-btn { animation:none !important; }
     .celebration.all-done, .celebration.all-done .celebration-head { animation:none !important; }
@@ -2662,14 +2661,16 @@ const styles = `
   .cal-field-btn.placeholder{color:var(--text-muted);font-weight:500;}
   .cal-field-btn svg{flex-shrink:0;opacity:.55;}
   .cal-popup-overlay{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--col);background:rgba(28,25,20,.52);z-index:520;display:flex;align-items:center;justify-content:center;padding:22px;box-sizing:border-box;}
-  /* Calendar pickers fade in and out with their scrim (motion §4): 200ms on
+  /* Popups and dialogs fade in and out with their scrim (motion §4): 200ms on
      the enter curve, 150ms on the exit curve, since exits run shorter. The
      overlay carries the opacity for scrim and card together, so they cannot
-     drift apart; the card only adds a 6px drop on the way in. Opacity only on
-     the overlay: its transform is what centres it. */
-  .cal-popup-overlay{animation:scrimIn .2s var(--ease-enter) both;}
-  .cal-popup-overlay .cal-popup{animation:popDrop .2s var(--ease-enter) both;}
-  .cal-popup-overlay.closing{animation:scrimOut .15s var(--ease-exit) both;pointer-events:none;}
+     drift apart; the card, its direct child, only adds a 6px drop on the way
+     in. Opacity only on the overlay: several are centred by a transform.
+     Used by the calendar pickers, the photo date picker, the room editor and
+     the confirm dialogs; usePopupExit holds each mounted for its exit. */
+  .fade-dialog{animation:scrimIn .2s var(--ease-enter) both;}
+  .fade-dialog > *{animation:popDrop .2s var(--ease-enter) both;}
+  .fade-dialog.closing{animation:scrimOut .15s var(--ease-exit) both;pointer-events:none;}
   @keyframes scrimIn{from{opacity:0;}to{opacity:1;}}
   @keyframes scrimOut{from{opacity:1;}to{opacity:0;}}
   @keyframes popDrop{from{transform:translateY(-6px);}to{transform:none;}}
@@ -5229,23 +5230,37 @@ function HomeScreen({ rooms, setRooms, plants, setPlants, showCardPhotos=true, u
 // doesn't commit a selection until the picker loses focus, and clicking a
 // day from an adjacent month just re-navigates the calendar instead of
 // selecting it. Owning the whole UI sidesteps both.
-// Calendar pickers fade out before they unmount (motion §4: exits on the exit
-// curve, shorter than the entrance). leave(then) plays the exit, then runs
-// `then`, which closes the picker. Anything the tap commits, like a picked
-// date, is committed before leave() is called, so cutting the exit short can
-// never lose it. Reduced motion skips the wait entirely.
+// Popups and dialogs fade out before they unmount (motion §4: exits on the
+// exit curve, shorter than the entrance). leave(then) plays the exit, then
+// runs `then`, which closes the popup. Pickers commit what the tap chose
+// before calling leave(), so only the closing waits. Dialogs whose buttons
+// close things themselves pass the action as `then`, since running it first
+// would unmount them before they could fade. Either way nothing is lost: if
+// the popup is torn down mid-exit (its owner closed, a tab changed), the
+// pending `then` runs anyway, as useSheetDismiss does for sheets. A second
+// leave() during an exit is ignored, so a double tap acts once. Reduced
+// motion skips the wait entirely.
 const POPUP_EXIT_MS = 150;
 function usePopupExit() {
   const [closing, setClosing] = useState(false);
   const timer = useRef(null);
-  useEffect(() => () => clearTimeout(timer.current), []);
+  const pending = useRef(null);
+  useEffect(() => () => {
+    clearTimeout(timer.current);
+    const p = pending.current; pending.current = null;
+    if (p) p();
+  }, []);
   function leave(then) {
-    if (closing) return;
+    if (pending.current) return;
     const reduced = typeof matchMedia === "function" &&
       matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) { then && then(); return; }
+    pending.current = then || (() => {});
     setClosing(true);
-    timer.current = setTimeout(() => { setClosing(false); then && then(); }, POPUP_EXIT_MS);
+    timer.current = setTimeout(() => {
+      const p = pending.current; pending.current = null;
+      setClosing(false); p && p();
+    }, POPUP_EXIT_MS);
   }
   return [closing, leave];
 }
@@ -5270,7 +5285,7 @@ function CalendarPopup({ value, onSelect, onClose, viewHint, label }) {
   const [closing, leave] = usePopupExit();
 
   return (
-    <div className={`cal-popup-overlay${closing?" closing":""}`} onClick={e => { e.stopPropagation(); leave(onClose); }}>
+    <div className={`cal-popup-overlay fade-dialog${closing?" closing":""}`} onClick={e => { e.stopPropagation(); leave(onClose); }}>
       <div className="cal-popup" onClick={e=>e.stopPropagation()}>
         <div className="cal-nav">
           <button className="cal-nav-btn" onClick={()=>nav(-1)} aria-label="Previous month">
@@ -5433,8 +5448,12 @@ function useSheetDismiss(onClose) {
 }
 
 function ConfirmDialog({ title, message, actions, cancelLabel = "Cancel", onClose, center=false }) {
+  // Every button closes this dialog, and an action often closes what is
+  // behind it too, so each runs as the fade finishes (see usePopupExit).
+  const [closing, leave] = usePopupExit();
+  const run = fn => () => leave(fn);
   return (
-    <div className="cfm-overlay" onClick={e => { e.stopPropagation(); onClose(); }}>
+    <div className={`cfm-overlay fade-dialog${closing?" closing":""}`} onClick={e => { e.stopPropagation(); leave(onClose); }}>
       <div className="cfm-card" onClick={e => e.stopPropagation()}>
         <div className="cfm-title" style={center?{textAlign:"center",marginBottom:message?6:16}:undefined}>{title}</div>
         {message && <div className="cfm-msg" style={center?{textAlign:"center"}:undefined}>{message}</div>}
@@ -5443,7 +5462,7 @@ function ConfirmDialog({ title, message, actions, cancelLabel = "Cancel", onClos
             a.sub ? (
               /* Icon-tile choice row (8a) — used for genuine destination
                  choices, where each option needs room to explain itself. */
-              <button key={i} className="cfm-choice-row" onClick={a.onClick}>
+              <button key={i} className="cfm-choice-row" onClick={run(a.onClick)}>
                 <span className={`cfm-choice-icon ${a.kind||""}`}>
                   {a.kind==="danger"
                     ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14"/></svg>
@@ -5455,10 +5474,10 @@ function ConfirmDialog({ title, message, actions, cancelLabel = "Cancel", onClos
                 </span>
               </button>
             ) : (
-              <button key={i} className={`cfm-btn ${a.kind || ""}`} onClick={a.onClick}>{a.label}</button>
+              <button key={i} className={`cfm-btn ${a.kind || ""}`} onClick={run(a.onClick)}>{a.label}</button>
             )
           ))}
-          <button className="cfm-btn cancel" onClick={onClose}>{cancelLabel}</button>
+          <button className="cfm-btn cancel" onClick={run(onClose)}>{cancelLabel}</button>
         </div>
       </div>
     </div>
@@ -5487,13 +5506,16 @@ function PhotoDatePicker({ value, onSave, onClose }) {
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const clampedDay = Math.min(d, daysInMonth);
 
+  // Commit the date first, then fade out, like the calendar pickers.
+  const [closing, leave] = usePopupExit();
   function save() {
     const pad = n => String(n).padStart(2, "0");
     onSave(`${y}-${pad(mo)}-${pad(clampedDay)}`);
+    leave(onClose);
   }
 
   return (
-    <div className="dp-overlay" onClick={e => { e.stopPropagation(); onClose(); }}>
+    <div className={`dp-overlay fade-dialog${closing?" closing":""}`} onClick={e => { e.stopPropagation(); leave(onClose); }}>
       <div className="dp-card" onClick={e => e.stopPropagation()}>
         <div className="dp-title">Photo Date</div>
         {isTouch ? (
@@ -5524,7 +5546,7 @@ function PhotoDatePicker({ value, onSave, onClose }) {
           </div>
         )}
         <div className="dp-actions">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-secondary" onClick={() => leave(onClose)}>Cancel</button>
           <button className="btn btn-primary" onClick={save}>Save</button>
         </div>
       </div>
@@ -5983,7 +6005,7 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
       {pickDate && (
         <div onClick={e => e.stopPropagation()}>
           <PhotoDatePicker value={dateAt(index)}
-            onSave={d => { onDateChange(index, d); setPickDate(false); }}
+            onSave={d => onDateChange(index, d)}
             onClose={() => setPickDate(false)}/>
         </div>
       )}
@@ -6030,6 +6052,7 @@ function useSheetDrag(onCommit, enabled = true, dragZone = null) {
   const st = useRef({ active:false, startY:0, lastY:0, lastT:0, v:0, dy:0 });
   const [dy, setDy] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [exit, setExit] = useState(null);   // {ms, ease} while a released drag slides off
 
   const reduced = typeof matchMedia === "function" &&
     matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -6109,10 +6132,23 @@ function useSheetDrag(onCommit, enabled = true, dragZone = null) {
     const commit = c.dy > h * 0.25 || (c.v > 0.5 && c.dy > 48);
     if (commit) {
       if (reduced) { setDy(0); onCommit(); return; }
-      // Close only once the .24s slide below has actually finished; an
-      // earlier close cut the sheet off part way down.
+      // Finish the slide from where the finger let go, at the speed it was
+      // moving. This used the enter curve, which front-loads its distance: the
+      // card leapt most of the way off screen at once and then crept, which
+      // read as a glitch. The curve here starts at the release speed and
+      // accelerates off, so a release at rest is exactly the exit curve
+      // (motion section 4) and one at average speed is a straight line. A
+      // flick faster than that finishes sooner, at its own speed. A finger
+      // that held still before letting go has no speed left to carry.
+      const D = Math.max(1, h - c.dy);
+      const v = performance.now() - c.lastT > 80 ? 0 : Math.max(0, c.v);
+      let ms = 260, k = v * ms / D;
+      if (k > 1) { ms = Math.max(150, Math.round(D / v)); k = v * ms / D; }
+      setExit({ ms, ease: `cubic-bezier(.4,${Math.min(1, .4 * k).toFixed(3)},1,1)` });
       setDy(h);
-      setTimeout(onCommit, 250);
+      // Close only once that slide has finished; an earlier close cut the
+      // sheet off part way down.
+      setTimeout(onCommit, ms + 10);
     } else {
       setDy(0);
     }
@@ -6122,7 +6158,7 @@ function useSheetDrag(onCommit, enabled = true, dragZone = null) {
     const h = sheetRef.current ? sheetRef.current.offsetHeight : 1;
     return Math.max(0, 1 - Math.min(1, Math.max(0, dy) / h));
   })();
-  return { sheetRef, bodyRef, dy, dragging, veil,
+  return { sheetRef, bodyRef, dy, dragging, veil, exit,
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel:onPointerUp } };
 }
 
@@ -6271,7 +6307,7 @@ function LeafDatePopup({ mode, value, leaves, onPick, onSubmit, onDelete, onClos
   const host = typeof document !== "undefined" && document.querySelector(".app");
   if (!host) return null;
   return ReactDOM.createPortal((
-    <div className={`cal-popup-overlay${closing?" closing":""}`} onClick={e => { e.stopPropagation(); onClose(); }}>
+    <div className={`cal-popup-overlay fade-dialog${closing?" closing":""}`} onClick={e => { e.stopPropagation(); onClose(); }}>
       <div className="cal-popup leaf-cal" onClick={e => e.stopPropagation()}>
         <div className="leaf-cal-head">
           <div className="leaf-cal-kicker">{mode==="edit" ? "Edit leaf" : "New leaf"}</div>
@@ -6351,8 +6387,7 @@ function LeafLogPanel({ leaves, open, onChange }) {
     const k = next.lastIndexOf(sheet.orig);
     if (k > -1) next.splice(k, 1);
     onChange(next);
-    setConfirm(false);
-    closeSheet();
+    closeSheet();      // fades the confirm and the picker together; clears both
   }
 
   return (
@@ -6465,22 +6500,25 @@ function LeafLogPanel({ leaves, open, onChange }) {
         />
       )}
       {confirm && sheet && sheet.orig && (
-        <LeafDeleteConfirm date={sheet.orig} onCancel={()=>setConfirm(false)} onDelete={removeLeaf}/>
+        <LeafDeleteConfirm date={sheet.orig} onCancel={()=>setConfirm(false)} onDelete={removeLeaf} closing={sheetClosing}/>
       )}
     </div>
   );
 }
 
-function LeafDeleteConfirm({ date, onCancel, onDelete }) {
+// Cancel fades this out on its own. A confirmed delete is closed by the panel,
+// which passes `closing` so this fades out together with the picker below.
+function LeafDeleteConfirm({ date, onCancel, onDelete, closing=false }) {
+  const [ownClosing, leave] = usePopupExit();
   const host = typeof document !== "undefined" && document.querySelector(".app");
   if (!host) return null;
   return ReactDOM.createPortal((
-    <div className="leaf-del-overlay" onClick={e => { e.stopPropagation(); onCancel(); }}>
+    <div className={`leaf-del-overlay fade-dialog${closing||ownClosing?" closing":""}`} onClick={e => { e.stopPropagation(); leave(onCancel); }}>
       <div className="leaf-del-card" onClick={e => e.stopPropagation()}>
         <div className="leaf-del-title">Delete this leaf log?</div>
         <div className="leaf-del-sub">{leafLongDate(date)}</div>
         <div className="leaf-cal-actions">
-          <button type="button" className="leaf-cal-btn cancel-solid" onClick={onCancel}>Cancel</button>
+          <button type="button" className="leaf-cal-btn cancel-solid" onClick={() => leave(onCancel)}>Cancel</button>
           <button type="button" className="leaf-cal-btn danger" onClick={onDelete}>Delete</button>
         </div>
       </div>
@@ -6637,11 +6675,12 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
   return (
     <div className={`modal-overlay${detailClosing?" closing":""}${enter==="swap"?" swap":""}${ghost?" ghost":""}`}
       onClick={ghost?undefined:dismissDetail}
-      style={drag.dy>0?{"--veil-k":drag.veil}:undefined}>
+      style={drag.dy>0?{"--veil-k":drag.veil,
+        ...(drag.exit?{"--veil-tx":`opacity ${drag.exit.ms}ms ${drag.exit.ease}`}:null)}:undefined}>
       <div className={`modal detail-sheet${leafOn?" has-leaf":""}`} ref={drag.sheetRef} {...sheetHandlers}
         style={{padding:0,overflow:leafOn?"visible":"hidden",display:"flex",flexDirection:"column",
           transform:drag.dy?`translateY(${drag.dy}px)`:undefined,
-          transition:drag.dragging?"none":"transform .24s var(--ease-enter)",
+          transition:drag.dragging?"none":drag.exit?`transform ${drag.exit.ms}ms ${drag.exit.ease}`:"transform .24s var(--ease-enter)",
           touchAction:"pan-y"}}
         onClick={e=>e.stopPropagation()}>
 
@@ -6889,13 +6928,18 @@ function ManageRooms({ rooms, setRooms, plants, user, openNewRef, onSelectRoom }
   function openNew(){setEditing({});setFormName("");setFormColor(null);}
   useEffect(()=>{ if(openNewRef) openNewRef.current = openNew; });
   function openEdit(r){setEditing(r);setFormName(r.name);setFormColor(r.color||null);}
+  // The room editor fades in and out like the other dialogs. Save commits
+  // first, then the editor leaves.
+  const [roomClosing, leaveRoom] = usePopupExit();
+  const closeEditor = () => leaveRoom(() => setEditing(null));
   function save(){
     if(!formName.trim())return;
     if(editing.id) setRooms(rs=>rs.map(r=>r.id===editing.id?{...r,name:formName,color:formColor}:r));
     else setRooms(rs=>[...rs,{id:uid(),name:formName,order:rooms.length,color:formColor}]);
-    setEditing(null);
+    closeEditor();
   }
-  function del(id){if(plants.some(p=>p.roomId===id)){alert("Move or delete this room's plants first.");return;} if(!PREVIEW_MODE&&user) sbDeleteRooms(user.id,[id]); setRooms(rs=>rs.filter(r=>r.id!==id));}
+  // Deleting used to leave the editor open on a room that no longer existed.
+  function del(id){if(plants.some(p=>p.roomId===id)){alert("Move or delete this room's plants first.");return;} if(!PREVIEW_MODE&&user) sbDeleteRooms(user.id,[id]); setRooms(rs=>rs.filter(r=>r.id!==id)); closeEditor();}
   return(<>
     <div ref={listRef}>
     {sorted.map((r,rowIdx)=>{
@@ -6933,7 +6977,7 @@ function ManageRooms({ rooms, setRooms, plants, user, openNewRef, onSelectRoom }
     })}
     </div>
     {editing!==null&&(
-      <div className="modal-overlay room-edit-overlay" onClick={()=>setEditing(null)}>
+      <div className={`modal-overlay room-edit-overlay fade-dialog${roomClosing?" closing":""}`} onClick={closeEditor}>
         <div className="room-edit-card" onClick={e=>e.stopPropagation()}>
           <div className="room-edit-title">{editing.id?"Edit Room":"New Room"}</div>
 
@@ -6971,7 +7015,7 @@ function ManageRooms({ rooms, setRooms, plants, user, openNewRef, onSelectRoom }
             )}
             <button type="button" className="pm-bottom-btn save" style={{flex:editing.id?1.2:1,padding:"11px 0"}} onClick={save}>Save</button>
           </div>
-          <button type="button" className="room-edit-cancel" onClick={()=>setEditing(null)}>Cancel</button>
+          <button type="button" className="room-edit-cancel" onClick={closeEditor}>Cancel</button>
         </div>
       </div>
     )}
@@ -7582,8 +7626,8 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
         <PlantModal ghost plant={ghost.plant} rooms={rooms}
           onSave={()=>{}} onDelete={null} onClose={()=>{}} onCancel={null} onClone={()=>{}} />
       )}
-      {/* View stays held while Edit is open, so Save can return to it. X,
-          swipe and backdrop still leave both, as they always have here. */}
+      {/* View stays held while Edit is open, so Save and X return to it, as
+          on Home. Swipe and backdrop still leave both. */}
       {showModal && <PlantModal enter={sheetSwap?"swap":"slide"} plant={editPlant} rooms={rooms}
         onSave={p=>{
           const saved = editPlant ? p : {...p, id:uid()};
@@ -7593,6 +7637,7 @@ function WaterScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
         }}
         onDelete={editPlant?(dest)=>{ movePlantTo(setPlants, editPlant.id, dest); setShowModal(false); setEditPlant(null); setDetailPlant(null); }:null}
         onClose={()=>{ setShowModal(false); setEditPlant(null); setDetailPlant(null); }}
+        onCancel={detailPlant?()=>{ beginSwap("modal", editPlant); setShowModal(false); setEditPlant(null); }:null}
         onClone={()=>setEditPlant(null)}
       />}
       {!showModal && detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
@@ -7756,8 +7801,8 @@ function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
         <PlantModal ghost plant={ghost.plant} rooms={rooms}
           onSave={()=>{}} onDelete={null} onClose={()=>{}} onCancel={null} onClone={()=>{}} />
       )}
-      {/* View stays held while Edit is open, so Save can return to it. X,
-          swipe and backdrop still leave both, as they always have here. */}
+      {/* View stays held while Edit is open, so Save and X return to it, as
+          on Home. Swipe and backdrop still leave both. */}
       {showModal && <PlantModal enter={sheetSwap?"swap":"slide"} plant={editPlant} rooms={rooms}
         onSave={p=>{
           const saved = editPlant ? p : {...p, id:uid()};
@@ -7767,6 +7812,7 @@ function RepotScreen({ rooms, plants, setPlants, todayDate, showCardPhotos=true,
         }}
         onDelete={editPlant?(dest)=>{ movePlantTo(setPlants, editPlant.id, dest); setShowModal(false); setEditPlant(null); setDetailPlant(null); }:null}
         onClose={()=>{ setShowModal(false); setEditPlant(null); setDetailPlant(null); }}
+        onCancel={detailPlant?()=>{ beginSwap("modal", editPlant); setShowModal(false); setEditPlant(null); }:null}
         onClone={()=>setEditPlant(null)}
       />}
       {!showModal && detailPlant && (()=>{ const dp=plants.find(p=>p.id===detailPlant.id)||detailPlant; return (
