@@ -4840,12 +4840,14 @@ function PlantCard({ plant, rooms, onClick, onEdit, onCheck, onFreqInc, mode="ho
         {showAgeSub && (
           <div style={{display:"flex",alignItems:"center",gap:5,marginTop:1}}>
             <span className="plant-age-sub" style={{marginTop:0}}>{plantAgeDecimal(plant.obtainedDate, ageAsOf(plant))}</span>
-            {plant.leafLog && leafDatesOf(plant).length > 0 && (
+            {/* Shown whenever Leaf Log is on, recorded leaves or not: the badge
+                marks the plants that have it, not the ones with data yet. */}
+            {plant.leafLog && (() => { const n = leafDatesOf(plant).length; return (
               <span className="leaf-card-badge"
-                title={`${leafDatesOf(plant).length} ${leafDatesOf(plant).length===1?"leaf":"leaves"} recorded`}>
+                title={n ? `${n} ${n===1?"leaf":"leaves"} recorded` : "Leaf Log on, no leaves recorded yet"}>
                 <LeafIcon size={10} stroke={3}/>
               </span>
-            )}
+            ); })()}
           </div>
         )}
         {mode==="water" && (
@@ -5886,12 +5888,15 @@ function PhotoLightbox({ photos, index, setIndex, dateAt, onDateChange, onClose,
   // Clicking any empty surround closes. Testing target===currentTarget rather
   // than moved.current: the rows below already stop propagation, so this only
   // ever sees a genuine backdrop click, and moved.current was stale from the
-  // last swipe, which silently blocked closing this way.
+  // last swipe, which silently blocked closing this way. The top row is
+  // surround too: it spans the width and, with the status bar inset, is the
+  // whole black band above the photo, so its empty part closes; only the
+  // close button in it is a control.
   return ReactDOM.createPortal((
     <div className={`viewer${viewerDark ? " dark" : ""}`} onClick={e => { if (e.target === e.currentTarget && !zoomed) onClose(); }}>
       {/* 13d: top row, 32px close at 14% ink, then a matching spacer so the
           close reads optically left of centre. */}
-      <div className="viewer-top" onClick={e => e.stopPropagation()}>
+      <div className="viewer-top" onClick={e => { e.stopPropagation(); if (!e.target.closest("button") && !zoomed) onClose(); }}>
         <button className="viewer-close" onClick={e => { e.stopPropagation(); onClose(); }} aria-label="Close">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
