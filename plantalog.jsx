@@ -2067,16 +2067,10 @@ const styles = `
   .dark .hero-accent-btn{background:#f2a13b;color:#3a1d05;}
   .dark .pm-save-btn{background:#f2a13b;color:#3a1d05;}
   .pm-save-btn{border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:13px;font-weight:800;padding:8px 20px;border-radius:var(--r-pill);cursor:pointer;flex-shrink:0;}
-  .pm-body{flex:1;overflow-y:auto;padding:9px 14px max(24px, calc(env(safe-area-inset-bottom,0px) + 14px));display:flex;flex-direction:column;gap:6px;}
-  /* Editing: the action row below carries the bottom clearance instead, and
-     the scroll ends one gap above it, as it did when the row was its last
-     child. Adding a plant has no action row, so the padding above stands. */
-  .pm-body.has-actions{padding-bottom:6px;}
-  /* Pinned, so the row is on screen whatever the window height and whatever
-     the form holds. Its own bottom padding keeps the pills off the screen
-     edge, and clears the home indicator on a Home Screen launch. */
-  .pm-actions{position:relative;z-index:2;flex-shrink:0;display:flex;gap:8px;
-    padding:0 14px max(24px, calc(env(safe-area-inset-bottom,0px) + 14px));}
+  /* 20px rather than 16 under the last row, so the pills' bottom corners
+     clear the screen edge at the end of the scroll on desktop. On a phone the
+     home indicator inset is larger and wins, as before. */
+  .pm-body{flex:1;overflow-y:auto;padding:9px 14px max(20px, env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;}
   .pm-got-card{padding:9px 12px 10px!important;}
   /* 6b centres both cards in this row vertically, not just the Got one. */
   .pm-name-card{display:flex;flex-direction:column;justify-content:center;gap:3px;}
@@ -2618,14 +2612,16 @@ const styles = `
   /* Detail */
   .modal.detail-sheet{max-height:calc(96vh / var(--zoom) - env(safe-area-inset-top,0px));max-height:calc(96dvh / var(--zoom) - env(safe-area-inset-top,0px));border-radius:35px;box-shadow:0 26px 0 var(--page-bg), 0 -10px 26px rgba(0,0,0,.40), 0 -28px 68px rgba(0,0,0,.34);}
   /* With Leaf Log on, View and the panel are one wide card sliding behind a
-     fixed window. The sheet is only the window: it still clips, but it stops
-     painting and stops rounding, so no corner stays pinned to the screen.
-     The halves carry the card's ends instead, and they travel with it. */
-  .modal.detail-sheet.has-leaf{height:calc(96vh / var(--zoom) - env(safe-area-inset-top,0px));height:calc(96dvh / var(--zoom) - env(safe-area-inset-top,0px));
-    border-radius:0;background:transparent;}
-  .detail-sheet.has-leaf .leaf-view-col{background:var(--page-bg);border-radius:35px 0 0 35px;}
+     fixed window. The sheet is that window, and its radius is set inline from
+     the slide position: it has to match whichever of the card's rounded ends
+     is at the window edge, because the sheet's lift shadow is what darkens
+     the backdrop around the card, and an outer shadow only paints outside the
+     border box. A square window left the corner notch flat and unshaded. */
+  .modal.detail-sheet.has-leaf{height:calc(96vh / var(--zoom) - env(safe-area-inset-top,0px));height:calc(96dvh / var(--zoom) - env(safe-area-inset-top,0px));}
+  .detail-sheet.has-leaf .leaf-view-col{border-radius:35px 0 0 35px;}
   /* Square where it meets the panel: that join is the middle of the card. */
   .detail-sheet.has-leaf .detail-hero{border-top-right-radius:0;}
+  .modal.detail-sheet, .detail-hero{transition:border-radius .2s;}
   .close-x-btn{position:absolute;top:8px;left:8px;background:rgba(255,255,255,.22);border:none;border-radius:50%;width:34px;height:34px;color:white;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;}
   .info-card .val{font-size:17px;font-weight:700;color:var(--leaf);}
   .info-card .key{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-top:1px;font-weight:500;}
@@ -6459,6 +6455,11 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
   const swipe = useRef({ x:null, y:0, base:0, moved:false, suppress:false });
   const trackX = leafDrag !== null ? leafDrag : (leafOpen ? -LEAF_PANEL_W : 0);
   const p = leafOn ? Math.min(1, Math.max(0, -trackX / LEAF_PANEL_W)) : 0;
+  // The window's corners match whichever rounded end of the card is at its
+  // edge: View's when closed, the panel's when open, neither mid-slide, where
+  // the window cuts straight through the card. See .detail-sheet.has-leaf.
+  const cutL = trackX === 0 ? 35 : 0, cutR = trackX === -LEAF_PANEL_W ? 35 : 0;
+  const sheetRadius = leafOn ? `${cutL}px ${cutR}px ${cutR}px ${cutL}px` : undefined;
 
   // Switching Leaf Log off in Edit while the panel is open puts the card back.
   useEffect(() => { if (!leafOn) { setLeafOpen(false); setLeafDrag(null); } }, [leafOn]);
@@ -6581,8 +6582,8 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
       <div className={`modal detail-sheet${leafOn?" has-leaf":""}`} ref={drag.sheetRef} {...sheetHandlers}
         style={{padding:0,overflow:"hidden",display:"flex",flexDirection:"column",
           transform:drag.dy?`translateY(${drag.dy}px)`:undefined,
-          transition:drag.dragging?"none":"transform .24s var(--ease-enter)",
-          touchAction:"pan-y"}}
+          transition:drag.dragging?"none":"transform .24s var(--ease-enter), border-radius .2s",
+          borderRadius:sheetRadius, touchAction:"pan-y"}}
         onClick={e=>e.stopPropagation()}>
 
         {/* View card + Leaf Log panel on one track. The square top-right
@@ -7029,7 +7030,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
           <button type="button" className="pm-save-btn" onClick={()=>{ if(!form.name.trim()) return alert("Plant name required."); onSave(form); }}>Save</button>
         </div>
 
-        <div className={`pm-body${(onDelete || (plant && onClone))?" has-actions":""}`}>
+        <div className="pm-body">
           {/* Name + Got (date obtained) */}
           <div style={{display:"flex",gap:7}}>
             <div className="pm-card pm-name-card" style={{flex:1}}>
@@ -7201,15 +7202,9 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
             <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
           </div>}
 
-        </div>
-
-        {/* Clone + Delete sit together at the bottom (6b). Pinned below the
-            scroller rather than carried inside it: at a laptop window height
-            the form is taller than the card, so as the scroller's last child
-            this row sat under the fold or on the screen edge however much
-            padding it was given. */}
-        {(onDelete || (plant && onClone)) && (
-          <div className="pm-actions">
+          {/* Clone + Delete sit together at the bottom (6b) */}
+          {(onDelete || (plant && onClone)) && (
+            <div style={{display:"flex",gap:8}}>
               {plant && <>
                 {leafTip && <div className="leaf-tip-catch" onClick={closeLeafTip}/>}
                 <div className={`leaf-switch-wrap${leafTip?" tip-open":""}`}>
@@ -7239,8 +7234,9 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
                   Delete
                 </button>
               )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
 
         {confirmDel && (
           <ConfirmDialog
