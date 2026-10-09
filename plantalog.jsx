@@ -1953,12 +1953,6 @@ const styles = `
   .leaf-graph-count{width:9px;flex-shrink:0;text-align:right;font-size:9.5px;font-weight:800;color:#4a453c;}
   .dark .leaf-graph-count{color:#d8cfbf;}
 
-  /* Confirmation toast, inside the panel. No Undo. */
-  .leaf-toast{position:absolute;left:10px;right:10px;bottom:12px;z-index:30;
-    background:var(--text);color:var(--ground);border-radius:var(--r-sm);padding:11px 13px;
-    font-size:12.5px;font-weight:600;line-height:1.35;box-shadow:0 12px 32px rgba(46,43,37,.22);
-    animation:toastUp .22s var(--ease-arrive) both;}
-  .dark .leaf-toast{box-shadow:0 12px 32px rgba(0,0,0,.45);}
   @keyframes toastUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
   @keyframes panelDown{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
 
@@ -2021,6 +2015,10 @@ const styles = `
   .leaf-switch-pill{flex:1;min-height:44px;padding:0 10px;border-radius:var(--r-pill);cursor:pointer;
     background:#e3f2e6;color:#1c5436;font-family:var(--font-ui);font-size:13px;font-weight:800;
     white-space:nowrap;user-select:none;display:flex;align-items:center;justify-content:center;gap:8px;}
+  /* Same problem Clone and Delete have in light: the drawn #e3f2e6 sat 1.03:1
+     against the Edit page and read as no pill at all. Deeper, to Clone's
+     1.44:1; the label stays above 5:1. Dark already separates at 1.34:1. */
+  .app:not(.dark) .leaf-switch-pill{background:#a4d1b1;}
   .dark .leaf-switch-pill{background:#143a2c;color:#b6e3c6;}
   .leaf-switch{width:34px;height:19px;border-radius:var(--r-pill);padding:2px;flex-shrink:0;
     background:#d8ccb6;display:flex;align-items:center;justify-content:flex-start;transition:background .15s;}
@@ -2039,6 +2037,11 @@ const styles = `
   .leaf-tip-caret{position:absolute;left:28px;bottom:-5px;width:10px;height:10px;
     background:#201e1d;transform:rotate(45deg);border-radius:2px;display:block;}
   .dark .leaf-tip-caret{background:#f0e9dc;}
+  /* A tap anywhere else dismisses the tip. The catcher is a sibling of the
+     pill, not a child, so raising the pill above it keeps the switch itself
+     tappable while the tip is up. */
+  .leaf-tip-catch{position:fixed;inset:0;z-index:5;}
+  .leaf-switch-wrap.tip-open{z-index:6;}
 
   /* Home card badge (2a) */
   .leaf-card-badge{width:16px;height:16px;border-radius:50%;background:#e3f2e6;color:#2f7d52;
@@ -6095,17 +6098,11 @@ function leafHistoryLabel(days) {
   const y = Math.round(mo/12*10)/10;
   return `${y} ${y===1?"yr":"yrs"}`;
 }
-// Today / Yesterday / Tomorrow, else a date. The popup header wants the full
-// date behind it, the toast only the month and day.
-function leafRelDate(s, { cap=false, noYear=false } = {}) {
+// The popup header: Today / Yesterday / Tomorrow, else the full date.
+function leafRelDate(s) {
   const n = daysBetween(fmt(getToday()), s);
-  const word = n===0 ? "today" : n===1 ? "tomorrow" : n===-1 ? "yesterday" : null;
-  if (!word) {
-    if (!noYear) return leafLongDate(s);
-    const d = new Date(String(s).slice(0,10)+"T12:00:00");
-    return `${MONTH_NAMES[d.getMonth()].slice(0,3)} ${d.getDate()}`;
-  }
-  return cap ? word.charAt(0).toUpperCase()+word.slice(1) : word;
+  const word = n===0 ? "Today" : n===1 ? "Tomorrow" : n===-1 ? "Yesterday" : null;
+  return word || leafLongDate(s);
 }
 
 function leafStats(leaves) {
@@ -6209,7 +6206,7 @@ function LeafDatePopup({ mode, value, leaves, onPick, onSubmit, onDelete, onClos
       <div className="cal-popup leaf-cal" onClick={e => e.stopPropagation()}>
         <div className="leaf-cal-head">
           <div className="leaf-cal-kicker">{mode==="edit" ? "Edit leaf" : "New leaf"}</div>
-          <div className="leaf-cal-date">{leafRelDate(value, { cap:true })}</div>
+          <div className="leaf-cal-date">{leafRelDate(value)}</div>
         </div>
         <div className="cal-nav">
           <button className="cal-nav-btn" onClick={()=>nav(-1)} aria-label="Previous month">
@@ -6255,27 +6252,18 @@ function LeafLogPanel({ leaves, open, onChange }) {
   const [sheet,   setSheet]   = useState(null);   // null | {mode:"add"} | {mode:"edit", orig}
   const [picked,  setPicked]  = useState(today);
   const [confirm, setConfirm] = useState(false);
-  const [toast,   setToast]   = useState(null);
-  const toastT = useRef(null);
 
   // Closing the panel (or switching Leaf Log off) takes its layers with it.
   useEffect(() => { if (!open) { setSheet(null); setConfirm(false); } }, [open]);
-  useEffect(() => () => clearTimeout(toastT.current), []);
 
   const stats  = leafStats(leaves);
   const spine  = leafSpine(leaves);
   const months = leafMonths12(leaves);
 
-  function showToast(date) {
-    clearTimeout(toastT.current);
-    setToast(`Leaf recorded ${leafRelDate(date, { noYear:true })}`);
-    toastT.current = setTimeout(()=>setToast(null), 4000);
-  }
   function submit() {
     if (!sheet) return;
     if (sheet.mode === "add") {
       onChange([...leaves, picked].sort());
-      showToast(picked);
     } else {
       const next = [...leaves];
       const k = next.lastIndexOf(sheet.orig);
@@ -6389,8 +6377,6 @@ function LeafLogPanel({ leaves, open, onChange }) {
           </div>
         </div>
       </div>
-
-      {toast && <div className="leaf-toast">{toast}</div>}
 
       {sheet && (
         <LeafDatePopup
@@ -6600,7 +6586,12 @@ function PlantDetail({ plant, rooms, plants, setPlants, onClose, onEdit, user, v
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
           <div style={{position:"absolute",top:24,right:16,zIndex:10,display:"flex",alignItems:"center",gap:6,
-            opacity:Math.max(0, 1 - p*2.5), pointerEvents:p>0.05?"none":"auto", transition:"opacity .2s"}}>
+            opacity:Math.max(0, 1 - p*2.5), pointerEvents:p>0.05?"none":"auto",
+            // While a finger is driving the track the fade has to be on the
+            // finger; a transition here chased it and the buttons stayed solid
+            // a third of the way open, then caught up late. The .2s is for the
+            // tap-open and tap-close, where opacity jumps in one step.
+            transition:leafDrag!==null?"none":"opacity .2s"}}>
             {leafOn && (
               <button className="leaf-hero-btn" onClick={e=>{e.stopPropagation(); setLeafOpen(true);}}>Leaf Log</button>
             )}
@@ -6954,6 +6945,7 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
     setLeafTip(t=>!t);
     leafTipT.current=setTimeout(()=>setLeafTip(false),4000);
   }
+  function closeLeafTip(){ clearTimeout(leafTipT.current); setLeafTip(false); }
   const isDark = useIsDark();
   const [modalClosing, dismissModal] = useSheetDismiss(onClose);
 
@@ -7193,22 +7185,23 @@ function PlantModal({ plant, rooms, onSave, onDelete, onClose, onCancel, onClone
           {/* Clone + Delete sit together at the bottom (6b) */}
           {(onDelete || (plant && onClone)) && (
             <div style={{display:"flex",gap:8}}>
-              {plant && (
-                <div className="leaf-switch-wrap">
+              {plant && <>
+                {leafTip && <div className="leaf-tip-catch" onClick={closeLeafTip}/>}
+                <div className={`leaf-switch-wrap${leafTip?" tip-open":""}`}>
                   <div className="leaf-switch-pill" onClick={toggleLeafTip}>
                     Leaf Log
                     <span className={`leaf-switch${form.leafLog?" on":""}`} role="switch" aria-checked={!!form.leafLog}
                       onClick={e=>{e.stopPropagation(); set("leafLog", !form.leafLog);}}><span/></span>
                   </div>
                   {leafTip && (
-                    <div className="leaf-tip" onClick={toggleLeafTip}>
+                    <div className="leaf-tip" onClick={closeLeafTip}>
                       <span className="leaf-tip-icon"><LeafIcon/></span>
                       <span>Record new leaves. Best for climbing and upright plants.</span>
                       <span className="leaf-tip-caret"/>
                     </div>
                   )}
                 </div>
-              )}
+              </>}
               {plant && onClone && (
                 <button type="button" className="pm-bottom-btn clone" onClick={handleClone}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
