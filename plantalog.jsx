@@ -3636,7 +3636,9 @@ function App() {
   // ── Sign out ──
   async function handleSignOut() {
     const sb = getSupabase();
-    if (sb) await sb.auth.signOut();
+    // scope "local": sign out of Plantalog only. The default ("global") ends every
+    // session for the account, logging you out of the other plantalog.com apps too.
+    if (sb) await sb.auth.signOut({ scope: "local" });
     setUser(null);
     setLoaded(false);
     setScreen("home");
